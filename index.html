@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <!-- SEO -->
+  <title>펫플 - 우리 아이 친구 만들기</title>
+  <meta name="description" content="반려동물 친구 매칭, 산책 모임, 펫 스토리까지! 우리 아이 사회성 레벨업 프로젝트 🐾" />
+  <meta name="keywords" content="반려동물,펫,강아지,고양이,산책,매칭,반려동물친구,펫소셜" />
+  <meta name="author" content="펫플" />
+
+  <!-- 카카오톡 / SNS 공유 미리보기 (Open Graph) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="펫플 - 우리 아이 친구 만들기 🐾" />
+  <meta property="og:description" content="동네 반려동물 친구 매칭, 산책 모임, 펫 스토리! 지금 바로 시작하세요." />
+  <meta property="og:image" content="/og-image.png" />
+  <meta property="og:url" content="https://petple.vercel.app" />
+  <meta property="og:site_name" content="펫플" />
+  <meta property="og:locale" content="ko_KR" />
+
+  <!-- 트위터 카드 -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="펫플 - 우리 아이 친구 만들기 🐾" />
+  <meta name="twitter:description" content="동네 반려동물 친구 매칭, 산책 모임, 펫 스토리!" />
+  <meta name="twitter:image" content="/og-image.png" />
+
+  <!-- PWA 설정 -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#ec4899" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="펫플" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+
+  <!-- 파비콘 -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', system-ui, sans-serif; -webkit-font-smoothing: antialiased; background: #fdf2f8; }
+    #root { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    /* 스크롤바 숨기기 */
+    ::-webkit-scrollbar { display: none; }
+    * { scrollbar-width: none; }
+    /* 선택 하이라이트 색상 */
+    ::selection { background: #fce7f3; }
+    /* iOS 안전영역 */
+    @supports (padding-top: env(safe-area-inset-top)) {
+      body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+
+  <!-- PWA 서비스워커 등록 -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
