@@ -1,28 +1,46 @@
 import { useState, useRef, useEffect } from "react";
 import { auth, db, googleProvider } from "./firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser } from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 const PETS = [
   { id:1, name:"몽이", age:3, breed:"포메라니안", gender:"남아",
     tags:["#에너자이저","#사람좋아해","#산책광"], bio:"활발하고 사교적인 3살 포메예요. 매일 산책 가는 걸 좋아해요!",
-    owner:"몽이엄마", location:"송도국제도시", dist:"0.8km", score:95,
+    owner:"몽이엄마", ownerGender:"여", ownerBirth:"97", ownerRegion:"송도국제도시", ownerInterests:["산책","카페탐방","사진찍기"], verified:true,
+    location:"송도국제도시", dist:"0.8km", score:95,
+    imgs:["https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&h=500&fit=crop"],
     img:"https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?w=400&h=500&fit=crop" },
   { id:2, name:"루이", age:2, breed:"웰시코기", gender:"남아",
     tags:["#젠틀해요","#훈련잘돼요","#친화력갑"], bio:"순하고 사교성 좋은 코기입니다. 다른 강아지들과 잘 지내요!",
-    owner:"루이아빠", location:"인천 연수구", dist:"1.2km", score:92,
+    owner:"루이아빠", ownerGender:"남", ownerBirth:"95", ownerRegion:"인천 연수구", ownerInterests:["운동","캠핑","요리"], verified:true,
+    location:"인천 연수구", dist:"1.2km", score:92,
+    imgs:["https://images.unsplash.com/photo-1612536980005-c9f02a78e4e4?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&h=500&fit=crop"],
     img:"https://images.unsplash.com/photo-1612536980005-c9f02a78e4e4?w=400&h=500&fit=crop" },
   { id:3, name:"까미", age:4, breed:"코리안숏헤어", gender:"여아",
     tags:["#수줍은미녀","#조용해요","#독립적"], bio:"조용하고 차분한 성격이에요. 친해지면 진짜 애교쟁이!",
-    owner:"까미집사", location:"센트럴파크", dist:"1.5km", score:88,
+    owner:"까미집사", ownerGender:"여", ownerBirth:"99", ownerRegion:"센트럴파크", ownerInterests:["독서","영화","고양이카페"], verified:false,
+    location:"센트럴파크", dist:"1.5km", score:88,
+    imgs:["https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400&h=500&fit=crop"],
     img:"https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400&h=500&fit=crop" },
   { id:4, name:"초코", age:5, breed:"골든리트리버", gender:"남아",
     tags:["#온순해요","#대형견친화","#물놀이최고"], bio:"착하고 온순한 대형견이에요. 바다 산책을 제일 좋아해요!",
-    owner:"초코맘", location:"을왕리", dist:"2.3km", score:97,
+    owner:"초코맘", ownerGender:"여", ownerBirth:"93", ownerRegion:"을왕리", ownerInterests:["서핑","여행","맛집"], verified:true,
+    location:"을왕리", dist:"2.3km", score:97,
+    imgs:["https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1601979031925-424e53b6caaa?w=400&h=500&fit=crop"],
     img:"https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=400&h=500&fit=crop" },
   { id:5, name:"뽀미", age:1, breed:"말티즈", gender:"여아",
     tags:["#에너지폭발","#애교만렙","#호기심왕"], bio:"1살 아기 말티즈예요. 세상 모든 게 신기하고 재밌어요!",
-    owner:"뽀미언니", location:"달빛축제공원", dist:"0.5km", score:85,
+    owner:"뽀미언니", ownerGender:"여", ownerBirth:"00", ownerRegion:"달빛축제공원", ownerInterests:["패션","네일아트","산책"], verified:false,
+    location:"달빛축제공원", dist:"0.5km", score:85,
+    imgs:["https://images.unsplash.com/photo-1534361960057-19889db9621e?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1583337130417-13571c1c6b3e?w=400&h=500&fit=crop",
+           "https://images.unsplash.com/photo-1530281700549-e82e7bf110d6?w=400&h=500&fit=crop"],
     img:"https://images.unsplash.com/photo-1534361960057-19889db9621e?w=400&h=500&fit=crop" },
 ];
 
@@ -119,8 +137,30 @@ export default function App() {
   const [nick,     setNick]     = useState("");
   const [err,      setErr]      = useState("");
   const [user,     setUser]     = useState(null);
-  const [authLoading, setAuthLoading] = useState(true); // Firebase 인증 상태 로딩
-  const [submitting, setSubmitting] = useState(false); // 로그인/가입 진행중
+  const [authLoading, setAuthLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  // 추가 가입 정보
+  const [signupGender, setSignupGender] = useState("");
+  const [signupBirth, setSignupBirth] = useState("");
+  const [signupRegion, setSignupRegion] = useState("인천 연수구");
+  // 홈 카드 UI
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const [superLikeConfirm, setSuperLikeConfirm] = useState(null); // 슈퍼좋아요 확인 모달
+  // 글/댓글 수정삭제
+  const [editingPost, setEditingPost] = useState(null);
+  const [editPostContent, setEditPostContent] = useState("");
+  // 관심사 태그 (가입 시 선택)
+  const [signupInterests, setSignupInterests] = useState([]);
+  // 프로필 인증
+  const [isVerified, setIsVerified] = useState(false);
+  const [verifyModal, setVerifyModal] = useState(false);
+  // 나를 좋아한 사람 보기
+  const [showSecretLikes, setShowSecretLikes] = useState(false);
+  const [secretLikesUnlocked, setSecretLikesUnlocked] = useState(false);
+  // 산책 데이트 신청
+  const [walkDateModal, setWalkDateModal] = useState(null);
+  const [walkDateForm, setWalkDateForm] = useState({date:"",time:"",place:""});
+  const [walkDateSent, setWalkDateSent] = useState(new Set());
 
   // 로그인 옵션
   const [saveEmail,  setSaveEmail]  = useState(false);
@@ -262,25 +302,36 @@ export default function App() {
           const snap = await getDoc(doc(db, "users", firebaseUser.uid));
           if (snap.exists()) {
             const data = snap.data();
-            setUser({ email: firebaseUser.email, name: data.nick, uid: firebaseUser.uid });
+            setUser({ email: firebaseUser.email, name: data.nick, uid: firebaseUser.uid, gender: data.gender||"", birth: data.birth||"", region: data.region||"", interests: data.interests||[] });
+            if(data.verified) setIsVerified(true);
             setPoints(data.points ?? 150);
             if (data.pointLog) setPointLog(data.pointLog);
             setLoggedIn(true);
           } else {
             // 구글 로그인으로 처음 들어온 경우 프로필 생성
             const gNick = firebaseUser.displayName || firebaseUser.email.split("@")[0];
-            await setDoc(doc(db, "users", firebaseUser.uid), {
+            const newProfile = {
               email: firebaseUser.email,
               nick: gNick,
               points: 150,
               pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" }],
               created: new Date().toISOString(),
-            });
+            };
+            try {
+              await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
+            } catch (writeErr) {
+              console.error("Firestore write error:", writeErr);
+              // Firestore 쓰기 실패해도 로그인은 진행 (로컬 상태만)
+            }
             setUser({ email: firebaseUser.email, name: gNick, uid: firebaseUser.uid });
             setLoggedIn(true);
           }
         } catch (e) {
           console.error("Firestore read error:", e);
+          // Firestore 읽기 실패해도 기본값으로 로그인 진행
+          const fallbackNick = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "유저";
+          setUser({ email: firebaseUser.email, name: fallbackNick, uid: firebaseUser.uid });
+          setLoggedIn(true);
         }
       }
       setAuthLoading(false);
@@ -309,19 +360,31 @@ export default function App() {
     try {
       if (signup) {
         // ── 회원가입 ──
+        if (!signupGender)           { setSubmitting(false); return setErr("성별을 선택해주세요."); }
+        if (!signupBirth)            { setSubmitting(false); return setErr("출생연도를 선택해주세요."); }
         if (!nick.trim())            { setSubmitting(false); return setErr("닉네임을 입력해주세요."); }
         if (nick.trim().length < 2)  { setSubmitting(false); return setErr("닉네임은 2자 이상이어야 합니다."); }
         if (nickAvail !== "ok")      { setSubmitting(false); return setErr("닉네임 중복 확인을 해주세요."); }
         if (pwConfirm !== pw)        { setSubmitting(false); return setErr("비밀번호가 일치하지 않습니다."); }
 
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), pw);
-        await setDoc(doc(db, "users", cred.user.uid), {
-          email: email.trim(),
-          nick: nick.trim(),
-          points: 150,
-          pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" }],
-          created: new Date().toISOString(),
-        });
+        try {
+          await setDoc(doc(db, "users", cred.user.uid), {
+            email: email.trim(),
+            nick: nick.trim(),
+            gender: signupGender,
+            birth: signupBirth,
+            region: signupRegion,
+            interests: signupInterests,
+            verified: false,
+            points: 150,
+            pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" }],
+            created: new Date().toISOString(),
+          });
+        } catch (fsErr) {
+          console.error("Firestore 저장 실패 (가입은 완료):", fsErr);
+          // Auth 가입은 됐으니 onAuthStateChanged에서 처리
+        }
         // onAuthStateChanged가 자동으로 로그인 처리
       } else {
         // ── 로그인 ──
@@ -329,15 +392,21 @@ export default function App() {
         // onAuthStateChanged가 자동으로 로그인 처리
       }
     } catch (e) {
-      const code = e.code;
-      if (code === "auth/email-already-in-use")     setErr("이미 가입된 이메일이에요.");
-      else if (code === "auth/user-not-found")      setErr("가입되지 않은 이메일이에요.");
-      else if (code === "auth/wrong-password")       setErr("비밀번호가 일치하지 않습니다.");
-      else if (code === "auth/invalid-credential")   setErr("이메일 또는 비밀번호를 확인해주세요.");
-      else if (code === "auth/invalid-email")        setErr("올바른 이메일 형식을 입력해주세요.");
-      else if (code === "auth/weak-password")        setErr("비밀번호는 6자 이상이어야 합니다.");
-      else if (code === "auth/too-many-requests")    setErr("잠시 후 다시 시도해주세요.");
-      else setErr("오류가 발생했어요. 다시 시도해주세요.");
+      const code = e.code || "";
+      const msg = e.message || "";
+      console.error("Auth error:", code, msg);
+      if (code === "auth/email-already-in-use")       setErr("이미 가입된 이메일이에요.");
+      else if (code === "auth/user-not-found")        setErr("가입되지 않은 이메일이에요.");
+      else if (code === "auth/wrong-password")         setErr("비밀번호가 일치하지 않습니다.");
+      else if (code === "auth/invalid-credential")     setErr("이메일 또는 비밀번호를 확인해주세요.");
+      else if (code === "auth/invalid-email")          setErr("올바른 이메일 형식을 입력해주세요.");
+      else if (code === "auth/weak-password")          setErr("비밀번호는 6자 이상이어야 합니다.");
+      else if (code === "auth/too-many-requests")      setErr("로그인 시도가 너무 많아요. 잠시 후 다시 시도해주세요.");
+      else if (code === "auth/network-request-failed") setErr("네트워크 연결을 확인해주세요.");
+      else if (code === "auth/popup-closed-by-user")   setErr("로그인 창이 닫혔어요. 다시 시도해주세요.");
+      else if (msg.includes("PERMISSION_DENIED") || msg.includes("permission"))
+        setErr("데이터 저장 권한 오류 — Firestore 보안 규칙을 확인해주세요.");
+      else setErr("오류: " + (code || msg || "알 수 없는 에러"));
     }
     setSubmitting(false);
   }
@@ -349,30 +418,39 @@ export default function App() {
       await signInWithPopup(auth, googleProvider);
       // onAuthStateChanged가 자동 처리 (프로필 없으면 자동 생성)
     } catch (e) {
-      if (e.code !== "auth/popup-closed-by-user") {
-        setErr("구글 로그인에 실패했어요. 다시 시도해주세요.");
+      const code = e.code || "";
+      const msg = e.message || "";
+      console.error("Google login error:", code, msg);
+      if (code === "auth/popup-closed-by-user") {
+        // 유저가 창 닫은 거라 무시
+      } else if (code === "auth/unauthorized-domain") {
+        setErr("이 도메인에서 구글 로그인이 허용되지 않았어요. Firebase 콘솔 → Authentication → Settings → 승인된 도메인에 현재 주소를 추가해주세요.");
+      } else if (code === "auth/popup-blocked") {
+        setErr("팝업이 차단됐어요. 브라우저에서 팝업을 허용해주세요.");
+      } else if (code === "auth/network-request-failed") {
+        setErr("네트워크 연결을 확인해주세요.");
+      } else if (msg.includes("PERMISSION_DENIED") || msg.includes("permission")) {
+        setErr("데이터 저장 권한 오류 — Firestore 보안 규칙을 확인해주세요.");
+      } else {
+        setErr("구글 로그인 실패: " + (code || msg || "알 수 없는 에러"));
       }
     }
   }
 
   // 스와이프
   function swipe(dir) {
-    // 슈퍼좋아요(위로 스와이프) 포인트 체크
-    if (dir === "U" && points < 30) {
-      alert("슈퍼좋아요에는 🐾 30p가 필요해요!\n현재 보유: " + points + "p");
-      return;
-    }
+    // 슈퍼좋아요는 모달에서 확인 후 호출됨
     setAnim(dir);
     const cur = PETS[idx % PETS.length];
+    setPhotoIdx(0);
     setTimeout(() => {
       setAnim(null);
       setIdx(i => i + 1);
       if (dir === "U") {
-        // 슈퍼좋아요: -30p 사용 + 매칭 보장 + 15p 획득 (net -15p)
-        setPoints(p => p - 30 + 15);
+        // 슈퍼좋아요: -30p 사용 + 매칭 100% 보장
+        setPoints(p => p - 30);
         setPointLog(l => [
-          {icon:"🎉",label:"매칭 성공",pt:15,type:"earn",date:"방금 전"},
-          {icon:"💎",label:"슈퍼좋아요",pt:-30,type:"use",date:"방금 전"},
+          {icon:"💎",label:"슈퍼좋아요 ("+cur.name+")",pt:-30,type:"use",date:"방금 전"},
           ...l
         ]);
         setMatches(m => [...m, cur]);
@@ -382,8 +460,6 @@ export default function App() {
         if (Math.random() < 0.35) {
           setMatches(m => [...m, cur]);
           setPopup(cur);
-          setPoints(p => p + 15);
-          setPointLog(l => [{icon:"🎉",label:"매칭 성공",pt:15,type:"earn",date:"방금 전"},...l]);
           setTimeout(() => setPopup(null), 2500);
         } else {
           setLiked(l => [...l, cur]);
@@ -464,7 +540,49 @@ export default function App() {
         {/* 폼 */}
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <Input label="이메일" type="email" placeholder="petple@example.com" value={email} onChange={setEmail} onEnter={submit} />
-          {signup && (
+          {signup && (<>
+            {/* 성별/출생연도/지역 */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:5}}>성별</label>
+                <div style={{display:"flex",gap:6}}>
+                  {["남","여"].map(g=>(
+                    <button key={g} onClick={()=>setSignupGender(g)}
+                      style={{flex:1,padding:"10px 0",borderRadius:10,border:signupGender===g?"2px solid #ec4899":"2px solid #e5e7eb",
+                        background:signupGender===g?"#fdf2f8":"white",color:signupGender===g?"#ec4899":"#6b7280",
+                        fontWeight:600,fontSize:14,cursor:"pointer"}}>{g==="남"?"🙋‍♂️ 남":"🙋‍♀️ 여"}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:5}}>출생연도</label>
+                <select value={signupBirth} onChange={e=>setSignupBirth(e.target.value)}
+                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,color:signupBirth?"#374151":"#9ca3af",outline:"none",background:"white",cursor:"pointer"}}>
+                  <option value="">선택</option>
+                  {Array.from({length:30},(_,i)=>2006-i).map(y=><option key={y} value={y}>{y}년생</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:5}}>지역</label>
+              <select value={signupRegion} onChange={e=>setSignupRegion(e.target.value)}
+                style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,color:"#374151",outline:"none",background:"white",cursor:"pointer"}}>
+                {["인천 연수구","인천 남동구","인천 미추홀구","인천 부평구","인천 계양구","인천 서구","인천 중구","인천 동구","인천 강화군","서울","경기 수원","경기 성남","경기 부천","기타"].map(r=>
+                  <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            {/* 관심사 태그 */}
+            <div>
+              <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:6}}>관심사 <span style={{fontWeight:400,color:"#9ca3af"}}>(최대 5개)</span></label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {["산책","카페탐방","캠핑","운동","요리","사진찍기","여행","맛집","독서","영화","게임","패션","음악","반려동물봉사","훈련/교육"].map(tag=>(
+                  <button key={tag} onClick={()=>setSignupInterests(prev=>prev.includes(tag)?prev.filter(t=>t!==tag):prev.length<5?[...prev,tag]:prev)}
+                    style={{padding:"6px 12px",borderRadius:20,border:signupInterests.includes(tag)?"2px solid #ec4899":"2px solid #e5e7eb",
+                      background:signupInterests.includes(tag)?"#fdf2f8":"white",color:signupInterests.includes(tag)?"#ec4899":"#6b7280",
+                      fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{tag}</button>
+                ))}
+              </div>
+            </div>
             <div>
               <label style={{fontWeight:600,fontSize:14,color:"#374151",display:"block",marginBottom:5}}>닉네임</label>
               <div style={{display:"flex",gap:8}}>
@@ -472,22 +590,19 @@ export default function App() {
                   onChange={e=>{setNick(e.target.value);setNickAvail(null);}}
                   onKeyDown={e=>e.key==="Enter"&&submit()}
                   style={{flex:1,padding:"12px 14px",border:`2px solid ${nickAvail==="ok"?"#16a34a":nickAvail==="dup"?"#ef4444":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}/>
-                <button onClick={()=>{
+                <button onClick={async ()=>{
                   if(!nick.trim()||nick.trim().length<2){setNickAvail(null);return alert("닉네임은 2자 이상 입력해주세요.");}
                   setNickAvail("checking");
-                  setTimeout(async ()=>{
-                    const taken=[...TAKEN_NICKS,"테스트","관리자","admin","펫플"];
-                    if(taken.map(n=>n.toLowerCase()).includes(nick.trim().toLowerCase())){setNickAvail("dup");return;}
-                    // Firestore에서 닉네임 체크 (간단한 방식)
-                    try {
-                      const { collection, query, where, getDocs } = await import("firebase/firestore");
-                      const q = query(collection(db,"users"), where("nick","==",nick.trim()));
-                      const snap = await getDocs(q);
-                      setNickAvail(snap.empty ? "ok" : "dup");
-                    } catch {
-                      setNickAvail("ok"); // Firestore 에러 시 통과 (가입 시 다시 체크)
-                    }
-                  },400);
+                  const taken=[...TAKEN_NICKS,"테스트","관리자","admin","펫플"];
+                  if(taken.map(n=>n.toLowerCase()).includes(nick.trim().toLowerCase())){setNickAvail("dup");return;}
+                  try {
+                    const q = query(collection(db,"users"), where("nick","==",nick.trim()));
+                    const snap = await getDocs(q);
+                    setNickAvail(snap.empty ? "ok" : "dup");
+                  } catch(e) {
+                    console.error("닉네임 체크 에러:", e);
+                    setNickAvail("ok");
+                  }
                 }}
                   style={{padding:"0 16px",background:G,color:"white",border:"none",borderRadius:12,fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
                   {nickAvail==="checking"?"확인 중...":"중복 확인"}
@@ -496,7 +611,7 @@ export default function App() {
               {nickAvail==="ok" && <p style={{margin:"4px 0 0",fontSize:12,color:"#16a34a",fontWeight:600}}>✅ 사용 가능한 닉네임이에요!</p>}
               {nickAvail==="dup" && <p style={{margin:"4px 0 0",fontSize:12,color:"#ef4444",fontWeight:600}}>❌ 이미 사용 중인 닉네임이에요</p>}
             </div>
-          )}
+          </>)}
           <Input label="비밀번호" type="password" placeholder="••••••••" value={pw} onChange={setPw} hint="(6자 이상)" onEnter={submit} />
           {signup && (
             <div>
@@ -780,7 +895,7 @@ export default function App() {
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                     {[
                       {key:"checkin", icon:"✅",label:"출석 체크",pt:5,desc:"매일 1회",color:"#dcfce7",tcolor:"#16a34a", action:"checkin"},
-                      {key:"match",   icon:"🎉",label:"매칭 성공",pt:15,desc:"자동 적립",color:"#fce7f3",tcolor:"#be185d", action:"auto"},
+                      {key:"lounge",  icon:"📝",label:"라운지 글쓰기",pt:5,desc:"1일 1회",color:"#fce7f3",tcolor:"#be185d", action:"auto"},
                       {key:"chat",    icon:"💬",label:"첫 대화",pt:10,desc:"1회 보너스",color:"#eff6ff",tcolor:"#1d4ed8", action:"auto"},
                       {key:"story",   icon:"📸",label:"스토리 업로드",pt:5,desc:"1일 1회",color:"#fef9c3",tcolor:"#92400e", action:"auto"},
                       {key:"review",  icon:"⭐",label:"리뷰 작성",pt:10,desc:"만남 후",color:"#fff7ed",tcolor:"#c2410c", action:"auto"},
@@ -817,7 +932,7 @@ export default function App() {
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>🔥 포인트 사용처</p>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {[
-                        {icon:"💎",label:"슈퍼좋아요",cost:30,desc:"매칭 확률 100%"},
+                        {icon:"💎",label:"슈퍼좋아요",cost:30,desc:"100% 매칭 보장"},
                         {icon:"💌",label:"대화 시작",cost:10,desc:"새 대화 개설"},
                         {icon:"📝",label:"라운지 글쓰기",cost:30,desc:"글 등록"},
                         {icon:"✏️",label:"닉네임 변경",cost:150,desc:"1회"},
@@ -834,13 +949,41 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* 프리미엄 기능 (잠금) */}
+                  {/* 나를 좋아한 사람 보기 */}
+                  <div style={{background:"linear-gradient(135deg,#fdf2f8,#ede9fe)",borderRadius:16,padding:16,marginBottom:16}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                      <span style={{fontSize:28}}>👀</span>
+                      <div style={{flex:1}}>
+                        <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14}}>나를 좋아한 사람 {liked.length>0?`(${liked.length}명)`:""}</p>
+                        <p style={{margin:0,fontSize:12,color:"#6b7280"}}>누가 내 프로필에 좋아요를 눌렀는지 확인하세요</p>
+                      </div>
+                    </div>
+                    {secretLikesUnlocked ? (
+                      <button onClick={()=>setShowSecretLikes(true)}
+                        style={{width:"100%",background:G,color:"white",border:"none",padding:"10px 0",borderRadius:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                        👀 확인하기
+                      </button>
+                    ) : (
+                      <button onClick={()=>{
+                        if(points<100){alert("🐾 100p가 필요해요!\n현재 보유: "+points+"p");return;}
+                        if(!confirm("🐾 100p를 사용해서 나를 좋아한 사람을 확인하시겠어요?")) return;
+                        setPoints(p=>p-100);
+                        setPointLog(l=>[{icon:"👀",label:"좋아한 사람 보기 해금",pt:-100,type:"use",date:"방금 전"},...l]);
+                        setSecretLikesUnlocked(true);
+                        setShowSecretLikes(true);
+                      }}
+                        style={{width:"100%",background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",border:"none",padding:"10px 0",borderRadius:12,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(245,158,11,.3)"}}>
+                        🔓 100p로 해금하기
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 기타 프리미엄 기능 (잠금) */}
                   <div style={{background:"#f9fafb",border:"2px dashed #e5e7eb",borderRadius:16,padding:16,marginBottom:16,position:"relative"}}>
                     <div style={{position:"absolute",top:-8,right:12,background:"#f59e0b",color:"white",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10}}>SOON</div>
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>🔓 프리미엄 기능 (출시 예정)</p>
                     <div style={{display:"flex",flexDirection:"column",gap:8,opacity:.6}}>
                       {[
-                        {icon:"👀",label:"나를 좋아한 사람 보기",cost:200},
                         {icon:"🔥",label:"프로필 부스트 (3일간)",cost:300},
                         {icon:"♾️",label:"무제한 스와이프 (1주)",cost:500},
                         {icon:"🎨",label:"프로필 테마 꾸미기",cost:100},
@@ -1027,42 +1170,102 @@ export default function App() {
         </div>
       )}
 
+      {/* 슈퍼좋아요 확인 모달 */}
+      {superLikeConfirm && (
+        <div style={{position:"fixed",inset:0,zIndex:110,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={()=>setSuperLikeConfirm(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
+          <div style={{position:"relative",background:"white",borderRadius:24,padding:"28px 24px",maxWidth:320,width:"90%",textAlign:"center",boxShadow:"0 20px 50px rgba(0,0,0,.2)"}}>
+            <div style={{width:64,height:64,background:"linear-gradient(135deg,#fbbf24,#f59e0b)",borderRadius:"50%",margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>💎</div>
+            <h3 style={{margin:"0 0 6px",fontSize:18,fontWeight:800}}>슈퍼좋아요</h3>
+            <p style={{margin:"0 0 4px",fontSize:14,color:"#6b7280"}}>{superLikeConfirm.name}에게 슈퍼좋아요를 보내면<br/><b>100% 매칭</b>이 보장돼요!</p>
+            <div style={{background:"#fef9c3",borderRadius:12,padding:"10px 14px",margin:"12px 0 18px"}}>
+              <p style={{margin:0,fontSize:14,fontWeight:700,color:"#92400e"}}>🐾 30p를 사용합니다</p>
+              <p style={{margin:"2px 0 0",fontSize:12,color:"#a16207"}}>현재 보유: {points}p → 사용 후 {points-30}p</p>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setSuperLikeConfirm(null)}
+                style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>
+                취소
+              </button>
+              <button onClick={()=>{setSuperLikeConfirm(null);swipe("U");}}
+                style={{flex:1,background:"linear-gradient(135deg,#fbbf24,#f59e0b)",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(251,191,36,.4)"}}>
+                💎 보내기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 홈 */}
       {tab==="home" && (
         <div style={{padding:"20px 16px"}}>
           <div style={{background:"white",borderRadius:24,boxShadow:"0 8px 32px rgba(0,0,0,.1)",overflow:"hidden",
             transform:anim==="L"?"translateX(-110%) rotate(-18deg)":anim==="R"?"translateX(110%) rotate(18deg)":anim==="U"?"translateY(-100%)":"none",
             opacity:anim?0:1,transition:anim?"all .32s ease":"none"}}>
-            <div style={{position:"relative",height:370}}>
-              <img src={pet.img} alt={pet.name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-              <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 55%,rgba(0,0,0,.65))"}} />
-              <div style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.92)",backdropFilter:"blur(6px)",padding:"5px 11px",borderRadius:20,fontSize:13,fontWeight:700}}>⭐ {pet.score}</div>
-              <div style={{position:"absolute",bottom:14,left:14,background:"rgba(0,0,0,.5)",color:"white",padding:"4px 10px",borderRadius:20,fontSize:12}}>📍 {pet.dist}</div>
-            </div>
-            <div style={{padding:20}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-                <div>
-                  <h2 style={{margin:"0 0 3px",fontSize:24,fontWeight:800}}>{pet.name}</h2>
-                  <p style={{margin:0,color:"#6b7280",fontSize:14}}>{pet.breed} · {pet.age}살 · {pet.gender}</p>
-                </div>
-                <span style={{background:"#ede9fe",color:"#7c3aed",padding:"5px 12px",borderRadius:20,fontSize:13,fontWeight:700}}>{pet.score}점</span>
+            {/* 사진 캐러셀 */}
+            <div style={{position:"relative",height:390,overflow:"hidden",touchAction:"pan-y"}}>
+              <div style={{display:"flex",width:`${(pet.imgs||[pet.img]).length*100}%`,transform:`translateX(-${photoIdx*(100/(pet.imgs||[pet.img]).length)}%)`,transition:"transform .3s ease"}}>
+                {(pet.imgs||[pet.img]).map((img,i)=>(
+                  <img key={i} src={img} alt="" style={{width:`${100/(pet.imgs||[pet.img]).length}%`,height:390,objectFit:"cover",flexShrink:0}}/>
+                ))}
               </div>
+              {/* 좌우 터치 영역 */}
+              <div onClick={()=>setPhotoIdx(i=>Math.max(0,i-1))} style={{position:"absolute",top:0,left:0,width:"35%",height:"100%",cursor:"pointer"}}/>
+              <div onClick={()=>setPhotoIdx(i=>Math.min((pet.imgs||[pet.img]).length-1,i+1))} style={{position:"absolute",top:0,right:0,width:"35%",height:"100%",cursor:"pointer"}}/>
+              {/* 사진 인디케이터 */}
+              {(pet.imgs||[pet.img]).length>1 && (
+                <div style={{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",display:"flex",gap:4}}>
+                  {(pet.imgs||[pet.img]).map((_,i)=>(
+                    <div key={i} style={{width:i===photoIdx?20:6,height:4,borderRadius:3,background:i===photoIdx?"white":"rgba(255,255,255,.5)",transition:"all .2s"}}/>
+                  ))}
+                </div>
+              )}
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.7))",pointerEvents:"none"}} />
+              <div style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.92)",backdropFilter:"blur(6px)",padding:"5px 11px",borderRadius:20,fontSize:13,fontWeight:700}}>⭐ {pet.score}</div>
+              <div style={{position:"absolute",bottom:14,left:14,color:"white"}}>
+                <h2 style={{margin:"0 0 2px",fontSize:24,fontWeight:800,textShadow:"0 1px 4px rgba(0,0,0,.3)"}}>{pet.name}</h2>
+                <p style={{margin:0,fontSize:14,textShadow:"0 1px 3px rgba(0,0,0,.3)"}}>{pet.breed} · {pet.age}살 · {pet.gender}</p>
+              </div>
+              <div style={{position:"absolute",bottom:14,right:14,background:"rgba(0,0,0,.5)",color:"white",padding:"4px 10px",borderRadius:20,fontSize:12}}>📍 {pet.dist}</div>
+            </div>
+            <div style={{padding:"16px 20px 20px"}}>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
                 {pet.tags.map((t,i) => <span key={i} style={{background:"#fce7f3",color:"#be185d",padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:600}}>{t}</span>)}
               </div>
               <p style={{margin:"0 0 14px",fontSize:14,color:"#374151",lineHeight:1.6}}>{pet.bio}</p>
-              <div style={{background:"#f9fafb",borderRadius:12,padding:12,display:"flex",alignItems:"center",gap:10}}>
-                <div style={{width:36,height:36,background:G,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,flexShrink:0}}>{pet.owner[0]}</div>
-                <div><p style={{margin:"0 0 1px",fontWeight:600,fontSize:14}}>{pet.owner}</p><p style={{margin:0,color:"#9ca3af",fontSize:12}}>{pet.location}</p></div>
+              {/* 주인 정보 카드 */}
+              <div style={{background:"linear-gradient(135deg,#fdf2f8,#ede9fe)",borderRadius:14,padding:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                  <div style={{width:40,height:40,background:G,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,flexShrink:0,fontSize:16}}>{pet.owner[0]}</div>
+                  <div style={{flex:1}}>
+                    <p style={{margin:"0 0 1px",fontWeight:700,fontSize:14}}>{pet.owner} {pet.verified && <span title="인증됨" style={{display:"inline-block",background:"#3b82f6",color:"white",fontSize:9,fontWeight:800,padding:"1px 5px",borderRadius:6,verticalAlign:"middle",marginLeft:3}}>✓ 인증</span>}</p>
+                    <p style={{margin:0,color:"#9ca3af",fontSize:12}}>{pet.ownerRegion||pet.location}</p>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {pet.ownerGender && <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#7c3aed"}}>{pet.ownerGender==="남"?"🙋‍♂️ 남성":"🙋‍♀️ 여성"}</span>}
+                  {pet.ownerBirth && <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#7c3aed"}}>{pet.ownerBirth}년생</span>}
+                  <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#7c3aed"}}>📍 {pet.ownerRegion||pet.location}</span>
+                </div>
+                {/* 관심사 */}
+                {pet.ownerInterests && pet.ownerInterests.length>0 && (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:8}}>
+                    {pet.ownerInterests.map((t,i)=><span key={i} style={{background:"rgba(124,58,237,.1)",color:"#7c3aed",padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600}}>#{t}</span>)}
+                  </div>
+                )}
               </div>
             </div>
           </div>
+          {/* 액션 버튼 */}
           <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:20,marginTop:24}}>
             <button onClick={() => swipe("L")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>❌</button>
-            <button onClick={() => swipe("U")} style={{width:76,height:76,background:"linear-gradient(135deg,#fbbf24,#f59e0b)",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:32,boxShadow:"0 6px 20px rgba(251,191,36,.4)",display:"flex",alignItems:"center",justifyContent:"center"}}>⭐</button>
+            <button onClick={() => {
+              if(points<30){alert("슈퍼좋아요에는 🐾 30p가 필요해요!\n현재 보유: "+points+"p");return;}
+              setSuperLikeConfirm(pet);
+            }} style={{width:76,height:76,background:"linear-gradient(135deg,#fbbf24,#f59e0b)",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:30,boxShadow:"0 6px 20px rgba(251,191,36,.4)",display:"flex",alignItems:"center",justifyContent:"center"}}>💎</button>
             <button onClick={() => swipe("R")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>🐾</button>
           </div>
-          <p style={{textAlign:"center",fontSize:12,color:"#d1d5db",marginTop:10}}>❌ 패스 &nbsp;|&nbsp; ⭐ 수제간식 &nbsp;|&nbsp; 🐾 좋아요</p>
+          <p style={{textAlign:"center",fontSize:12,color:"#d1d5db",marginTop:10}}>❌ 패스 &nbsp;|&nbsp; 💎 슈퍼좋아요 <span style={{color:"#f59e0b",fontWeight:700}}>30p</span> &nbsp;|&nbsp; 🐾 좋아요</p>
         </div>
       )}
 
@@ -1277,12 +1480,40 @@ export default function App() {
                   style={{width:42,height:42,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"white",fontWeight:700,cursor:"pointer"}}>
                   {post.by?.[0]||"🐾"}
                 </div>
-                <div style={{cursor:"pointer"}} onClick={()=>setViewUserProfile({name:post.by,img:null,location:"인천 연수구",bio:"",pets:[]})}>
+                <div style={{flex:1,cursor:"pointer"}} onClick={()=>setViewUserProfile({name:post.by,img:null,location:"인천 연수구",bio:"",pets:[]})}>
                   <p style={{margin:0,fontWeight:700,fontSize:14}}>{post.by}</p>
                   <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{post.ago}</p>
                 </div>
+                {/* 내 글: 수정/삭제 */}
+                {post.by===user?.name && (
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>{setEditingPost(post.id);setEditPostContent(post.content);}}
+                      style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:12,color:"#6b7280"}}>수정</button>
+                    <button onClick={()=>{
+                      if(!confirm("이 글을 삭제하시겠어요?")) return;
+                      setPosts(ps=>ps.filter(p=>p.id!==post.id));
+                      setSelectedPost(null);
+                    }}
+                      style={{background:"#fef2f2",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:12,color:"#ef4444"}}>삭제</button>
+                  </div>
+                )}
               </div>
-              <p style={{margin:"0 0 12px",fontSize:15,color:"#1f2937",lineHeight:1.7}}>{post.content}</p>
+              {/* 수정 모드 */}
+              {editingPost===post.id && (
+                <div style={{marginBottom:12,background:"#f9fafb",borderRadius:12,padding:12}}>
+                  <textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)}
+                    style={{width:"100%",minHeight:80,border:"2px solid #ec4899",borderRadius:10,padding:10,fontSize:14,outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
+                  <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end"}}>
+                    <button onClick={()=>setEditingPost(null)} style={{background:"#e5e7eb",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>취소</button>
+                    <button onClick={()=>{
+                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,content:editPostContent,ago:"수정됨"}:p));
+                      setSelectedPost(sp=>({...sp,content:editPostContent,ago:"수정됨"}));
+                      setEditingPost(null);
+                    }} style={{background:G,color:"white",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>수정 완료</button>
+                  </div>
+                </div>
+              )}
+              {editingPost!==post.id && <p style={{margin:"0 0 12px",fontSize:15,color:"#1f2937",lineHeight:1.7}}>{post.content}</p>}
               {post.imgs.length>0 && (
                 <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto"}}>
                   {post.imgs.map((img,i)=><img key={i} src={img} alt="" style={{width:140,height:140,borderRadius:14,objectFit:"cover",flexShrink:0}} />)}
@@ -1325,6 +1556,17 @@ export default function App() {
                             style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9ca3af",padding:0,fontWeight:600}}>
                             ↩️ 대댓글 {c.replies.length>0?c.replies.length:""}
                           </button>
+                          {c.by===user?.name && (
+                            <button onClick={()=>{
+                              if(!confirm("댓글을 삭제하시겠어요?")) return;
+                              const del=cs=>cs.filter(x=>x.id!==c.id);
+                              setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:del(p.comments)}:p));
+                              setSelectedPost(sp=>({...sp,comments:del(sp.comments)}));
+                            }}
+                              style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#ef4444",padding:0,fontWeight:600}}>
+                              🗑️ 삭제
+                            </button>
+                          )}
                         </div>
                         {/* 대댓글 목록 */}
                         {c.replies.length>0 && (
@@ -1340,6 +1582,17 @@ export default function App() {
                                     <span style={{fontSize:10,color:"#9ca3af"}}>{r.time}</span>
                                   </div>
                                   <p style={{margin:0,fontSize:13,color:"#374151"}}>{r.text}</p>
+                                  {r.by===user?.name && (
+                                    <button onClick={()=>{
+                                      if(!confirm("대댓글을 삭제하시겠어요?")) return;
+                                      const delReply=cs=>cs.map(x=>x.id===c.id?{...x,replies:x.replies.filter(rr=>rr.id!==r.id)}:x);
+                                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:delReply(p.comments)}:p));
+                                      setSelectedPost(sp=>({...sp,comments:delReply(sp.comments)}));
+                                    }}
+                                      style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#ef4444",padding:"2px 0 0",fontWeight:600}}>
+                                      삭제
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -1405,9 +1658,18 @@ export default function App() {
               </div>
               <div style={{flex:1}}>
                 <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15}}>{m.name}</p>
-                <p style={{margin:0,color:"#9ca3af",fontSize:13}}>새로운 매칭 🎉 대화를 시작해보세요!</p>
+                <p style={{margin:0,color:"#9ca3af",fontSize:13}}>새로운 매칭 🎉</p>
               </div>
-              <span style={{width:10,height:10,background:"#ec4899",borderRadius:"50%"}} />
+              <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+                {walkDateSent.has(m.id) ? (
+                  <span style={{fontSize:11,color:"#10b981",fontWeight:600}}>🐾 산책 신청됨</span>
+                ) : (
+                  <button onClick={(e)=>{e.stopPropagation();setWalkDateModal(m);setWalkDateForm({date:"",time:"",place:""});}}
+                    style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"white",border:"none",padding:"5px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                    🐾 산책 데이트
+                  </button>
+                )}
+              </div>
             </div>
             );
           })}
@@ -1457,8 +1719,11 @@ export default function App() {
 
           {/* 이름 + 문구 */}
           <div style={{padding:"0 20px 16px",borderBottom:"1px solid #f3f4f6"}}>
-            <h2 style={{margin:"0 0 2px",fontSize:20,fontWeight:800}}>{user?.name}</h2>
-            <p style={{margin:"0 0 6px",fontSize:13,color:"#6b7280"}}>{user?.email}</p>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+              <h2 style={{margin:0,fontSize:20,fontWeight:800}}>{user?.name}</h2>
+              {isVerified && <span style={{background:"#3b82f6",color:"white",fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:8}}>✓ 인증됨</span>}
+            </div>
+            <p style={{margin:"0 0 6px",fontSize:13,color:"#6b7280"}}>{user?.email}{user?.gender ? ` · ${user.gender==="남"?"남성":"여성"}` : ""}{user?.birth ? ` · ${user.birth}년생` : ""}</p>
             {/* 위치 + GPS 재설정 */}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
               <span style={{fontSize:13,color:"#374151",display:"flex",alignItems:"center",gap:4}}>
@@ -1512,6 +1777,26 @@ export default function App() {
                 </button>
             }
           </div>
+
+          {/* 관심사 태그 */}
+          {user?.interests && user.interests.length>0 && (
+            <div style={{padding:"0 20px 12px",display:"flex",flexWrap:"wrap",gap:6}}>
+              {user.interests.map((t,i)=><span key={i} style={{background:"#fce7f3",color:"#be185d",padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:600}}>#{t}</span>)}
+            </div>
+          )}
+
+          {/* 프로필 인증 */}
+          {!isVerified && (
+            <div style={{margin:"0 20px 12px",background:"linear-gradient(135deg,#eff6ff,#eef2ff)",borderRadius:14,padding:14,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:24}}>🛡️</span>
+              <div style={{flex:1}}>
+                <p style={{margin:"0 0 2px",fontWeight:700,fontSize:13}}>프로필 인증하기</p>
+                <p style={{margin:0,fontSize:11,color:"#6b7280"}}>인증 뱃지를 받으면 매칭률이 올라가요!</p>
+              </div>
+              <button onClick={()=>setVerifyModal(true)}
+                style={{background:"#3b82f6",color:"white",border:"none",padding:"7px 14px",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>인증</button>
+            </div>
+          )}
 
           {/* 통계 */}
           <div style={{padding:"16px 20px",borderBottom:"1px solid #f3f4f6"}}>
@@ -1684,7 +1969,14 @@ export default function App() {
                     setViewUserProfile({name:s.by||user?.name,img:s.img,location:petData?.location||"인천 연수구",bio:petData?.bio||"",pets:petData?[{name:petData.name,type:"강아지",breed:petData.breed,img:petData.img,gender:petData.gender,traits:petData.tags}]:[]});
                   }} style={{margin:0,fontSize:11,opacity:.8,cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>{s.by||user?.name}</p>
                 </div>
-                {s.isMine && <div style={{position:"absolute",top:8,right:8,background:"linear-gradient(135deg,#ec4899,#a855f7)",color:"white",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:8}}>내 스토리</div>}
+                {s.isMine && (<>
+                  <div style={{position:"absolute",top:8,right:8,background:"linear-gradient(135deg,#ec4899,#a855f7)",color:"white",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:8}}>내 스토리</div>
+                  <button onClick={e=>{
+                    e.stopPropagation();
+                    if(!confirm("이 스토리를 삭제하시겠어요?")) return;
+                    setMyStories(ss=>ss.filter((_,idx)=>idx!==i));
+                  }} style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,.5)",color:"white",border:"none",cursor:"pointer",width:24,height:24,borderRadius:"50%",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                </>)}
               </div>
             ))}
           </div>
@@ -2845,6 +3137,115 @@ export default function App() {
                 style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
                 탈퇴하기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 프로필 인증 모달 */}
+      {verifyModal && (
+        <div style={{position:"fixed",inset:0,zIndex:110,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={()=>setVerifyModal(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
+          <div style={{position:"relative",background:"white",borderRadius:24,padding:"28px 24px",maxWidth:340,width:"90%",textAlign:"center"}}>
+            <div style={{width:64,height:64,background:"#eff6ff",borderRadius:"50%",margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>🛡️</div>
+            <h3 style={{margin:"0 0 8px",fontSize:18,fontWeight:800}}>프로필 인증</h3>
+            <p style={{margin:"0 0 16px",fontSize:13,color:"#6b7280",lineHeight:1.6}}>반려동물과 함께 찍은 사진을 프로필에 등록하면<br/>인증 뱃지를 받을 수 있어요!<br/><br/>인증된 프로필은 매칭 시 더 높은 신뢰도를 보여줘요 💙</p>
+            <div style={{background:"#f9fafb",borderRadius:12,padding:12,marginBottom:16,textAlign:"left",fontSize:12,color:"#6b7280",lineHeight:1.8}}>
+              <p style={{margin:0}}>✅ 반려동물 사진 1장 이상 등록</p>
+              <p style={{margin:0}}>✅ 프로필 문구 작성</p>
+              <p style={{margin:0}}>✅ 닉네임 설정 완료</p>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setVerifyModal(false)}
+                style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>나중에</button>
+              <button onClick={()=>{
+                if(myPets.length===0||!myPets.some(p=>p.photos.some(ph=>ph))){
+                  alert("반려동물 사진을 먼저 등록해주세요!");return;}
+                if(!profileBio){alert("프로필 문구를 먼저 작성해주세요!");return;}
+                setIsVerified(true);setVerifyModal(false);
+                if(user?.uid){updateDoc(doc(db,"users",user.uid),{verified:true}).catch(()=>{});}
+                alert("🎉 프로필 인증이 완료되었어요!\n이제 인증 뱃지가 표시됩니다.");
+              }}
+                style={{flex:1,background:"#3b82f6",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>인증 신청</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 나를 좋아한 사람 모달 */}
+      {showSecretLikes && (
+        <div style={{position:"fixed",inset:0,zIndex:110,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={()=>setShowSecretLikes(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
+          <div style={{position:"relative",background:"white",borderRadius:24,padding:"24px",maxWidth:380,width:"90%",maxHeight:"70vh",overflow:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,fontSize:18,fontWeight:800}}>👀 나를 좋아한 사람</h3>
+              <button onClick={()=>setShowSecretLikes(false)} style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:30,height:30,borderRadius:"50%",fontSize:14}}>✕</button>
+            </div>
+            {liked.length===0
+              ? <div style={{textAlign:"center",padding:"24px 0"}}>
+                  <p style={{fontSize:36,margin:"0 0 8px"}}>💝</p>
+                  <p style={{color:"#9ca3af",fontSize:13}}>아직 좋아요를 보낸 사람이 없어요<br/>프로필을 매력적으로 꾸며보세요!</p>
+                </div>
+              : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {PETS.slice(0,3).map((p,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:"#f9fafb",borderRadius:14,padding:12}}>
+                      <img src={p.img} alt="" style={{width:50,height:50,borderRadius:"50%",objectFit:"cover"}}/>
+                      <div style={{flex:1}}>
+                        <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14}}>{p.owner}{p.verified?" ✓":""}</p>
+                        <p style={{margin:0,fontSize:12,color:"#9ca3af"}}>{p.name}({p.breed}) · {p.ownerBirth}년생</p>
+                      </div>
+                      <button onClick={()=>{setShowSecretLikes(false);swipe("R");}}
+                        style={{background:G,color:"white",border:"none",padding:"6px 12px",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer"}}>좋아요</button>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
+        </div>
+      )}
+
+      {/* 산책 데이트 신청 모달 */}
+      {walkDateModal && (
+        <div style={{position:"fixed",inset:0,zIndex:110,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={()=>setWalkDateModal(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
+          <div style={{position:"relative",background:"white",borderRadius:24,padding:"28px 24px",maxWidth:340,width:"90%"}}>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{width:56,height:56,background:"linear-gradient(135deg,#10b981,#059669)",borderRadius:"50%",margin:"0 auto 10px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🐾</div>
+              <h3 style={{margin:"0 0 4px",fontSize:18,fontWeight:800}}>산책 데이트 신청</h3>
+              <p style={{margin:0,fontSize:13,color:"#6b7280"}}>{walkDateModal.name}에게 산책을 신청해요!</p>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              <div>
+                <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>📅 날짜</label>
+                <input type="date" value={walkDateForm.date} onChange={e=>setWalkDateForm(f=>({...f,date:e.target.value}))}
+                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>⏰ 시간</label>
+                <select value={walkDateForm.time} onChange={e=>setWalkDateForm(f=>({...f,time:e.target.value}))}
+                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,outline:"none",background:"white",cursor:"pointer"}}>
+                  <option value="">선택</option>
+                  {["오전 7시","오전 8시","오전 9시","오전 10시","오전 11시","오후 12시","오후 1시","오후 2시","오후 3시","오후 4시","오후 5시","오후 6시","오후 7시","오후 8시"].map(t=><option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>📍 장소</label>
+                <input value={walkDateForm.place} onChange={e=>setWalkDateForm(f=>({...f,place:e.target.value}))}
+                  placeholder="예: 센트럴파크 정문 앞"
+                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setWalkDateModal(null)}
+                style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>
+              <button onClick={()=>{
+                if(!walkDateForm.date||!walkDateForm.time||!walkDateForm.place.trim()){alert("날짜, 시간, 장소를 모두 입력해주세요!");return;}
+                setWalkDateSent(s=>new Set([...s,walkDateModal.id]));
+                setAlarms(a=>[{id:Date.now(),icon:"🐾",text:`${walkDateModal.owner||walkDateModal.name}님에게 산책 데이트를 신청했어요! ${walkDateForm.date} ${walkDateForm.time}`,time:"방금 전",unread:true},...a]);
+                setWalkDateModal(null);
+                alert("🐾 산책 데이트를 신청했어요!\n상대방이 수락하면 알림으로 알려드릴게요.");
+              }}
+                style={{flex:1,background:"linear-gradient(135deg,#10b981,#059669)",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신청하기</button>
             </div>
           </div>
         </div>
