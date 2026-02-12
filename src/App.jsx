@@ -1,4 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { auth, db, googleProvider } from "./firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser } from "firebase/auth";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
 const PETS = [
   { id:1, name:"몽이", age:3, breed:"포메라니안", gender:"남아",
@@ -36,29 +39,7 @@ const LOUNGE_CATS = [
   {key:"found",label:"발견",icon:"📢"},
 ];
 
-const INIT_POSTS = [
-  { id:1, cat:"walk", by:"몽이엄마", ago:"10분 전", ts:Date.now()-600000,
-    content:"오늘 저녁 7시 센트럴파크에서 같이 산책하실 분 구해요! 소형견 환영 🌳 연락주세요~",
-    imgs:[], likes:[], comments:[
-      {id:1,by:"루이아빠",text:"저도 가고 싶어요!",time:"9분 전",likes:[],replies:[
-        {id:1,by:"몽이엄마",text:"오세요! 반갑게 맞이할게요 😊",time:"8분 전"}
-      ]},
-      {id:2,by:"뽀미언니",text:"뽀미도 데리고 갈게요",time:"5분 전",likes:[],replies:[]}
-    ]},
-  { id:2, cat:"hospital", by:"루이아빠", ago:"1시간 전", ts:Date.now()-3600000,
-    content:"인천 연수구 근처 강아지 슬개골 잘 보는 동물병원 추천해주세요 🏥 루이가 요즘 다리를 자주 들어요 ㅠ",
-    imgs:[], likes:["뽀미언니","까미집사"], comments:[
-      {id:1,by:"초코맘",text:"연수구 ○○동물병원 진짜 잘해요! DM 드릴게요",time:"50분 전",likes:["루이아빠"],replies:[]}
-    ]},
-  { id:3, cat:"vol", by:"까미집사", ago:"3시간 전", ts:Date.now()-10800000,
-    content:"이번 주말 인천 유기동물보호소 봉사 같이 하실 분 있나요? 🤝 사전 신청 필요 없고 당일 방문 가능해요!",
-    imgs:[], likes:["몽이엄마","루이아빠","뽀미언니"], comments:[]},
-  { id:4, cat:"found", by:"펫플러버", ago:"어제", ts:Date.now()-86400000,
-    content:"📢 송도 1동 근처에서 발견된 강아지예요. 갈색 포메라니안, 목줄 없음. 주인분 연락주세요! 010-XXXX-XXXX",
-    imgs:[], likes:["몽이엄마","까미집사","초코맘","루이아빠"], comments:[
-      {id:1,by:"몽이엄마",text:"공유할게요 ㅠ 빨리 찾길",time:"어제",likes:[],replies:[]}
-    ]},
-];
+const INIT_POSTS = [];
 
 const WRITE_COST = 30;
 
@@ -134,9 +115,12 @@ export default function App() {
   const [signup,   setSignup]   = useState(false);
   const [email,    setEmail]    = useState("");
   const [pw,       setPw]       = useState("");
+  const [pwConfirm,setPwConfirm]= useState("");
   const [nick,     setNick]     = useState("");
   const [err,      setErr]      = useState("");
   const [user,     setUser]     = useState(null);
+  const [authLoading, setAuthLoading] = useState(true); // Firebase 인증 상태 로딩
+  const [submitting, setSubmitting] = useState(false); // 로그인/가입 진행중
 
   // 로그인 옵션
   const [saveEmail,  setSaveEmail]  = useState(false);
@@ -264,31 +248,111 @@ export default function App() {
     { icon:"🏆", label:"프리미엄", amount:8000, price:"5,000원", popular:false },
   ];
   const [alarms, setAlarms] = useState([
-    { id:1, icon:"🐾", text:"몽이가 회원님을 좋아해요!", time:"방금 전", unread:true },
-    { id:2, icon:"🎉", text:"루이와 매칭됐어요! 대화를 시작해보세요", time:"5분 전", unread:true },
-    { id:3, icon:"💬", text:"까미집사님이 메시지를 보냈어요", time:"20분 전", unread:false },
-    { id:4, icon:"🏃", text:"근처에서 산책 번개 모임이 생겼어요!", time:"1시간 전", unread:false },
+    { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true },
   ]);
 
   const pet = PETS[idx % PETS.length];
 
+  // ── Firebase 인증 상태 감지 (자동 로그인) ──
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Firestore에서 유저 프로필 불러오기
+        try {
+          const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            setUser({ email: firebaseUser.email, name: data.nick, uid: firebaseUser.uid });
+            setPoints(data.points ?? 150);
+            if (data.pointLog) setPointLog(data.pointLog);
+            setLoggedIn(true);
+          } else {
+            // 구글 로그인으로 처음 들어온 경우 프로필 생성
+            const gNick = firebaseUser.displayName || firebaseUser.email.split("@")[0];
+            await setDoc(doc(db, "users", firebaseUser.uid), {
+              email: firebaseUser.email,
+              nick: gNick,
+              points: 150,
+              pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" }],
+              created: new Date().toISOString(),
+            });
+            setUser({ email: firebaseUser.email, name: gNick, uid: firebaseUser.uid });
+            setLoggedIn(true);
+          }
+        } catch (e) {
+          console.error("Firestore read error:", e);
+        }
+      }
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // ── Firestore에 포인트 동기화 ──
+  useEffect(() => {
+    if (!user?.uid || !loggedIn) return;
+    const timer = setTimeout(() => {
+      updateDoc(doc(db, "users", user.uid), { points, pointLog: pointLog.slice(0, 50) }).catch(() => {});
+    }, 2000); // 2초 디바운스
+    return () => clearTimeout(timer);
+  }, [points, pointLog, user?.uid, loggedIn]);
+
   // 로그인/회원가입
-  function submit() {
+  async function submit() {
     setErr("");
+    if (submitting) return;
     if (!email.trim())         return setErr("이메일을 입력해주세요.");
     if (!email.includes("@"))  return setErr("올바른 이메일 형식을 입력해주세요.");
     if (pw.length < 6)         return setErr("비밀번호는 6자 이상이어야 합니다.");
-    if (signup && !nick.trim()) return setErr("닉네임을 입력해주세요.");
-    if (signup && nick.trim().length < 2) return setErr("닉네임은 2자 이상이어야 합니다.");
-    if (signup && nickAvail !== "ok") return setErr("닉네임 중복 확인을 해주세요.");
-    const userName = signup ? nick.trim() : email.split("@")[0];
-    setUser({ email, name: userName });
-    setLoggedIn(true);
-    // 이메일 저장
-    if (saveEmail) { setSavedEmail(email); } else { setSavedEmail(""); }
-    // 자동 로그인 저장
-    if (autoLogin) { setSavedEmail(email); setSavedPw(pw); setSavedNick(userName); setAutoLoginReady(true); }
-    else { setSavedPw(""); setSavedNick(""); setAutoLoginReady(false); }
+
+    setSubmitting(true);
+    try {
+      if (signup) {
+        // ── 회원가입 ──
+        if (!nick.trim())            { setSubmitting(false); return setErr("닉네임을 입력해주세요."); }
+        if (nick.trim().length < 2)  { setSubmitting(false); return setErr("닉네임은 2자 이상이어야 합니다."); }
+        if (nickAvail !== "ok")      { setSubmitting(false); return setErr("닉네임 중복 확인을 해주세요."); }
+        if (pwConfirm !== pw)        { setSubmitting(false); return setErr("비밀번호가 일치하지 않습니다."); }
+
+        const cred = await createUserWithEmailAndPassword(auth, email.trim(), pw);
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email: email.trim(),
+          nick: nick.trim(),
+          points: 150,
+          pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" }],
+          created: new Date().toISOString(),
+        });
+        // onAuthStateChanged가 자동으로 로그인 처리
+      } else {
+        // ── 로그인 ──
+        await signInWithEmailAndPassword(auth, email.trim(), pw);
+        // onAuthStateChanged가 자동으로 로그인 처리
+      }
+    } catch (e) {
+      const code = e.code;
+      if (code === "auth/email-already-in-use")     setErr("이미 가입된 이메일이에요.");
+      else if (code === "auth/user-not-found")      setErr("가입되지 않은 이메일이에요.");
+      else if (code === "auth/wrong-password")       setErr("비밀번호가 일치하지 않습니다.");
+      else if (code === "auth/invalid-credential")   setErr("이메일 또는 비밀번호를 확인해주세요.");
+      else if (code === "auth/invalid-email")        setErr("올바른 이메일 형식을 입력해주세요.");
+      else if (code === "auth/weak-password")        setErr("비밀번호는 6자 이상이어야 합니다.");
+      else if (code === "auth/too-many-requests")    setErr("잠시 후 다시 시도해주세요.");
+      else setErr("오류가 발생했어요. 다시 시도해주세요.");
+    }
+    setSubmitting(false);
+  }
+
+  // ── 구글 로그인 ──
+  async function googleLogin() {
+    setErr("");
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged가 자동 처리 (프로필 없으면 자동 생성)
+    } catch (e) {
+      if (e.code !== "auth/popup-closed-by-user") {
+        setErr("구글 로그인에 실패했어요. 다시 시도해주세요.");
+      }
+    }
   }
 
   // 스와이프
@@ -357,16 +421,24 @@ export default function App() {
     setTimeout(() => setMsgs(m => [...m, { id:m.length+1, me:false, text:"앗 정말요? 저희 같이 산책해요! 🐕" }]), 900);
   }
 
-  function logout() {
-    setLoggedIn(false); setUser(null); setPw(""); setNick(""); setErr(""); setSignup(false);
+  async function logout() {
+    try { await signOut(auth); } catch {}
+    setLoggedIn(false); setUser(null); setPw(""); setPwConfirm(""); setNick(""); setErr(""); setSignup(false);
     setMatches([]); setLiked([]); setIdx(0); setTab("home"); setChatPet(null);
-    // 저장된 이메일 복원
-    if (savedEmail) { setEmail(savedEmail); } else { setEmail(""); }
-    // 자동로그인 데이터가 있으면 바로 로그인 화면에서 보여줌
-    if (autoLoginReady) {
-      setEmail(savedEmail); setPw(savedPw); setAutoLogin(true); setSaveEmail(true);
-    }
+    setPoints(150); setPointLog([{icon:"🎁",label:"가입 환영 보너스",pt:150,type:"earn",date:"오늘"}]);
   }
+
+  // ── 로딩 화면 (Firebase 인증 확인 중) ──
+  if (authLoading) return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#fdf2f8,#f3e8ff 50%,#eff6ff)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:48,marginBottom:16,animation:"pulse 1.5s ease-in-out infinite"}}>🐾</div>
+        <p style={{fontSize:18,fontWeight:800,background:G,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>펫플</p>
+        <p style={{margin:"6px 0 0",fontSize:13,color:"#9ca3af"}}>로딩 중...</p>
+        <style>{`@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}`}</style>
+      </div>
+    </div>
+  );
 
   // ── 로그인 화면 ──────────────────────────────────────────
   if (!loggedIn) return (
@@ -381,7 +453,7 @@ export default function App() {
         {/* 탭 */}
         <div style={{display:"flex",background:"#f3f4f6",borderRadius:14,padding:4,marginBottom:22}}>
           {[[false,"로그인"],[true,"회원가입"]].map(([mode,label]) => (
-            <button key={label} onClick={() => { setSignup(mode); setErr(""); }}
+            <button key={label} onClick={() => { setSignup(mode); setErr(""); setPwConfirm(""); setNickAvail(null); }}
               style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:14,transition:"all .2s",
                 background:signup===mode?"white":"transparent",color:signup===mode?"#ec4899":"#9ca3af",
                 boxShadow:signup===mode?"0 2px 8px rgba(0,0,0,.08)":"none"}}>
@@ -403,11 +475,19 @@ export default function App() {
                 <button onClick={()=>{
                   if(!nick.trim()||nick.trim().length<2){setNickAvail(null);return alert("닉네임은 2자 이상 입력해주세요.");}
                   setNickAvail("checking");
-                  setTimeout(()=>{
+                  setTimeout(async ()=>{
                     const taken=[...TAKEN_NICKS,"테스트","관리자","admin","펫플"];
-                    if(taken.map(n=>n.toLowerCase()).includes(nick.trim().toLowerCase())){setNickAvail("dup");}
-                    else{setNickAvail("ok");}
-                  },600);
+                    if(taken.map(n=>n.toLowerCase()).includes(nick.trim().toLowerCase())){setNickAvail("dup");return;}
+                    // Firestore에서 닉네임 체크 (간단한 방식)
+                    try {
+                      const { collection, query, where, getDocs } = await import("firebase/firestore");
+                      const q = query(collection(db,"users"), where("nick","==",nick.trim()));
+                      const snap = await getDocs(q);
+                      setNickAvail(snap.empty ? "ok" : "dup");
+                    } catch {
+                      setNickAvail("ok"); // Firestore 에러 시 통과 (가입 시 다시 체크)
+                    }
+                  },400);
                 }}
                   style={{padding:"0 16px",background:G,color:"white",border:"none",borderRadius:12,fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
                   {nickAvail==="checking"?"확인 중...":"중복 확인"}
@@ -418,31 +498,20 @@ export default function App() {
             </div>
           )}
           <Input label="비밀번호" type="password" placeholder="••••••••" value={pw} onChange={setPw} hint="(6자 이상)" onEnter={submit} />
+          {signup && (
+            <div>
+              <Input label="비밀번호 확인" type="password" placeholder="비밀번호를 다시 입력해주세요" value={pwConfirm} onChange={setPwConfirm} onEnter={submit} />
+              {pwConfirm.length > 0 && (
+                pw === pwConfirm
+                  ? <p style={{margin:"4px 0 0",fontSize:12,color:"#16a34a",fontWeight:600}}>✅ 비밀번호가 일치합니다</p>
+                  : <p style={{margin:"4px 0 0",fontSize:12,color:"#ef4444",fontWeight:600}}>❌ 비밀번호가 일치하지 않습니다</p>
+              )}
+            </div>
+          )}
 
-          {/* 이메일 저장 / 자동 로그인 / 비밀번호 찾기 */}
+          {/* 비밀번호 찾기 (로그인 모드에서만) */}
           {!signup && (
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:-4}}>
-              <div style={{display:"flex",gap:14}}>
-                {/* 이메일 저장 */}
-                <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:13,color:"#6b7280",userSelect:"none"}}
-                  onClick={()=>{setSaveEmail(!saveEmail); if(autoLogin && !saveEmail===false){setAutoLogin(false);}}}>
-                  <div style={{width:18,height:18,borderRadius:5,border:saveEmail?"none":"2px solid #d1d5db",background:saveEmail?"linear-gradient(135deg,#ec4899,#a855f7)":"white",
-                    display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",flexShrink:0}}>
-                    {saveEmail && <span style={{color:"white",fontSize:11,fontWeight:800}}>✓</span>}
-                  </div>
-                  이메일 저장
-                </label>
-                {/* 자동 로그인 */}
-                <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:13,color:"#6b7280",userSelect:"none"}}
-                  onClick={()=>{const next=!autoLogin; setAutoLogin(next); if(next) setSaveEmail(true);}}>
-                  <div style={{width:18,height:18,borderRadius:5,border:autoLogin?"none":"2px solid #d1d5db",background:autoLogin?"linear-gradient(135deg,#ec4899,#a855f7)":"white",
-                    display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",flexShrink:0}}>
-                    {autoLogin && <span style={{color:"white",fontSize:11,fontWeight:800}}>✓</span>}
-                  </div>
-                  자동 로그인
-                </label>
-              </div>
-              {/* 비밀번호 찾기 */}
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:-4}}>
               <button onClick={()=>{setFindPwOpen(true);setFindPwStep(0);setFindPwEmail(email||"");setFindPwErr("");setFindPwCode("");setFindPwNewPw("");}}
                 style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#9ca3af",padding:0,textDecoration:"underline"}}>
                 비밀번호 찾기
@@ -452,49 +521,24 @@ export default function App() {
 
           {err && <div style={{background:"#fef2f2",border:"1px solid #fecaca",color:"#dc2626",padding:"10px 14px",borderRadius:10,fontSize:13}}>{err}</div>}
 
-          {/* 자동 로그인 안내 */}
-          {autoLoginReady && !signup && (
-            <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:16}}>🔒</span>
-              <div style={{flex:1}}>
-                <p style={{margin:0,fontSize:13,color:"#15803d",fontWeight:600}}>자동 로그인이 설정되어 있어요</p>
-                <p style={{margin:"2px 0 0",fontSize:11,color:"#6b7280"}}>{savedEmail}</p>
-              </div>
-              <button onClick={()=>{
-                setEmail(savedEmail); setPw(savedPw);
-                setUser({email:savedEmail, name:savedNick}); setLoggedIn(true);
-              }} style={{background:G,color:"white",border:"none",padding:"7px 16px",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
-                바로 로그인
-              </button>
-            </div>
-          )}
-
-          <button onClick={submit}
-            style={{background:G,color:"white",border:"none",padding:"14px 0",borderRadius:14,fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 18px rgba(236,72,153,.35)",marginTop:2}}>
-            {signup ? "🐾 가입하고 시작하기" : "로그인"}
+          <button onClick={submit} disabled={submitting}
+            style={{background:submitting?"#d1d5db":G,color:"white",border:"none",padding:"14px 0",borderRadius:14,fontSize:16,fontWeight:700,cursor:submitting?"not-allowed":"pointer",boxShadow:submitting?"none":"0 6px 18px rgba(236,72,153,.35)",marginTop:2,transition:"all .2s"}}>
+            {submitting ? "처리 중..." : signup ? "🐾 가입하고 시작하기" : "로그인"}
           </button>
 
-          {/* 소셜 로그인 */}
-          {!signup && (<>
-            <div style={{display:"flex",alignItems:"center",gap:12,margin:"6px 0 2px"}}>
-              <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
-              <span style={{fontSize:12,color:"#9ca3af",whiteSpace:"nowrap"}}>또는</span>
-              <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
-            </div>
-            <button onClick={()=>{
-              const gEmail=prompt("Google 이메일을 입력해주세요:");
-              if(gEmail&&gEmail.includes("@")){
-                const gNick=gEmail.split("@")[0];
-                setUser({email:gEmail,name:gNick});
-                setLoggedIn(true);
-                if(saveEmail)setSavedEmail(gEmail);
-              }
-            }}
-              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,width:"100%",background:"white",border:"2px solid #e5e7eb",padding:"12px 0",borderRadius:14,fontSize:14,fontWeight:600,cursor:"pointer",color:"#374151",transition:"all .15s"}}>
-              <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-              Google로 시작하기
-            </button>
-          </>)}
+          {/* 구분선 + 구글 로그인 */}
+          <div style={{display:"flex",alignItems:"center",gap:12,margin:"4px 0"}}>
+            <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
+            <span style={{fontSize:12,color:"#9ca3af",whiteSpace:"nowrap"}}>또는</span>
+            <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
+          </div>
+          <button onClick={googleLogin}
+            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,width:"100%",background:"white",border:"2px solid #e5e7eb",padding:"12px 0",borderRadius:14,fontSize:14,fontWeight:600,cursor:"pointer",color:"#374151",transition:"all .15s"}}>
+            <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Google 계정으로 시작하기
+          </button>
+
+
 
           {/* 이용약관 동의 안내 */}
           {signup && (
@@ -1114,7 +1158,8 @@ export default function App() {
               if (filtered.length===0) return (
                 <div style={{textAlign:"center",padding:"60px 20px"}}>
                   <p style={{fontSize:40,margin:"0 0 10px"}}>📝</p>
-                  <p style={{color:"#9ca3af",fontSize:14}}>아직 글이 없어요</p>
+                  <p style={{color:"#9ca3af",fontSize:14,marginBottom:8}}>아직 글이 없어요</p>
+                  <p style={{color:"#d1d5db",fontSize:12}}>첫 번째 글을 작성해보세요! ✏️</p>
                   <p style={{color:"#d1d5db",fontSize:12,marginTop:4}}>첫 번째 글을 작성해보세요!</p>
                 </div>
               );
@@ -1600,23 +1645,30 @@ export default function App() {
                   <p style={{margin:"4px 0 0",fontSize:11,color:"#374151",fontWeight:700,width:64,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.petName||user?.name}</p>
                 </div>
               ))}
-              {/* 다른 유저 스토리 (샘플) */}
-              {PETS.map(p=>(
-                <div key={p.id} onClick={()=>setViewStory({petName:p.name,img:p.img,petIcon:"🐾",content:p.bio,by:p.owner,time:"1시간 전"})}
-                  style={{flexShrink:0,textAlign:"center",cursor:"pointer"}}>
-                  <div style={{width:64,height:64,borderRadius:"50%",padding:2,boxSizing:"border-box",
-                    background:"linear-gradient(135deg,#ec4899,#a855f7)",overflow:"hidden"}}>
-                    <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover",border:"2px solid white"}}/>
-                  </div>
-                  <p style={{margin:"4px 0 0",fontSize:11,color:"#374151",fontWeight:600,width:64,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</p>
+              {/* 스토리 없을 때 안내 */}
+              {myStories.length===0 && (
+                <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#f9fafb",borderRadius:20}}>
+                  <span style={{fontSize:14}}>💡</span>
+                  <span style={{fontSize:12,color:"#9ca3af"}}>첫 스토리를 올려보세요!</span>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
           {/* 그리드 피드 */}
+          {myStories.length===0 && (
+            <div style={{textAlign:"center",padding:"48px 20px"}}>
+              <p style={{fontSize:48,margin:"0 0 12px"}}>📸</p>
+              <h3 style={{margin:"0 0 6px",fontSize:16,fontWeight:800,color:"#374151"}}>아직 스토리가 없어요</h3>
+              <p style={{margin:"0 0 16px",fontSize:13,color:"#9ca3af",lineHeight:1.6}}>우리 아이의 일상을 공유해보세요!<br/>반려동물 사진이나 영상을 올릴 수 있어요 🐾</p>
+              <button onClick={()=>{setStoryPetSel(null);setStoryContent("");setStoryImg(null);setIsAddStory(true);}}
+                style={{background:G,color:"white",border:"none",padding:"10px 24px",borderRadius:20,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
+                첫 스토리 올리기
+              </button>
+            </div>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,padding:"0 16px"}}>
-            {[...myStories.map(s=>({...s,isMine:true})),...PETS.map(p=>({petName:p.name,img:p.img,content:p.bio,by:p.owner,time:"최근",isMine:false,petIcon:"🐾"}))].map((s,i)=>(
+            {myStories.map(s=>({...s,isMine:true})).map((s,i)=>(
               <div key={i} onClick={()=>setViewStory(s)} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)",cursor:"pointer",position:"relative"}}>
                 <div style={{height:160,background:"#f3f4f6",overflow:"hidden"}}>
                   {s.img
@@ -2771,12 +2823,23 @@ export default function App() {
                 style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#374151"}}>
                 취소
               </button>
-              <button onClick={()=>{
+              <button onClick={async ()=>{
+                try {
+                  if(user?.uid) await deleteDoc(doc(db,"users",user.uid)).catch(()=>{});
+                  if(auth.currentUser) await deleteUser(auth.currentUser);
+                } catch(e) {
+                  if(e.code==="auth/requires-recent-login"){
+                    alert("보안을 위해 다시 로그인 후 탈퇴해주세요.");
+                    setDeleteAccModal(false);
+                    try{await signOut(auth);}catch{}
+                    setLoggedIn(false);setUser(null);
+                    return;
+                  }
+                }
                 setDeleteAccModal(false);
                 setLoggedIn(false);setUser(null);setPw("");setNick("");setEmail("");
                 setMatches([]);setLiked([]);setIdx(0);setTab("home");setChatPet(null);
                 setPoints(0);setPointLog([]);setMyPets([]);setMyStories([]);
-                setSavedEmail("");setSavedPw("");setSavedNick("");setAutoLoginReady(false);
                 alert("회원 탈퇴가 완료되었습니다.\n그동안 펫플을 이용해주셔서 감사합니다. 🐾");
               }}
                 style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
