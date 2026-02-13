@@ -1,48 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { auth, db, googleProvider } from "./firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
 
-const PETS = [
-  { id:1, name:"몽이", age:3, breed:"포메라니안", gender:"남아",
-    tags:["#에너자이저","#사람좋아해","#산책광"], bio:"활발하고 사교적인 3살 포메예요. 매일 산책 가는 걸 좋아해요!",
-    owner:"몽이엄마", ownerGender:"여", ownerBirth:"97", ownerRegion:"송도국제도시", ownerInterests:["산책","카페탐방","사진찍기"], verified:true,
-    location:"송도국제도시", dist:"0.8km", score:95,
-    imgs:["https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&h=500&fit=crop"],
-    img:"https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?w=400&h=500&fit=crop" },
-  { id:2, name:"루이", age:2, breed:"웰시코기", gender:"남아",
-    tags:["#젠틀해요","#훈련잘돼요","#친화력갑"], bio:"순하고 사교성 좋은 코기입니다. 다른 강아지들과 잘 지내요!",
-    owner:"루이아빠", ownerGender:"남", ownerBirth:"95", ownerRegion:"인천 연수구", ownerInterests:["운동","캠핑","요리"], verified:true,
-    location:"인천 연수구", dist:"1.2km", score:92,
-    imgs:["https://images.unsplash.com/photo-1612536980005-c9f02a78e4e4?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&h=500&fit=crop"],
-    img:"https://images.unsplash.com/photo-1612536980005-c9f02a78e4e4?w=400&h=500&fit=crop" },
-  { id:3, name:"까미", age:4, breed:"코리안숏헤어", gender:"여아",
-    tags:["#수줍은미녀","#조용해요","#독립적"], bio:"조용하고 차분한 성격이에요. 친해지면 진짜 애교쟁이!",
-    owner:"까미집사", ownerGender:"여", ownerBirth:"99", ownerRegion:"센트럴파크", ownerInterests:["독서","영화","고양이카페"], verified:false,
-    location:"센트럴파크", dist:"1.5km", score:88,
-    imgs:["https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400&h=500&fit=crop"],
-    img:"https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400&h=500&fit=crop" },
-  { id:4, name:"초코", age:5, breed:"골든리트리버", gender:"남아",
-    tags:["#온순해요","#대형견친화","#물놀이최고"], bio:"착하고 온순한 대형견이에요. 바다 산책을 제일 좋아해요!",
-    owner:"초코맘", ownerGender:"여", ownerBirth:"93", ownerRegion:"을왕리", ownerInterests:["서핑","여행","맛집"], verified:true,
-    location:"을왕리", dist:"2.3km", score:97,
-    imgs:["https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1601979031925-424e53b6caaa?w=400&h=500&fit=crop"],
-    img:"https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=400&h=500&fit=crop" },
-  { id:5, name:"뽀미", age:1, breed:"말티즈", gender:"여아",
-    tags:["#에너지폭발","#애교만렙","#호기심왕"], bio:"1살 아기 말티즈예요. 세상 모든 게 신기하고 재밌어요!",
-    owner:"뽀미언니", ownerGender:"여", ownerBirth:"00", ownerRegion:"달빛축제공원", ownerInterests:["패션","네일아트","산책"], verified:false,
-    location:"달빛축제공원", dist:"0.5km", score:85,
-    imgs:["https://images.unsplash.com/photo-1534361960057-19889db9621e?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1583337130417-13571c1c6b3e?w=400&h=500&fit=crop",
-           "https://images.unsplash.com/photo-1530281700549-e82e7bf110d6?w=400&h=500&fit=crop"],
-    img:"https://images.unsplash.com/photo-1534361960057-19889db9621e?w=400&h=500&fit=crop" },
-];
+const PETS = [];
 
 const LOUNGE_CATS = [
   {key:"all",label:"전체",icon:"🐾"},
@@ -61,53 +22,24 @@ const INIT_POSTS = [];
 
 const WRITE_COST = 30;
 
-const INIT_MEETINGS = [
-  { id:1, title:"🌳 센트럴파크 저녁 산책 모임", region:"인천 연수구", animal:"강아지",
-    desc:"매주 화/목 저녁 6시 센트럴파크에서 함께 산책해요! 소형견 환영, 초보 보호자도 OK 🐾",
-    max:10, tags:["소형견환영","초보OK","저녁산책"],
-    members:[{name:"몽이엄마",role:"운영자",joined:"2024.11"},{name:"뽀미언니",role:"멤버",joined:"2024.12"},{name:"루이아빠",role:"멤버",joined:"2025.01"}],
-    greetings:[{by:"루이아빠",text:"반갑습니다! 루이(웰시코기 2살)와 함께 가입했어요 🐕",time:"2025.01.15"}],
-    board:[{id:1,by:"몽이엄마",title:"이번 주 화요일 날씨가 좋네요!",content:"모두 나오실 분들 댓글 달아주세요 😊",time:"2일 전",likes:[],comments:[]}],
-    photos:[{url:"https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&h=300&fit=crop",by:"몽이엄마",time:"3일 전"}],
-    votes:[{id:1,title:"정기 모임 시간 변경할까요?",options:["6시 유지","7시로 변경","주말로 변경"],votes:{0:["몽이엄마"],1:["루이아빠"],2:[]},closed:false}],
-    chats:[{by:"몽이엄마",text:"오늘 산책 날씨 최고! 🌟",time:"10분 전"},{by:"뽀미언니",text:"저도 지금 출발해요!",time:"8분 전"}],
-    pending:[{name:"초코맘",petName:"초코",petBreed:"골든리트리버",msg:"안녕하세요! 대형견인데 참여 가능한가요?",time:"1시간 전"}],
-    myJoined:false },
-  { id:2, title:"🏖 을왕리 해변 달리기", region:"인천 중구", animal:"강아지",
-    desc:"을왕리 해변에서 매주 토요일 아침 달리기! 중대형견 환영합니다. 체력왕들 모여라 💪",
-    max:8, tags:["중대형견","체력왕","주말달리기"],
-    members:[{name:"초코맘",role:"운영자",joined:"2024.10"},{name:"루이아빠",role:"멤버",joined:"2024.11"}],
-    greetings:[],
-    board:[],
-    photos:[{url:"https://images.unsplash.com/photo-1612536980005-c9f02a78e4e4?w=400&h=300&fit=crop",by:"초코맘",time:"1주 전"}],
-    votes:[],
-    chats:[{by:"초코맘",text:"이번 토요일 날씨 확인했는데 맑아요!",time:"어제"}],
-    pending:[],
-    myJoined:false },
-  { id:3, title:"☕ 애견카페 소셜 모임", region:"인천 연수구", animal:"전체",
-    desc:"매달 첫째 주 일요일 송도 펫카페에서 만나요! 모든 반려동물 환영 🐾🐱",
-    max:15, tags:["전견종","고양이OK","친목"],
-    members:[{name:"까미집사",role:"운영자",joined:"2024.09"},{name:"몽이엄마",role:"멤버",joined:"2024.10"},{name:"뽀미언니",role:"멤버",joined:"2024.11"},{name:"초코맘",role:"멤버",joined:"2024.12"}],
-    greetings:[{by:"뽀미언니",text:"뽀미(말티즈 1살)와 함께 가입했어요! 잘 부탁드려요",time:"2024.11.01"}],
-    board:[{id:1,by:"까미집사",title:"12월 모임 날짜 공지",content:"12월 모임은 12/1(일) 오후 2시입니다. 많이 참여해주세요!",time:"5일 전",likes:["몽이엄마"],comments:[{by:"몽이엄마",text:"참석할게요!",time:"4일 전"}]}],
-    photos:[{url:"https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400&h=300&fit=crop",by:"까미집사",time:"한 달 전"}],
-    votes:[{id:1,title:"다음 카페 어디로 할까요?",options:["펫파라다이스","멍냥카페","코지펫"],votes:{0:["까미집사","몽이엄마"],1:["뽀미언니"],2:["초코맘"]},closed:false}],
-    chats:[{by:"까미집사",text:"다들 12월 모임 오실 거죠? 😊",time:"3일 전"},{by:"뽀미언니",text:"물론이죠!",time:"3일 전"},{by:"몽이엄마",text:"저도요~",time:"2일 전"}],
-    pending:[],
-    myJoined:true },
-];
+const INIT_MEETINGS = [];
 
 const G = "linear-gradient(135deg,#ec4899,#a855f7)";
 
-const MEMBER_AVATARS = {
-  "몽이엄마":"https://images.unsplash.com/photo-1535930749574-1399327ce78f?w=100&h=100&fit=crop&crop=face",
-  "루이아빠":"https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=100&h=100&fit=crop&crop=face",
-  "뽀미언니":"https://images.unsplash.com/photo-1583337130417-13571c1c6b3e?w=100&h=100&fit=crop&crop=face",
-  "까미집사":"https://images.unsplash.com/photo-1574158622682-e40e69881006?w=100&h=100&fit=crop&crop=face",
-  "초코맘":"https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=100&h=100&fit=crop&crop=face",
-  "펫플러버":"https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=100&h=100&fit=crop&crop=face",
-  "익명의집사":"https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?w=100&h=100&fit=crop&crop=face",
+const REGIONS = {
+  "인천":{icon:"🏙",districts:["전체","연수구","남동구","미추홀구","부평구","계양구","서구","중구","동구","강화군","옹진군"]},
+  "서울":{icon:"🗼",districts:["전체","강남구","서초구","송파구","마포구","용산구","성동구","광진구","동대문구","중랑구","강동구","기타"]},
+  "경기":{icon:"🌳",districts:["전체","수원시","성남시","부천시","안양시","광명시","시흥시","안산시","고양시","의정부시","용인시","기타"]},
+  "부산":{icon:"🌊",districts:["전체","해운대구","수영구","남구","동래구","부산진구","사하구","기장군","기타"]},
+  "대구":{icon:"🏔",districts:["전체","중구","동구","서구","남구","북구","수성구","달서구","기타"]},
+  "대전":{icon:"🔬",districts:["전체","유성구","서구","중구","동구","대덕구"]},
+  "광주":{icon:"🎨",districts:["전체","동구","서구","남구","북구","광산구"]},
+  "울산":{icon:"🏭",districts:["전체","중구","남구","동구","북구","울주군"]},
+  "세종":{icon:"🏛",districts:["전체"]},
+  "제주":{icon:"🍊",districts:["전체","제주시","서귀포시"]},
 };
+
+const MEMBER_AVATARS = {};
 
 function Input({ label, type, placeholder, value, onChange, hint, onEnter }) {
   const [focus, setFocus] = useState(false);
@@ -149,6 +81,21 @@ export default function App() {
   // 글/댓글 수정삭제
   const [editingPost, setEditingPost] = useState(null);
   const [editPostContent, setEditPostContent] = useState("");
+  // 온보딩 튜토리얼
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  // 신고/차단
+  const [reportModal, setReportModal] = useState(null);
+  const [reportReason, setReportReason] = useState("");
+  const [blockedUsers, setBlockedUsers] = useState(new Set());
+  // 일일 스와이프 제한
+  const [dailySwipes, setDailySwipes] = useState(0);
+  const DAILY_SWIPE_LIMIT = 20;
+  // 프로필 부스트
+  const [isBoosted, setIsBoosted] = useState(false);
+  const [boostEndTime, setBoostEndTime] = useState(null);
+  // 관심 탭 모드
+  const [interestMode, setInterestMode] = useState("chat");
   // 관심사 태그 (가입 시 선택)
   const [signupInterests, setSignupInterests] = useState([]);
   // 프로필 인증
@@ -173,12 +120,9 @@ export default function App() {
   // 비밀번호 찾기
   const [findPwOpen,   setFindPwOpen]   = useState(false);
   const [findPwEmail,  setFindPwEmail]  = useState("");
-  const [findPwStep,   setFindPwStep]   = useState(0); // 0: 이메일입력, 1: 인증번호, 2: 새비번, 3: 완료
-  const [findPwCode,   setFindPwCode]   = useState("");
-  const [findPwNewPw,  setFindPwNewPw]  = useState("");
+  const [findPwStep,   setFindPwStep]   = useState(0); // 0: 이메일, 1: 전송완료
   const [findPwErr,    setFindPwErr]    = useState("");
-  const [findPwTimer,  setFindPwTimer]  = useState(0);
-  const findPwTimerRef = useRef(null);
+  const [findPwSending,setFindPwSending]= useState(false);
 
   const [tab,      setTab]      = useState("home");
   const [idx,      setIdx]      = useState(0);
@@ -218,7 +162,7 @@ export default function App() {
   const [editNickVal,   setEditNickVal]   = useState("");
   const [nickCheckStatus, setNickCheckStatus] = useState(null); // null | "ok" | "dup" | "same"
   const NICK_COST = 150; // 닉네임 변경 포인트 비용
-  const TAKEN_NICKS = ["몽이엄마","루이아빠","까미집사","초코맘","뽀미언니","펫플러버","익명의집사"];
+  const TAKEN_NICKS = ["테스트","관리자","admin","펫플","운영자","시스템"];
 
   const profileFileRef = useRef(null);
   const [activeProfileSlot, setActiveProfileSlot] = useState(0);
@@ -248,7 +192,7 @@ export default function App() {
   const [selectedMeeting,setSelectedMeeting]= useState(null);
   const [meetingTab,     setMeetingTab]     = useState("members");
   const [meetingMode,    setMeetingMode]    = useState("all"); // "all" | "mine"
-  const [meetSearch,     setMeetSearch]     = useState({name:"",region:"",animal:""});
+  const [meetSearch,     setMeetSearch]     = useState({name:"",city:"",district:"",animal:""});
   // 모임 내부 입력
   const [mChatVal,       setMChatVal]       = useState("");
   const [mBoardForm,     setMBoardForm]     = useState({title:"",content:""});
@@ -259,7 +203,7 @@ export default function App() {
   const [mGreetVal,      setMGreetVal]      = useState("");
   const [mPhotoFile,     setMPhotoFile]     = useState(null);
   const [isCreateMeeting, setIsCreateMeeting] = useState(false);
-  const [newMeetForm, setNewMeetForm] = useState({title:"",region:"인천 연수구",animal:"강아지",desc:"",max:10});
+  const [newMeetForm, setNewMeetForm] = useState({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10});
   const mPhotoRef = useRef(null);
   const chatEndRef = useRef(null);
   const [showAlarm, setShowAlarm] = useState(false);
@@ -291,7 +235,7 @@ export default function App() {
     { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true },
   ]);
 
-  const pet = PETS[idx % PETS.length];
+  const pet = PETS.length > 0 ? PETS[idx % PETS.length] : null;
 
   // ── Firebase 인증 상태 감지 (자동 로그인) ──
   useEffect(() => {
@@ -304,6 +248,7 @@ export default function App() {
             const data = snap.data();
             setUser({ email: firebaseUser.email, name: data.nick, uid: firebaseUser.uid, gender: data.gender||"", birth: data.birth||"", region: data.region||"", interests: data.interests||[] });
             if(data.verified) setIsVerified(true);
+            if(!data.onboardingDone) setShowOnboarding(true);
             setPoints(data.points ?? 150);
             if (data.pointLog) setPointLog(data.pointLog);
             setLoggedIn(true);
@@ -439,6 +384,13 @@ export default function App() {
 
   // 스와이프
   function swipe(dir) {
+    if (PETS.length === 0) return;
+    // 일일 스와이프 제한 (슈퍼좋아요는 포인트 소모라 제한 없음)
+    if (dir !== "U" && dailySwipes >= DAILY_SWIPE_LIMIT) {
+      alert("오늘의 스와이프 횟수를 모두 사용했어요!\n("+DAILY_SWIPE_LIMIT+"/"+DAILY_SWIPE_LIMIT+")\n\n내일 다시 이용하거나, 슈퍼좋아요(💎)는 계속 사용할 수 있어요!");
+      return;
+    }
+    if (dir !== "U") setDailySwipes(d => d + 1);
     // 슈퍼좋아요는 모달에서 확인 후 호출됨
     setAnim(dir);
     const cur = PETS[idx % PETS.length];
@@ -571,7 +523,39 @@ export default function App() {
                   <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-            {/* 관심사 태그 */}
+            {/* 프로필 완성도 */}
+          {(() => {
+            const items = [
+              {label:"프로필 사진",done:profilePhotos.some(p=>p)},
+              {label:"자기소개",done:!!profileBio},
+              {label:"반려동물 등록",done:myPets.length>0},
+              {label:"관심사 설정",done:!!(user?.interests && user.interests.length>0)},
+              {label:"위치 설정",done:userLocation!=="인천 연수구"},
+              {label:"프로필 인증",done:isVerified},
+            ];
+            const pct = Math.round(items.filter(i=>i.done).length/items.length*100);
+            return pct < 100 ? (
+              <div style={{margin:"0 20px 12px",background:"white",borderRadius:16,padding:16,boxShadow:"0 2px 10px rgba(0,0,0,.04)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <p style={{margin:0,fontWeight:700,fontSize:14}}>프로필 완성도</p>
+                  <span style={{fontSize:14,fontWeight:800,color:pct>=80?"#16a34a":pct>=50?"#f59e0b":"#ef4444"}}>{pct}%</span>
+                </div>
+                <div style={{background:"#f3f4f6",borderRadius:6,height:8,marginBottom:10,overflow:"hidden"}}>
+                  <div style={{height:"100%",borderRadius:6,background:pct>=80?"#16a34a":pct>=50?G:"#f59e0b",width:pct+"%",transition:"width .5s ease"}}/>
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {items.map((it,i)=>(
+                    <span key={i} style={{fontSize:11,padding:"3px 8px",borderRadius:8,fontWeight:600,
+                      background:it.done?"#dcfce7":"#fef2f2",color:it.done?"#16a34a":"#ef4444"}}>
+                      {it.done?"✓":"○"} {it.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+
+          {/* 관심사 태그 */}
             <div>
               <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:6}}>관심사 <span style={{fontWeight:400,color:"#9ca3af"}}>(최대 5개)</span></label>
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
@@ -586,7 +570,7 @@ export default function App() {
             <div>
               <label style={{fontWeight:600,fontSize:14,color:"#374151",display:"block",marginBottom:5}}>닉네임</label>
               <div style={{display:"flex",gap:8}}>
-                <input type="text" placeholder="몽이엄마" value={nick}
+                <input type="text" placeholder="닉네임을 입력하세요" value={nick}
                   onChange={e=>{setNick(e.target.value);setNickAvail(null);}}
                   onKeyDown={e=>e.key==="Enter"&&submit()}
                   style={{flex:1,padding:"12px 14px",border:`2px solid ${nickAvail==="ok"?"#16a34a":nickAvail==="dup"?"#ef4444":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}/>
@@ -671,102 +655,44 @@ export default function App() {
         {/* 비밀번호 찾기 모달 */}
         {findPwOpen && (
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
-            onClick={()=>{setFindPwOpen(false);clearInterval(findPwTimerRef.current);}}>
+            onClick={()=>setFindPwOpen(false)}>
             <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:24,padding:"32px 26px",width:"100%",maxWidth:380,boxShadow:"0 20px 50px rgba(0,0,0,.15)"}}>
-
-              {/* Step 0: 이메일 입력 */}
-              {findPwStep===0 && (<>
+              {findPwStep===0 ? (<>
                 <div style={{textAlign:"center",marginBottom:20}}>
                   <div style={{width:56,height:56,background:"linear-gradient(135deg,#fce7f3,#ede9fe)",borderRadius:16,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🔑</div>
-                  <h3 style={{margin:"0 0 4px",fontSize:20,fontWeight:800}}>비밀번호 찾기</h3>
-                  <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>가입했던 이메일을 입력해주세요</p>
+                  <h3 style={{margin:"0 0 4px",fontSize:20,fontWeight:800}}>비밀번호 재설정</h3>
+                  <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>가입한 이메일로 재설정 링크를 보내드려요</p>
                 </div>
                 <input value={findPwEmail} onChange={e=>setFindPwEmail(e.target.value)} placeholder="petple@example.com" type="email"
                   style={{width:"100%",padding:"13px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",marginBottom:12}}/>
-                {findPwErr && <p style={{margin:"0 0 10px",fontSize:13,color:"#dc2626"}}>{findPwErr}</p>}
-                <button onClick={()=>{
+                {findPwErr && <p style={{margin:"0 0 10px",fontSize:13,color:findPwErr.includes("전송")?"#16a34a":"#dc2626"}}>{findPwErr}</p>}
+                <button disabled={findPwSending} onClick={async()=>{
                   if(!findPwEmail.trim()||!findPwEmail.includes("@")) return setFindPwErr("올바른 이메일을 입력해주세요.");
-                  setFindPwErr(""); setFindPwStep(1); setFindPwTimer(180);
-                  clearInterval(findPwTimerRef.current);
-                  findPwTimerRef.current = setInterval(()=>setFindPwTimer(t=>{if(t<=1){clearInterval(findPwTimerRef.current);return 0;} return t-1;}),1000);
-                }} style={{width:"100%",background:G,color:"white",border:"none",padding:"13px 0",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
-                  인증번호 받기
+                  setFindPwSending(true); setFindPwErr("");
+                  try{
+                    await sendPasswordResetEmail(auth, findPwEmail.trim());
+                    setFindPwStep(1);
+                  }catch(e){
+                    if(e.code==="auth/user-not-found") setFindPwErr("가입되지 않은 이메일이에요.");
+                    else if(e.code==="auth/too-many-requests") setFindPwErr("잠시 후 다시 시도해주세요.");
+                    else setFindPwErr("오류: "+(e.code||e.message));
+                  }
+                  setFindPwSending(false);
+                }} style={{width:"100%",background:findPwSending?"#d1d5db":G,color:"white",border:"none",padding:"13px 0",borderRadius:12,fontSize:15,fontWeight:700,cursor:findPwSending?"default":"pointer"}}>
+                  {findPwSending?"전송 중...":"재설정 링크 보내기"}
                 </button>
-              </>)}
-
-              {/* Step 1: 인증번호 입력 */}
-              {findPwStep===1 && (<>
-                <div style={{textAlign:"center",marginBottom:20}}>
-                  <div style={{width:56,height:56,background:"linear-gradient(135deg,#fce7f3,#ede9fe)",borderRadius:16,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>📩</div>
-                  <h3 style={{margin:"0 0 4px",fontSize:20,fontWeight:800}}>인증번호 입력</h3>
-                  <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>{findPwEmail}로 전송된 6자리 코드를 입력해주세요</p>
-                </div>
-                <div style={{position:"relative",marginBottom:12}}>
-                  <input value={findPwCode} onChange={e=>setFindPwCode(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="000000" maxLength={6}
-                    style={{width:"100%",padding:"13px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:22,fontWeight:700,outline:"none",boxSizing:"border-box",textAlign:"center",letterSpacing:12}}/>
-                  <span style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",fontSize:13,fontWeight:700,color:findPwTimer>60?"#16a34a":findPwTimer>30?"#f59e0b":"#dc2626"}}>
-                    {Math.floor(findPwTimer/60)}:{String(findPwTimer%60).padStart(2,'0')}
-                  </span>
-                </div>
-                {findPwErr && <p style={{margin:"0 0 10px",fontSize:13,color:"#dc2626"}}>{findPwErr}</p>}
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>{
-                    setFindPwTimer(180); setFindPwCode("");
-                    clearInterval(findPwTimerRef.current);
-                    findPwTimerRef.current = setInterval(()=>setFindPwTimer(t=>{if(t<=1){clearInterval(findPwTimerRef.current);return 0;} return t-1;}),1000);
-                    setFindPwErr("인증번호를 재전송했어요.");
-                  }} style={{flex:1,background:"#f3f4f6",color:"#6b7280",border:"none",padding:"13px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
-                    재전송
-                  </button>
-                  <button onClick={()=>{
-                    if(findPwCode.length!==6) return setFindPwErr("6자리 인증번호를 입력해주세요.");
-                    if(findPwTimer<=0) return setFindPwErr("인증 시간이 만료되었어요. 재전송해주세요.");
-                    clearInterval(findPwTimerRef.current); setFindPwErr(""); setFindPwStep(2);
-                  }} style={{flex:2,background:G,color:"white",border:"none",padding:"13px 0",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
-                    확인
-                  </button>
-                </div>
-              </>)}
-
-              {/* Step 2: 새 비밀번호 설정 */}
-              {findPwStep===2 && (<>
-                <div style={{textAlign:"center",marginBottom:20}}>
-                  <div style={{width:56,height:56,background:"linear-gradient(135deg,#fce7f3,#ede9fe)",borderRadius:16,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🔐</div>
-                  <h3 style={{margin:"0 0 4px",fontSize:20,fontWeight:800}}>새 비밀번호 설정</h3>
-                  <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>사용할 새 비밀번호를 입력해주세요</p>
-                </div>
-                <input value={findPwNewPw} onChange={e=>setFindPwNewPw(e.target.value)} placeholder="새 비밀번호 (6자 이상)" type="password"
-                  style={{width:"100%",padding:"13px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-                  <span style={{fontSize:11,padding:"3px 8px",borderRadius:8,background:findPwNewPw.length>=6?"#dcfce7":"#fef2f2",color:findPwNewPw.length>=6?"#16a34a":"#dc2626",fontWeight:600}}>
-                    {findPwNewPw.length>=6?"✓":"✕"} 6자 이상
-                  </span>
-                  <span style={{fontSize:11,padding:"3px 8px",borderRadius:8,background:/[A-Za-z]/.test(findPwNewPw)&&/\d/.test(findPwNewPw)?"#dcfce7":"#fef2f2",color:/[A-Za-z]/.test(findPwNewPw)&&/\d/.test(findPwNewPw)?"#16a34a":"#dc2626",fontWeight:600}}>
-                    {/[A-Za-z]/.test(findPwNewPw)&&/\d/.test(findPwNewPw)?"✓":"✕"} 영문+숫자
-                  </span>
-                </div>
-                {findPwErr && <p style={{margin:"0 0 10px",fontSize:13,color:"#dc2626"}}>{findPwErr}</p>}
-                <button onClick={()=>{
-                  if(findPwNewPw.length<6) return setFindPwErr("비밀번호는 6자 이상이어야 합니다.");
-                  setFindPwErr(""); setFindPwStep(3);
-                }} style={{width:"100%",background:G,color:"white",border:"none",padding:"13px 0",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
-                  비밀번호 변경
-                </button>
-              </>)}
-
-              {/* Step 3: 완료 */}
-              {findPwStep===3 && (<>
+              </>) : (<>
                 <div style={{textAlign:"center",padding:"10px 0"}}>
-                  <div style={{width:64,height:64,background:"linear-gradient(135deg,#dcfce7,#bbf7d0)",borderRadius:"50%",margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>✅</div>
-                  <h3 style={{margin:"0 0 8px",fontSize:20,fontWeight:800}}>비밀번호 변경 완료!</h3>
-                  <p style={{margin:"0 0 20px",fontSize:13,color:"#9ca3af"}}>새 비밀번호로 로그인해주세요</p>
-                  <button onClick={()=>{setFindPwOpen(false);setPw("");}}
+                  <div style={{width:64,height:64,background:"linear-gradient(135deg,#dcfce7,#bbf7d0)",borderRadius:"50%",margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>📧</div>
+                  <h3 style={{margin:"0 0 8px",fontSize:20,fontWeight:800}}>메일을 확인해주세요!</h3>
+                  <p style={{margin:"0 0 6px",fontSize:14,color:"#374151",fontWeight:600}}>{findPwEmail}</p>
+                  <p style={{margin:"0 0 20px",fontSize:13,color:"#9ca3af",lineHeight:1.6}}>비밀번호 재설정 링크를 보냈어요.<br/>메일함을 확인하고 링크를 클릭해주세요.<br/><span style={{fontSize:11}}>(스팸함도 확인해주세요)</span></p>
+                  <button onClick={()=>{setFindPwOpen(false);setFindPwStep(0);setFindPwEmail("");setPw("");}}
                     style={{background:G,color:"white",border:"none",padding:"13px 32px",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
                     로그인으로 돌아가기
                   </button>
                 </div>
               </>)}
-
             </div>
           </div>
         )}
@@ -984,7 +910,7 @@ export default function App() {
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>🔓 프리미엄 기능 (출시 예정)</p>
                     <div style={{display:"flex",flexDirection:"column",gap:8,opacity:.6}}>
                       {[
-                        {icon:"🔥",label:"프로필 부스트 (3일간)",cost:300},
+                        {icon:"🔥",label:"프로필 부스트 (3일간)",cost:50},
                         {icon:"♾️",label:"무제한 스와이프 (1주)",cost:500},
                         {icon:"🎨",label:"프로필 테마 꾸미기",cost:100},
                       ].map((s,i)=>(
@@ -1155,18 +1081,62 @@ export default function App() {
 
       {/* 알람 드롭다운 */}
       {showAlarm && (
-        <div style={{position:"fixed",top:65,right:16,background:"white",borderRadius:20,boxShadow:"0 8px 32px rgba(0,0,0,.15)",padding:20,zIndex:30,width:300}}>
+        <div style={{position:"fixed",top:65,right:16,background:"white",borderRadius:20,boxShadow:"0 8px 32px rgba(0,0,0,.15)",padding:20,zIndex:30,width:320,maxHeight:"70vh",overflow:"auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <h3 style={{margin:0,fontSize:15,fontWeight:800}}>알림</h3>
-            <button onClick={() => setShowAlarm(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#9ca3af"}}>✕</button>
-          </div>
-          {alarms.map(a => (
-            <div key={a.id} style={{display:"flex",gap:10,padding:"10px 0",borderBottom:"1px solid #f9fafb",background:a.unread?"#fdf2f8":"white",borderRadius:10,paddingLeft:a.unread?8:0,marginBottom:2}}>
-              <span style={{fontSize:22,flexShrink:0}}>{a.icon}</span>
-              <div style={{flex:1}}><p style={{margin:"0 0 2px",fontSize:13,fontWeight:a.unread?600:400,color:"#1f2937"}}>{a.text}</p><p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{a.time}</p></div>
-              {a.unread && <span style={{width:8,height:8,background:"#ec4899",borderRadius:"50%",marginTop:4,flexShrink:0}} />}
+            <h3 style={{margin:0,fontSize:15,fontWeight:800}}>{showAlarmSettings?"알림 설정":"알림"}</h3>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setShowAlarmSettings(s=>!s)} style={{background:showAlarmSettings?"#fdf2f8":"#f3f4f6",border:"none",cursor:"pointer",width:30,height:30,borderRadius:"50%",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>{showAlarmSettings?"←":"⚙️"}</button>
+              <button onClick={()=>{setShowAlarm(false);setShowAlarmSettings(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#9ca3af"}}>✕</button>
             </div>
-          ))}
+          </div>
+          {showAlarmSettings ? (
+            <div style={{display:"flex",flexDirection:"column",gap:2}}>
+              {[
+                {key:"match",icon:"💕",label:"매칭 알림",desc:"새 매칭, 슈퍼좋아요"},
+                {key:"message",icon:"💬",label:"메시지 알림",desc:"새 대화, 채팅"},
+                {key:"community",icon:"🧡",label:"라운지 알림",desc:"댓글, 좋아요, 대댓글"},
+                {key:"meeting",icon:"🏃",label:"모임 알림",desc:"가입 승인, 새 글"},
+                {key:"walkDate",icon:"🐾",label:"산책 데이트 알림",desc:"산책 신청, 수락"},
+                {key:"marketing",icon:"📢",label:"이벤트/마케팅 알림",desc:"혜택, 이벤트 소식"},
+              ].map(item=>(
+                <div key={item.key} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 8px",borderRadius:12,background:alarmSettings[item.key]?"#fdf2f8":"#f9fafb"}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{item.icon}</span>
+                  <div style={{flex:1}}>
+                    <p style={{margin:"0 0 1px",fontSize:13,fontWeight:600}}>{item.label}</p>
+                    <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{item.desc}</p>
+                  </div>
+                  <button onClick={()=>setAlarmSettings(s=>({...s,[item.key]:!s[item.key]}))}
+                    style={{width:44,height:26,borderRadius:13,border:"none",cursor:"pointer",position:"relative",
+                      background:alarmSettings[item.key]?"#ec4899":"#d1d5db",transition:"background .2s",padding:0}}>
+                    <div style={{width:20,height:20,borderRadius:"50%",background:"white",position:"absolute",top:3,
+                      left:alarmSettings[item.key]?21:3,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                  </button>
+                </div>
+              ))}
+              <p style={{margin:"10px 0 0",fontSize:11,color:"#9ca3af",textAlign:"center"}}>알림 설정은 이 기기에만 적용돼요</p>
+            </div>
+          ) : (
+            <>
+              {alarms.length===0 ? (
+                <div style={{textAlign:"center",padding:"20px 0"}}>
+                  <p style={{fontSize:32,margin:"0 0 8px"}}>🔔</p>
+                  <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>새로운 알림이 없어요</p>
+                </div>
+              ) : alarms.map(a => (
+                <div key={a.id} style={{display:"flex",gap:10,padding:"10px 0",borderBottom:"1px solid #f9fafb",background:a.unread?"#fdf2f8":"white",borderRadius:10,paddingLeft:a.unread?8:0,marginBottom:2}}>
+                  <span style={{fontSize:22,flexShrink:0}}>{a.icon}</span>
+                  <div style={{flex:1}}><p style={{margin:"0 0 2px",fontSize:13,fontWeight:a.unread?600:400,color:"#1f2937"}}>{a.text}</p><p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{a.time}</p></div>
+                  {a.unread && <span style={{width:8,height:8,background:"#ec4899",borderRadius:"50%",marginTop:4,flexShrink:0}} />}
+                </div>
+              ))}
+              {alarms.length>0 && (
+                <button onClick={()=>setAlarms(a=>a.map(x=>({...x,unread:false})))}
+                  style={{width:"100%",marginTop:10,background:"#f3f4f6",border:"none",padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:600,color:"#9ca3af",cursor:"pointer"}}>
+                  모두 읽음 처리
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -1199,6 +1169,27 @@ export default function App() {
       {/* 홈 */}
       {tab==="home" && (
         <div style={{padding:"20px 16px"}}>
+          {/* 스와이프 카운터 + 부스트 */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:13,color:dailySwipes>=DAILY_SWIPE_LIMIT?"#ef4444":"#6b7280",fontWeight:600}}>
+                🐾 {DAILY_SWIPE_LIMIT-dailySwipes}/{DAILY_SWIPE_LIMIT} 남음
+              </span>
+              {dailySwipes>=DAILY_SWIPE_LIMIT && <span style={{fontSize:11,color:"#ef4444"}}>내일 초기화돼요</span>}
+            </div>
+            {isBoosted && <span style={{background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:10}}>🔥 부스트 ON</span>}
+          </div>
+          {PETS.length===0 || idx>=PETS.length ? (
+            <div style={{background:"white",borderRadius:24,boxShadow:"0 8px 32px rgba(0,0,0,.1)",padding:"60px 24px",textAlign:"center"}}>
+              <div style={{fontSize:64,marginBottom:16}}>🐾</div>
+              <h2 style={{margin:"0 0 8px",fontSize:20,fontWeight:800,color:"#1f2937"}}>아직 주변에 펫친이 없어요</h2>
+              <p style={{margin:"0 0 20px",fontSize:14,color:"#9ca3af",lineHeight:1.6}}>새로운 펫친이 가입하면 알려드릴게요!<br/>프로필을 완성하고 기다려보세요 🐶</p>
+              <button onClick={()=>setTab("profile")}
+                style={{background:G,color:"white",border:"none",padding:"12px 24px",borderRadius:20,fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:"0 4px 14px rgba(236,72,153,.35)"}}>
+                프로필 꾸미러 가기 ✨
+              </button>
+            </div>
+          ) : (<>
           <div style={{background:"white",borderRadius:24,boxShadow:"0 8px 32px rgba(0,0,0,.1)",overflow:"hidden",
             transform:anim==="L"?"translateX(-110%) rotate(-18deg)":anim==="R"?"translateX(110%) rotate(18deg)":anim==="U"?"translateY(-100%)":"none",
             opacity:anim?0:1,transition:anim?"all .32s ease":"none"}}>
@@ -1266,11 +1257,12 @@ export default function App() {
             <button onClick={() => swipe("R")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>🐾</button>
           </div>
           <p style={{textAlign:"center",fontSize:12,color:"#d1d5db",marginTop:10}}>❌ 패스 &nbsp;|&nbsp; 💎 슈퍼좋아요 <span style={{color:"#f59e0b",fontWeight:700}}>30p</span> &nbsp;|&nbsp; 🐾 좋아요</p>
+          </>)}
         </div>
       )}
 
       {/* 탐색 */}
-      {tab==="explore" && (
+      {tab==="explore_disabled" && (
         <div style={{padding:"20px 16px"}}>
           <h2 style={{margin:"0 0 16px",fontSize:22,fontWeight:800}}>근처 펫친 탐색</h2>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
@@ -1278,6 +1270,13 @@ export default function App() {
               <button key={d} style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,background:i===1?G:"#f3f4f6",color:i===1?"white":"#6b7280"}}>{d}</button>
             ))}
           </div>
+          {PETS.length===0 ? (
+            <div style={{background:"white",borderRadius:18,padding:"40px 20px",textAlign:"center"}}>
+              <p style={{fontSize:40,margin:"0 0 8px"}}>🔍</p>
+              <p style={{margin:"0 0 4px",fontWeight:600,color:"#374151"}}>아직 주변에 펫친이 없어요</p>
+              <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>새 친구가 생기면 여기에 나타나요!</p>
+            </div>
+          ) : (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             {PETS.map(p => (
               <div key={p.id} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)"}}>
@@ -1292,6 +1291,7 @@ export default function App() {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 
@@ -1637,42 +1637,81 @@ export default function App() {
       {/* 메시지 */}
       {tab==="messages" && (
         <div>
-          <div style={{padding:"14px 20px",borderBottom:"1px solid #f3f4f6"}}>
-            <h2 style={{margin:0,fontSize:20,fontWeight:800}}>멍냥톡 <span style={{fontSize:14,color:"#9ca3af",fontWeight:400}}>({matches.length})</span></h2>
+          {/* 서브탭: 매칭대화 / 보낸좋아요 */}
+          <div style={{padding:"14px 20px 0",borderBottom:"1px solid #f3f4f6"}}>
+            <div style={{display:"flex",gap:0}}>
+              {[["chat","💬 대화",matches.length],["liked","💗 보낸 좋아요",liked.length]].map(([id,label,cnt])=>(
+                <button key={id} onClick={()=>setInterestMode(id)}
+                  style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"10px 0 12px",fontSize:14,fontWeight:700,
+                    color:interestMode===id?"#ec4899":"#9ca3af",borderBottom:interestMode===id?"3px solid #ec4899":"3px solid transparent",transition:"all .15s"}}>
+                  {label} {cnt>0&&<span style={{background:interestMode===id?"#fce7f3":"#f3f4f6",color:interestMode===id?"#ec4899":"#9ca3af",fontSize:11,fontWeight:800,padding:"2px 6px",borderRadius:8,marginLeft:4}}>{cnt}</span>}
+                </button>
+              ))}
+            </div>
           </div>
-          {matches.length===0 ? (
-            <div style={{textAlign:"center",padding:"70px 20px"}}>
-              <p style={{fontSize:48,margin:"0 0 12px"}}>💬</p>
-              <p style={{color:"#9ca3af",fontSize:15}}>아직 매칭된 펫친이 없어요</p>
-              <p style={{color:"#d1d5db",fontSize:13,marginTop:4}}>카드를 넘겨 펫친을 만나보세요!</p>
-              <button onClick={() => setTab("home")} style={{marginTop:20,background:G,color:"white",border:"none",padding:"11px 22px",borderRadius:20,fontWeight:700,cursor:"pointer",fontSize:14,boxShadow:"0 4px 14px rgba(236,72,153,.35)"}}>펫친 찾으러 가기 🐾</button>
-            </div>
-          ) : matches.map((m,i) => {
-            const petData = PETS.find(p=>p.owner===m.name||p.name===m.name);
-            const buildProfile = () => setViewUserProfile({name:m.name,img:m.img,location:petData?.location||"인천 연수구",bio:petData?.bio||"",pets:petData?[{name:petData.name,type:"강아지",breed:petData.breed,img:petData.img,gender:petData.gender,traits:petData.tags}]:[]});
-            return (
-            <div key={i} onClick={() => openChat(m)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 20px",borderBottom:"1px solid #f9fafb",cursor:"pointer",background:"white"}}>
-              <div onClick={e=>{e.stopPropagation();buildProfile();}} style={{position:"relative",cursor:"pointer"}}>
-                <img src={m.img} alt={m.name} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}} />
-                <span style={{position:"absolute",bottom:1,right:1,width:12,height:12,background:"#10b981",borderRadius:"50%",border:"2px solid white"}} />
-              </div>
-              <div style={{flex:1}}>
-                <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15}}>{m.name}</p>
-                <p style={{margin:0,color:"#9ca3af",fontSize:13}}>새로운 매칭 🎉</p>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-                {walkDateSent.has(m.id) ? (
-                  <span style={{fontSize:11,color:"#10b981",fontWeight:600}}>🐾 산책 신청됨</span>
-                ) : (
-                  <button onClick={(e)=>{e.stopPropagation();setWalkDateModal(m);setWalkDateForm({date:"",time:"",place:""});}}
-                    style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"white",border:"none",padding:"5px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
-                    🐾 산책 데이트
-                  </button>
-                )}
-              </div>
-            </div>
-            );
-          })}
+
+          {interestMode==="chat" ? (
+            <>
+              {matches.length===0 ? (
+                <div style={{textAlign:"center",padding:"70px 20px"}}>
+                  <p style={{fontSize:48,margin:"0 0 12px"}}>💬</p>
+                  <p style={{color:"#9ca3af",fontSize:15}}>아직 매칭된 펫친이 없어요</p>
+                  <p style={{color:"#d1d5db",fontSize:13,marginTop:4}}>카드를 넘겨 펫친을 만나보세요!</p>
+                  <button onClick={() => setTab("home")} style={{marginTop:20,background:G,color:"white",border:"none",padding:"11px 22px",borderRadius:20,fontWeight:700,cursor:"pointer",fontSize:14,boxShadow:"0 4px 14px rgba(236,72,153,.35)"}}>펫친 찾으러 가기 🐾</button>
+                </div>
+              ) : matches.map((m,i) => {
+                const petData = PETS.find(p=>p.owner===m.name||p.name===m.name);
+                const buildProfile = () => setViewUserProfile({name:m.name,img:m.img,location:petData?.location||"인천 연수구",bio:petData?.bio||"",pets:petData?[{name:petData.name,type:"강아지",breed:petData.breed,img:petData.img,gender:petData.gender,traits:petData.tags}]:[]});
+                return (
+                <div key={i} onClick={() => openChat(m)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 20px",borderBottom:"1px solid #f9fafb",cursor:"pointer",background:"white"}}>
+                  <div onClick={e=>{e.stopPropagation();buildProfile();}} style={{position:"relative",cursor:"pointer"}}>
+                    <img src={m.img} alt={m.name} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}} />
+                    <span style={{position:"absolute",bottom:1,right:1,width:12,height:12,background:"#10b981",borderRadius:"50%",border:"2px solid white"}} />
+                  </div>
+                  <div style={{flex:1}}>
+                    <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15}}>{m.name}</p>
+                    <p style={{margin:0,color:"#9ca3af",fontSize:13}}>새로운 매칭 🎉</p>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+                    {walkDateSent.has(m.id) ? (
+                      <span style={{fontSize:11,color:"#10b981",fontWeight:600}}>🐾 산책 신청됨</span>
+                    ) : (
+                      <button onClick={(e)=>{e.stopPropagation();setWalkDateModal(m);setWalkDateForm({date:"",time:"",place:""});}}
+                        style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"white",border:"none",padding:"5px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                        🐾 산책 데이트
+                      </button>
+                    )}
+                  </div>
+                </div>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              {liked.length===0 ? (
+                <div style={{textAlign:"center",padding:"60px 20px"}}>
+                  <p style={{fontSize:48,margin:"0 0 12px"}}>💗</p>
+                  <p style={{color:"#9ca3af",fontSize:15}}>아직 관심 표시한 펫친이 없어요</p>
+                  <button onClick={() => setTab("home")} style={{marginTop:20,background:G,color:"white",border:"none",padding:"11px 22px",borderRadius:20,fontWeight:700,cursor:"pointer",fontSize:14}}>펫친 찾으러 가기 🐾</button>
+                </div>
+              ) : (
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:16}}>
+                  {liked.map((p,i) => (
+                    <div key={i} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)"}}>
+                      <div style={{position:"relative",height:150}}>
+                        <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
+                        <div style={{position:"absolute",bottom:8,right:8,background:"rgba(255,255,255,.9)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>💗</div>
+                      </div>
+                      <div style={{padding:"10px 12px"}}>
+                        <h3 style={{margin:"0 0 2px",fontSize:15,fontWeight:700}}>{p.name}</h3>
+                        <p style={{margin:0,fontSize:12,color:"#9ca3af"}}>{p.breed} · {p.age}살</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -1778,6 +1817,38 @@ export default function App() {
             }
           </div>
 
+          {/* 프로필 완성도 */}
+          {(() => {
+            const items = [
+              {label:"프로필 사진",done:profilePhotos.some(p=>p)},
+              {label:"자기소개",done:!!profileBio},
+              {label:"반려동물 등록",done:myPets.length>0},
+              {label:"관심사 설정",done:!!(user?.interests && user.interests.length>0)},
+              {label:"위치 설정",done:userLocation!=="인천 연수구"},
+              {label:"프로필 인증",done:isVerified},
+            ];
+            const pct = Math.round(items.filter(i=>i.done).length/items.length*100);
+            return pct < 100 ? (
+              <div style={{margin:"0 20px 12px",background:"white",borderRadius:16,padding:16,boxShadow:"0 2px 10px rgba(0,0,0,.04)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <p style={{margin:0,fontWeight:700,fontSize:14}}>프로필 완성도</p>
+                  <span style={{fontSize:14,fontWeight:800,color:pct>=80?"#16a34a":pct>=50?"#f59e0b":"#ef4444"}}>{pct}%</span>
+                </div>
+                <div style={{background:"#f3f4f6",borderRadius:6,height:8,marginBottom:10,overflow:"hidden"}}>
+                  <div style={{height:"100%",borderRadius:6,background:pct>=80?"#16a34a":pct>=50?G:"#f59e0b",width:pct+"%",transition:"width .5s ease"}}/>
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {items.map((it,i)=>(
+                    <span key={i} style={{fontSize:11,padding:"3px 8px",borderRadius:8,fontWeight:600,
+                      background:it.done?"#dcfce7":"#fef2f2",color:it.done?"#16a34a":"#ef4444"}}>
+                      {it.done?"✓":"○"} {it.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+
           {/* 관심사 태그 */}
           {user?.interests && user.interests.length>0 && (
             <div style={{padding:"0 20px 12px",display:"flex",flexWrap:"wrap",gap:6}}>
@@ -1801,7 +1872,7 @@ export default function App() {
           {/* 통계 */}
           <div style={{padding:"16px 20px",borderBottom:"1px solid #f3f4f6"}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,textAlign:"center"}}>
-              {[[matches.length,"매칭 성공","#ec4899"],[liked.length,"보낸 좋아요","#a855f7"],[idx%PETS.length,"본 프로필","#3b82f6"]].map(([n,label,color],i)=>(
+              {[[matches.length,"매칭 성공","#ec4899"],[liked.length,"보낸 좋아요","#a855f7"],[PETS.length?idx%PETS.length:0,"본 프로필","#3b82f6"]].map(([n,label,color],i)=>(
                 <div key={i} style={{background:"#f9fafb",borderRadius:14,padding:"12px 8px"}}>
                   <p style={{margin:"0 0 2px",fontSize:22,fontWeight:800,color}}>{n}</p>
                   <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{label}</p>
@@ -1848,6 +1919,31 @@ export default function App() {
                   ))}
                 </div>
             }
+          </div>
+
+          {/* 프로필 부스트 */}
+          <div style={{padding:"0 20px 12px"}}>
+            {isBoosted ? (
+              <div style={{background:"linear-gradient(135deg,#fef3c7,#fbbf24)",borderRadius:16,padding:14,display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:24}}>🔥</span>
+                <div style={{flex:1}}>
+                  <p style={{margin:"0 0 2px",fontWeight:700,fontSize:13,color:"#92400e"}}>부스트 활성화 중!</p>
+                  <p style={{margin:0,fontSize:11,color:"#a16207"}}>내 프로필이 다른 유저에게 우선 노출되고 있어요</p>
+                </div>
+              </div>
+            ) : (
+              <button onClick={()=>{
+                if(points<50){alert("프로필 부스트에는 🐾 50p가 필요해요!\n현재 보유: "+points+"p");return;}
+                if(!confirm("🔥 50p를 사용해서 프로필 부스트를 활성화할까요?\n3일간 프로필이 다른 유저에게 우선 노출돼요!")) return;
+                setPoints(p=>p-50);
+                setPointLog(l=>[{icon:"🔥",label:"프로필 부스트 (3일)",pt:-50,type:"use",date:"방금 전"},...l]);
+                setIsBoosted(true);
+                alert("🔥 프로필 부스트가 활성화되었어요!\n3일간 매칭 확률이 높아집니다.");
+              }}
+                style={{width:"100%",background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",border:"none",padding:14,borderRadius:16,fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:"0 4px 14px rgba(245,158,11,.3)"}}>
+                🔥 프로필 부스트 (50p) — 3일간 우선 노출
+              </button>
+            )}
           </div>
 
           {/* 펫플러스 + 로그아웃 */}
@@ -2095,19 +2191,29 @@ export default function App() {
                   onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
               </div>
             </div>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:6}}>
               <div style={{flex:1,position:"relative"}}>
-                <select value={meetSearch.region} onChange={e=>setMeetSearch(s=>({...s,region:e.target.value}))}
-                  style={{width:"100%",padding:"8px 28px 8px 10px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none",appearance:"none",background:"white",color:meetSearch.region?"#1f2937":"#9ca3af",boxSizing:"border-box"}}>
-                  <option value="">📍 지역 전체</option>
-                  {["인천 연수구","인천 중구","인천 남동구","인천 부평구"].map(r=><option key={r} value={r}>{r}</option>)}
+                <select value={meetSearch.city} onChange={e=>setMeetSearch(s=>({...s,city:e.target.value,district:""}))}
+                  style={{width:"100%",padding:"8px 28px 8px 10px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none",appearance:"none",background:"white",color:meetSearch.city?"#1f2937":"#9ca3af",boxSizing:"border-box"}}>
+                  <option value="">📍 도시</option>
+                  {Object.keys(REGIONS).map(c=><option key={c} value={c}>{REGIONS[c].icon} {c}</option>)}
                 </select>
                 <span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",color:"#9ca3af",fontSize:11}}>▾</span>
               </div>
+              {meetSearch.city && (
+                <div style={{flex:1,position:"relative"}}>
+                  <select value={meetSearch.district} onChange={e=>setMeetSearch(s=>({...s,district:e.target.value}))}
+                    style={{width:"100%",padding:"8px 28px 8px 10px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none",appearance:"none",background:"white",color:meetSearch.district?"#1f2937":"#9ca3af",boxSizing:"border-box"}}>
+                    <option value="">구/군</option>
+                    {REGIONS[meetSearch.city].districts.map(d=><option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",color:"#9ca3af",fontSize:11}}>▾</span>
+                </div>
+              )}
               <div style={{flex:1,position:"relative"}}>
                 <select value={meetSearch.animal} onChange={e=>setMeetSearch(s=>({...s,animal:e.target.value}))}
                   style={{width:"100%",padding:"8px 28px 8px 10px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none",appearance:"none",background:"white",color:meetSearch.animal?"#1f2937":"#9ca3af",boxSizing:"border-box"}}>
-                  <option value="">🐾 동물 전체</option>
+                  <option value="">🐾 동물</option>
                   {["강아지","고양이","전체"].map(a=><option key={a} value={a}>{a}</option>)}
                 </select>
                 <span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",color:"#9ca3af",fontSize:11}}>▾</span>
@@ -2133,7 +2239,23 @@ export default function App() {
             {meetings.filter(m=>{
               if(meetingMode==="mine" && !m.myJoined && !m.members.some(mb=>mb.name===user?.name)) return false;
               if(meetSearch.name && !m.title.includes(meetSearch.name)) return false;
-              if(meetSearch.region && m.region!==meetSearch.region) return false;
+              if(meetSearch.city && !m.region.startsWith(meetSearch.city)) return false;
+              if(meetSearch.district && meetSearch.district!=="전체" && !m.region.includes(meetSearch.district)) return false;
+              if(meetSearch.animal && meetSearch.animal!=="전체" && m.animal!==meetSearch.animal && m.animal!=="전체") return false;
+              return true;
+            }).length===0 ? (
+              <div style={{background:"white",borderRadius:18,padding:"40px 20px",textAlign:"center",marginBottom:12}}>
+                <p style={{fontSize:40,margin:"0 0 8px"}}>🏃</p>
+                <p style={{margin:"0 0 4px",fontWeight:600,color:"#374151"}}>아직 모임이 없어요</p>
+                <p style={{margin:"0 0 14px",fontSize:13,color:"#9ca3af"}}>첫 번째 모임을 만들어보세요!</p>
+                <button onClick={()=>setIsCreateMeeting(true)}
+                  style={{background:G,color:"white",border:"none",padding:"10px 20px",borderRadius:20,fontWeight:700,fontSize:13,cursor:"pointer"}}>모임 만들기 🐾</button>
+              </div>
+            ) : meetings.filter(m=>{
+              if(meetingMode==="mine" && !m.myJoined && !m.members.some(mb=>mb.name===user?.name)) return false;
+              if(meetSearch.name && !m.title.includes(meetSearch.name)) return false;
+              if(meetSearch.city && !m.region.startsWith(meetSearch.city)) return false;
+              if(meetSearch.district && meetSearch.district!=="전체" && !m.region.includes(meetSearch.district)) return false;
               if(meetSearch.animal && meetSearch.animal!=="전체" && m.animal!==meetSearch.animal && m.animal!=="전체") return false;
               return true;
             }).map(m=>{
@@ -2203,10 +2325,17 @@ export default function App() {
               </div>
               <div style={{display:"flex",gap:10}}>
                 <div style={{flex:1}}>
-                  <label style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:4,display:"block"}}>지역</label>
-                  <select value={newMeetForm.region} onChange={e=>setNewMeetForm(f=>({...f,region:e.target.value}))}
+                  <label style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:4,display:"block"}}>도시</label>
+                  <select value={newMeetForm.city} onChange={e=>setNewMeetForm(f=>({...f,city:e.target.value,district:REGIONS[e.target.value]?.districts[1]||""}))}
                     style={{width:"100%",padding:"10px 12px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",background:"white"}}>
-                    {["인천 연수구","인천 중구","인천 남동구","인천 부평구","인천 서구","인천 미추홀구"].map(r=><option key={r} value={r}>{r}</option>)}
+                    {Object.keys(REGIONS).map(c=><option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:4,display:"block"}}>구/군</label>
+                  <select value={newMeetForm.district} onChange={e=>setNewMeetForm(f=>({...f,district:e.target.value}))}
+                    style={{width:"100%",padding:"10px 12px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",background:"white"}}>
+                    {(REGIONS[newMeetForm.city]?.districts||[]).filter(d=>d!=="전체").map(d=><option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div style={{flex:1}}>
@@ -2224,13 +2353,13 @@ export default function App() {
               </div>
               <button onClick={()=>{
                 if(!newMeetForm.title.trim()||!newMeetForm.desc.trim()) return;
-                const nm={id:Date.now(),title:newMeetForm.title.trim(),region:newMeetForm.region,animal:newMeetForm.animal,
+                const nm={id:Date.now(),title:newMeetForm.title.trim(),region:newMeetForm.city+" "+newMeetForm.district,animal:newMeetForm.animal,
                   desc:newMeetForm.desc.trim(),max:newMeetForm.max,tags:[],
                   members:[{name:user?.name,role:"운영자",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
                   greetings:[],board:[],photos:[],votes:[],chats:[],pending:[],myJoined:true};
                 setMeetings(ms=>[nm,...ms]);
                 setIsCreateMeeting(false);
-                setNewMeetForm({title:"",region:"인천 연수구",animal:"강아지",desc:"",max:10});
+                setNewMeetForm({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10});
               }} disabled={!newMeetForm.title.trim()||!newMeetForm.desc.trim()}
                 style={{background:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"#e5e7eb":G,color:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"#9ca3af":"white",border:"none",padding:"13px 0",borderRadius:14,fontWeight:700,fontSize:15,cursor:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"default":"pointer",marginTop:4}}>
                 모임 만들기
@@ -2609,36 +2738,7 @@ export default function App() {
         );
       })()}
 
-      {/* 관심 */}
-      {tab==="interest" && (
-        <div style={{padding:"16px"}}>
-          <h2 style={{margin:"0 0 4px",fontSize:22,fontWeight:800}}>관심</h2>
-          <p style={{margin:"0 0 16px",fontSize:13,color:"#9ca3af"}}>좋아요를 보낸 펫친이에요 💗</p>
-          {liked.length===0 && matches.length===0 ? (
-            <div style={{textAlign:"center",padding:"60px 20px"}}>
-              <p style={{fontSize:48,margin:"0 0 12px"}}>💗</p>
-              <p style={{color:"#9ca3af",fontSize:15}}>아직 관심 표시한 펫친이 없어요</p>
-              <button onClick={() => setTab("home")} style={{marginTop:20,background:G,color:"white",border:"none",padding:"11px 22px",borderRadius:20,fontWeight:700,cursor:"pointer",fontSize:14}}>펫친 찾으러 가기 🐾</button>
-            </div>
-          ) : (
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              {[...matches,...liked].map((p,i) => (
-                <div key={i} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)",cursor:"pointer"}} onClick={() => { if(matches.includes(p)) { openChat(p); } }}>
-                  <div style={{position:"relative",height:150}}>
-                    <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-                    {matches.includes(p) && <div style={{position:"absolute",top:8,right:8,background:"linear-gradient(135deg,#ec4899,#a855f7)",color:"white",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:20}}>매칭됨</div>}
-                    <div style={{position:"absolute",bottom:8,right:8,background:"rgba(255,255,255,.9)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>💗</div>
-                  </div>
-                  <div style={{padding:"10px 12px"}}>
-                    <h3 style={{margin:"0 0 2px",fontSize:15,fontWeight:700}}>{p.name}</h3>
-                    <p style={{margin:0,fontSize:12,color:"#9ca3af"}}>{p.breed} · {p.age}살</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* 관심 - 대화 탭 통합 안내 (fallback) */}
 
       {/* 글쓰기 모달 */}
       {isWritePost && (
@@ -3025,7 +3125,7 @@ export default function App() {
       {/* 하단 탭바 */}
       {tab!=="chat" && (
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
-          {[["home","🏠","홈"],["community","🧡","라운지"],["story","📸","스토리"],["meeting","🏃","모임"],["interest","💗","관심"],["messages","💬","대화"],["mypage","👤","마이"]].map(([id,icon,label]) => (
+          {[["home","🏠","홈"],["community","🧡","라운지"],["story","📸","스토리"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
             <button key={id} onClick={() => setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
               <span style={{fontSize:10,fontWeight:700,color:tab===id?"#ec4899":"#9ca3af"}}>{label}</span>
@@ -3040,7 +3140,13 @@ export default function App() {
         <div style={{position:"fixed",inset:0,zIndex:80}}>
           <div onClick={()=>setViewUserProfile(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
           <div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderRadius:"24px 24px 0 0",maxHeight:"80vh",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 -8px 40px rgba(0,0,0,.2)"}}>
-            <div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,margin:"12px auto 0",flexShrink:0}}/>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px 0"}}>
+              <div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,flex:1}}/>
+              {viewUserProfile.name!==user?.name && (
+                <button onClick={()=>setReportModal({name:viewUserProfile.name})}
+                  style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:11,color:"#9ca3af",fontWeight:600,marginLeft:8}}>🚨 신고/차단</button>
+              )}
+            </div>
             {/* 커버 + 프로필 사진 */}
             <div style={{position:"relative",marginBottom:50,flexShrink:0}}>
               <div style={{height:90,background:"linear-gradient(135deg,#fce7f3,#ede9fe)"}}/>
@@ -3246,6 +3352,79 @@ export default function App() {
                 alert("🐾 산책 데이트를 신청했어요!\n상대방이 수락하면 알림으로 알려드릴게요.");
               }}
                 style={{flex:1,background:"linear-gradient(135deg,#10b981,#059669)",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신청하기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 온보딩 튜토리얼 */}
+      {showOnboarding && (
+        <div style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(5px)"}}>
+          <div style={{background:"white",borderRadius:28,padding:"36px 28px",maxWidth:360,width:"90%",textAlign:"center"}}>
+            {[
+              {icon:"🐾",title:"환영해요!",desc:"펫플은 반려동물을 기반으로\n새로운 인연을 만드는 소셜 앱이에요"},
+              {icon:"💎",title:"스와이프로 매칭해요",desc:"좋아요(🐾)로 관심 표현!\n슈퍼좋아요(💎)는 100% 매칭 보장!\n매일 "+DAILY_SWIPE_LIMIT+"번 스와이프할 수 있어요"},
+              {icon:"🐶",title:"반려동물을 등록하세요",desc:"프로필에 반려동물을 등록하면\n매칭 확률이 크게 올라가요!\n사진도 잊지 마세요 📸"},
+              {icon:"🤝",title:"모임에 참여해보세요",desc:"전국 산책 모임에 참여하고\n산책 데이트도 신청해보세요!\n새 친구가 기다리고 있어요 💕"},
+            ][onboardingStep] && (() => {
+              const step = [{icon:"🐾",title:"환영해요!",desc:"펫플은 반려동물을 기반으로\n새로운 인연을 만드는 소셜 앱이에요"},
+                {icon:"💎",title:"스와이프로 매칭해요",desc:"좋아요(🐾)로 관심 표현!\n슈퍼좋아요(💎)는 100% 매칭 보장!\n매일 "+DAILY_SWIPE_LIMIT+"번 스와이프할 수 있어요"},
+                {icon:"🐶",title:"반려동물을 등록하세요",desc:"프로필에 반려동물을 등록하면\n매칭 확률이 크게 올라가요!\n사진도 잊지 마세요 📸"},
+                {icon:"🤝",title:"모임에 참여해보세요",desc:"전국 산책 모임에 참여하고\n산책 데이트도 신청해보세요!\n새 친구가 기다리고 있어요 💕"}][onboardingStep];
+              return (<>
+                <div style={{fontSize:64,marginBottom:14}}>{step.icon}</div>
+                <h2 style={{margin:"0 0 8px",fontSize:22,fontWeight:800}}>{step.title}</h2>
+                <p style={{margin:"0 0 24px",fontSize:14,color:"#6b7280",lineHeight:1.7,whiteSpace:"pre-line"}}>{step.desc}</p>
+                <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:20}}>
+                  {[0,1,2,3].map(i=><div key={i} style={{width:i===onboardingStep?24:8,height:8,borderRadius:4,background:i===onboardingStep?"#ec4899":"#e5e7eb",transition:"all .2s"}}/>)}
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  {onboardingStep>0 && <button onClick={()=>setOnboardingStep(s=>s-1)} style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>이전</button>}
+                  <button onClick={()=>{
+                    if(onboardingStep<3) setOnboardingStep(s=>s+1);
+                    else { setShowOnboarding(false); if(user?.uid) updateDoc(doc(db,"users",user.uid),{onboardingDone:true}).catch(()=>{}); }
+                  }} style={{flex:2,background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                    {onboardingStep<3?"다음":"시작하기! 🐾"}
+                  </button>
+                </div>
+              </>);
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* 신고 모달 */}
+      {reportModal && (
+        <div style={{position:"fixed",inset:0,zIndex:120,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={()=>setReportModal(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
+          <div style={{position:"relative",background:"white",borderRadius:24,padding:"28px 24px",maxWidth:340,width:"90%"}}>
+            <h3 style={{margin:"0 0 16px",fontSize:18,fontWeight:800,textAlign:"center"}}>🚨 {reportModal.name} 신고하기</h3>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+              {["부적절한 프로필 사진","욕설/비하 발언","스팸/광고","사기 의심","성적 불쾌감","기타"].map(r=>(
+                <button key={r} onClick={()=>setReportReason(r)}
+                  style={{padding:"10px 14px",borderRadius:10,border:reportReason===r?"2px solid #ef4444":"2px solid #e5e7eb",
+                    background:reportReason===r?"#fef2f2":"white",color:reportReason===r?"#ef4444":"#374151",
+                    fontSize:13,fontWeight:600,cursor:"pointer",textAlign:"left"}}>{r}</button>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setReportModal(null);setReportReason("");}}
+                style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>
+              <button onClick={()=>{
+                if(!reportReason){alert("신고 사유를 선택해주세요.");return;}
+                alert("신고가 접수되었어요. 검토 후 조치하겠습니다.");
+                setReportModal(null);setReportReason("");
+              }} style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신고하기</button>
+            </div>
+            <div style={{marginTop:12,borderTop:"1px solid #f3f4f6",paddingTop:12}}>
+              <button onClick={()=>{
+                if(!confirm(reportModal.name+"님을 차단하시겠어요?\n차단하면 서로의 프로필이 보이지 않아요.")) return;
+                setBlockedUsers(s=>new Set([...s,reportModal.name]));
+                setReportModal(null);setReportReason("");
+                alert("차단되었어요. 해당 유저의 프로필이 더 이상 표시되지 않습니다.");
+              }} style={{width:"100%",background:"none",border:"1px solid #e5e7eb",padding:"10px 0",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
+                🚫 이 사용자 차단하기
+              </button>
             </div>
           </div>
         </div>
