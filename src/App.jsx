@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { auth, db, googleProvider } from "./firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp } from "firebase/firestore";
 
 const PETS = [];
 
@@ -18,6 +18,35 @@ const LOUNGE_CATS = [
   {key:"found",label:"발견",icon:"📢"},
 ];
 
+const LOCATION_AREAS = [
+  {name:"인천 연수구",lat:37.41,lng:126.68},{name:"인천 남동구",lat:37.45,lng:126.73},{name:"인천 미추홀구",lat:37.44,lng:126.65},
+  {name:"인천 부평구",lat:37.51,lng:126.72},{name:"인천 계양구",lat:37.56,lng:126.74},{name:"인천 서구",lat:37.55,lng:126.68},
+  {name:"인천 중구",lat:37.47,lng:126.62},{name:"인천 동구",lat:37.47,lng:126.64},{name:"인천 강화군",lat:37.75,lng:126.49},
+  {name:"서울 강남구",lat:37.50,lng:127.03},{name:"서울 서초구",lat:37.48,lng:127.01},{name:"서울 송파구",lat:37.51,lng:127.11},
+  {name:"서울 강동구",lat:37.53,lng:127.13},{name:"서울 마포구",lat:37.56,lng:126.91},{name:"서울 용산구",lat:37.53,lng:126.97},
+  {name:"서울 종로구",lat:37.57,lng:126.98},{name:"서울 중구",lat:37.56,lng:126.99},{name:"서울 성동구",lat:37.56,lng:127.04},
+  {name:"서울 광진구",lat:37.54,lng:127.08},{name:"서울 동대문구",lat:37.57,lng:127.04},{name:"서울 중랑구",lat:37.60,lng:127.09},
+  {name:"서울 성북구",lat:37.59,lng:127.02},{name:"서울 강북구",lat:37.64,lng:127.01},{name:"서울 도봉구",lat:37.67,lng:127.03},
+  {name:"서울 노원구",lat:37.65,lng:127.06},{name:"서울 은평구",lat:37.60,lng:126.93},{name:"서울 서대문구",lat:37.58,lng:126.94},
+  {name:"서울 영등포구",lat:37.53,lng:126.90},{name:"서울 동작구",lat:37.51,lng:126.94},{name:"서울 관악구",lat:37.48,lng:126.95},
+  {name:"서울 금천구",lat:37.46,lng:126.90},{name:"서울 구로구",lat:37.50,lng:126.89},{name:"서울 양천구",lat:37.52,lng:126.87},
+  {name:"서울 강서구",lat:37.55,lng:126.85},{name:"경기 수원시",lat:37.26,lng:127.03},{name:"경기 성남시",lat:37.42,lng:127.13},
+  {name:"경기 부천시",lat:37.50,lng:126.76},{name:"경기 안양시",lat:37.39,lng:126.92},{name:"경기 고양시",lat:37.66,lng:126.83},
+  {name:"경기 용인시",lat:37.24,lng:127.18},{name:"경기 화성시",lat:37.20,lng:126.83},{name:"경기 파주시",lat:37.76,lng:126.78},
+  {name:"경기 시흥시",lat:37.38,lng:126.80},{name:"경기 김포시",lat:37.62,lng:126.72},{name:"경기 광명시",lat:37.48,lng:126.86},
+  {name:"경기 하남시",lat:37.54,lng:127.21},{name:"경기 평택시",lat:36.99,lng:127.09},
+  {name:"부산 해운대구",lat:35.16,lng:129.16},{name:"부산 부산진구",lat:35.16,lng:129.05},{name:"부산 동래구",lat:35.20,lng:129.08},
+  {name:"부산 남구",lat:35.14,lng:129.08},{name:"부산 중구",lat:35.10,lng:129.03},
+  {name:"대구 중구",lat:35.87,lng:128.60},{name:"대구 수성구",lat:35.86,lng:128.63},{name:"대구 달서구",lat:35.83,lng:128.53},
+  {name:"대전 유성구",lat:36.36,lng:127.36},{name:"대전 서구",lat:36.35,lng:127.38},
+  {name:"광주 서구",lat:35.15,lng:126.89},{name:"광주 북구",lat:35.17,lng:126.91},
+  {name:"울산 남구",lat:35.54,lng:129.33},{name:"세종시",lat:36.48,lng:127.00},
+  {name:"제주시",lat:33.50,lng:126.53},{name:"서귀포시",lat:33.25,lng:126.56},
+  {name:"춘천시",lat:37.88,lng:127.73},{name:"원주시",lat:37.34,lng:127.92},
+  {name:"천안시",lat:36.81,lng:127.11},{name:"청주시",lat:36.64,lng:127.49},
+  {name:"전주시",lat:35.82,lng:127.15},{name:"포항시",lat:36.02,lng:129.37},
+  {name:"창원시",lat:35.23,lng:128.68},{name:"김해시",lat:35.23,lng:128.88},
+];
 const INIT_POSTS = [];
 
 const WRITE_COST = 30;
@@ -154,6 +183,8 @@ export default function App() {
 
   // 위치
   const [userLocation,    setUserLocation]    = useState("인천 연수구");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [locationUpdating, setLocationUpdating] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
   // 프로필
@@ -257,7 +288,89 @@ export default function App() {
     img.src = dataUrl;
   });
 
-  // ── Firebase 인증 상태 감지 (자동 로그인) ──
+  // ── 커뮤니티 데이터 새로고침 (Firestore 공유 컬렉션) ──
+  const refreshContent = async (targetTab) => {
+    if (!user?.uid) return;
+    setIsRefreshing(true);
+    try {
+      if (targetTab === "community" || targetTab === "all") {
+        const q = query(collection(db, "communityPosts"), orderBy("ts", "desc"), fbLimit(50));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const serverPosts = snap.docs.map(d => ({...d.data(), _fid: d.id}));
+          setPosts(prev => {
+            const localOnly = prev.filter(p => !serverPosts.some(sp => sp.id === p.id));
+            return [...localOnly, ...serverPosts].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
+          });
+        }
+      }
+      if (targetTab === "story" || targetTab === "all") {
+        const q = query(collection(db, "communityStories"), orderBy("ts", "desc"), fbLimit(30));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const serverStories = snap.docs.map(d => ({...d.data(), _fid: d.id}));
+          setMyStories(prev => {
+            const localOnly = prev.filter(s => !serverStories.some(ss => ss.id === s.id));
+            return [...serverStories, ...localOnly].slice(0,50);
+          });
+        }
+      }
+      if (targetTab === "meeting" || targetTab === "all") {
+        const q = query(collection(db, "communityMeetings"), orderBy("ts", "desc"), fbLimit(30));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const serverMeetings = snap.docs.map(d => ({...d.data(), _fid: d.id}));
+          setMeetings(prev => {
+            const localOnly = prev.filter(m => !serverMeetings.some(sm => sm.id === m.id));
+            return [...serverMeetings, ...localOnly].slice(0,50);
+          });
+        }
+      }
+    } catch (e) { console.error("Refresh error:", e); }
+    setIsRefreshing(false);
+  };
+
+  // ── 위치 업데이트 (with UI feedback) ──
+  const updateMyLocation = () => {
+    setLocationUpdating(true);
+    if (!navigator.geolocation) { setLocationUpdating(false); alert("이 기기에서 위치 서비스를 지원하지 않아요."); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const {latitude:lat, longitude:lng} = pos.coords;
+        const areas = LOCATION_AREAS;
+        let nearest = areas[0], minDist = Infinity;
+        areas.forEach(a => {
+          const d = Math.sqrt((lat-a.lat)**2 + (lng-a.lng)**2);
+          if (d < minDist) { minDist = d; nearest = a; }
+        });
+        setUserLocation(nearest.name);
+        setLocationUpdating(false);
+        alert("📍 위치가 업데이트 되었어요!\n" + nearest.name);
+      },
+      () => { setLocationUpdating(false); alert("위치 권한이 거부되었어요.\n설정에서 위치 권한을 허용해주세요."); },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  // ── GPS 위치 자동 감지 ──
+  const detectLocation = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const {latitude:lat, longitude:lng} = pos.coords;
+        let nearest = LOCATION_AREAS[0], minDist = Infinity;
+        LOCATION_AREAS.forEach(a => {
+          const d = Math.sqrt((lat-a.lat)**2 + (lng-a.lng)**2);
+          if (d < minDist) { minDist = d; nearest = a; }
+        });
+        setUserLocation(nearest.name);
+      },
+      () => {},
+      { timeout: 8000, maximumAge: 300000 }
+    );
+  };
+
+    // ── Firebase 인증 상태 감지 (자동 로그인) ──
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -312,6 +425,7 @@ export default function App() {
           setLoggedIn(true);
         }
       }
+      if (firebaseUser) detectLocation();
       setAuthLoading(false);
     });
     return () => unsub();
@@ -525,7 +639,7 @@ export default function App() {
         <div style={{fontSize:48,marginBottom:16,animation:"pulse 1.5s ease-in-out infinite"}}>🐾</div>
         <p style={{fontSize:18,fontWeight:800,background:G,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>펫플</p>
         <p style={{margin:"6px 0 0",fontSize:13,color:"#9ca3af"}}>로딩 중...</p>
-        <style>{`@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}`}</style>
+        <style>{`@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       </div>
     </div>
   );
@@ -1450,6 +1564,13 @@ export default function App() {
       {/* 라운지 */}
       {tab==="community" && !selectedPost && (
         <div>
+          {/* 새로고침 바 */}
+          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-end",borderBottom:"1px solid #f9fafb"}}>
+            <button onClick={()=>refreshContent("community")} disabled={isRefreshing}
+              style={{background:isRefreshing?"#f3f4f6":"linear-gradient(135deg,#ec4899,#a855f7)",color:isRefreshing?"#9ca3af":"white",border:"none",padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:isRefreshing?"default":"pointer",display:"flex",alignItems:"center",gap:4}}>
+              <span style={{display:"inline-block",animation:isRefreshing?"spin 1s linear infinite":"none"}}>🔄</span> {isRefreshing?"불러오는 중...":"새로고침"}
+            </button>
+          </div>
           {/* 카테고리 탭 - 항상 펼침 */}
           <div style={{background:"white",borderBottom:"1px solid #f3f4f6",position:"sticky",top:57,zIndex:9,padding:"10px 12px 8px"}}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
@@ -1902,7 +2023,13 @@ export default function App() {
                   {isBoosted && <span style={{background:"#f59e0b",color:"white",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:6,flexShrink:0}}>🔥</span>}
                 </div>
                 <p style={{margin:"0 0 4px",fontSize:12,color:"#6b7280"}}>{user?.gender ? (user.gender==="남"?"남성":"여성")+" · " : ""}{user?.birth ? user.birth+"년생 · " : ""}{user?.region||""}</p>
-                <p style={{margin:0,fontSize:12,color:"#374151",display:"flex",alignItems:"center",gap:4}}>📍 {userLocation}</p>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <p style={{margin:0,fontSize:12,color:"#374151",display:"flex",alignItems:"center",gap:4}}>📍 {userLocation}</p>
+                  <button onClick={updateMyLocation} disabled={locationUpdating}
+                    style={{background:locationUpdating?"#f3f4f6":"#fdf2f8",color:locationUpdating?"#9ca3af":"#ec4899",border:"1px solid #fce7f3",padding:"3px 8px",borderRadius:10,fontSize:10,fontWeight:700,cursor:locationUpdating?"default":"pointer",display:"flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>
+                    <span style={{display:"inline-block",animation:locationUpdating?"spin 1s linear infinite":"none"}}>📍</span>{locationUpdating?"감지중...":"위치 갱신"}
+                  </button>
+                </div>
               </div>
             </div>
             {profileBio && <p style={{margin:"12px 0 0",fontSize:13,color:"#374151",lineHeight:1.5,background:"rgba(255,255,255,.7)",borderRadius:10,padding:"8px 12px"}}>{profileBio}</p>}
@@ -2062,6 +2189,13 @@ export default function App() {
       {/* 스토리 */}
       {tab==="story" && (
         <div style={{paddingBottom:20}}>
+          {/* 새로고침 바 */}
+          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-end"}}>
+            <button onClick={()=>refreshContent("story")} disabled={isRefreshing}
+              style={{background:isRefreshing?"#f3f4f6":"linear-gradient(135deg,#ec4899,#a855f7)",color:isRefreshing?"#9ca3af":"white",border:"none",padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:isRefreshing?"default":"pointer",display:"flex",alignItems:"center",gap:4}}>
+              <span style={{display:"inline-block",animation:isRefreshing?"spin 1s linear infinite":"none"}}>🔄</span> {isRefreshing?"불러오는 중...":"새로고침"}
+            </button>
+          </div>
           {/* 숨겨진 파일 인풋 */}
           <input ref={storyFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
             const file=e.target.files[0]; if(!file) return;
@@ -2206,7 +2340,10 @@ export default function App() {
               <button onClick={()=>{
                 if(myPets.length===0||storyPetSel===null) return;
                 const pet=myPets[storyPetSel];
-                setMyStories(ss=>[...ss,{petName:pet.name,petIcon:"🐾",img:storyImg,content:storyContent,by:user?.name,time:"방금 전",isMine:true}]);
+                const newStory = {id:Date.now(),petName:pet.name,petIcon:"🐾",img:storyImg,content:storyContent,by:user?.name,time:"방금 전",isMine:true,ts:Date.now()};
+                setMyStories(ss=>[...ss,newStory]);
+                // Firestore 공유 컬렉션에 저장 (이미지 제외)
+                addDoc(collection(db,"communityStories"),{...newStory, img:"[img]", uid:user?.uid}).catch(()=>{});
                 setPointLog(l=>[{icon:"📸",label:"스토리 업로드",pt:5,type:"earn",date:"방금 전"},...l]);
                 setPoints(p=>p+5);
                 setIsAddStory(false);
@@ -2249,6 +2386,13 @@ export default function App() {
       {/* 모임 */}
       {tab==="meeting" && meetingView==="list" && (
         <div style={{paddingBottom:20}}>
+          {/* 새로고침 바 */}
+          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-end"}}>
+            <button onClick={()=>refreshContent("meeting")} disabled={isRefreshing}
+              style={{background:isRefreshing?"#f3f4f6":"linear-gradient(135deg,#ec4899,#a855f7)",color:isRefreshing?"#9ca3af":"white",border:"none",padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:isRefreshing?"default":"pointer",display:"flex",alignItems:"center",gap:4}}>
+              <span style={{display:"inline-block",animation:isRefreshing?"spin 1s linear infinite":"none"}}>🔄</span> {isRefreshing?"불러오는 중...":"새로고침"}
+            </button>
+          </div>
           {/* 검색 영역 */}
           <div style={{padding:"14px 16px",background:"white",borderBottom:"1px solid #f3f4f6"}}>
             <div style={{display:"flex",gap:8,marginBottom:8}}>
@@ -2426,6 +2570,8 @@ export default function App() {
                   members:[{name:user?.name,role:"운영자",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
                   greetings:[],board:[],photos:[],votes:[],chats:[],pending:[],myJoined:true};
                 setMeetings(ms=>[nm,...ms]);
+                // Firestore 공유 컬렉션에 저장
+                addDoc(collection(db,"communityMeetings"),{...nm, ts:Date.now(), uid:user?.uid}).catch(()=>{});
                 setIsCreateMeeting(false);
                 setNewMeetForm({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10});
               }} disabled={!newMeetForm.title.trim()||!newMeetForm.desc.trim()}
@@ -2894,6 +3040,8 @@ export default function App() {
                   likes:[], comments:[]
                 };
                 setPosts(ps=>[newPost,...ps]);
+                // Firestore 공유 컬렉션에 저장
+                addDoc(collection(db,"communityPosts"),{...newPost, imgs:[], uid:user?.uid}).catch(()=>{});
                 setPoints(p=>p-WRITE_COST);
                 setPointLog(l=>[{icon:catInfo?.icon||"📝",label:`${catInfo?.label||"글"} 등록`,pt:-WRITE_COST,type:"use",date:"방금 전"},...l]);
                 setIsWritePost(false);
@@ -3219,7 +3367,7 @@ export default function App() {
       {tab!=="chat" && (
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
           {[["home","🏠","홈"],["community","🧡","라운지"],["story","📸","스토리"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
-            <button key={id} onClick={() => setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+            <button key={id} onClick={() => { setTab(id); if(["community","story","meeting"].includes(id)) refreshContent(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
               <span style={{fontSize:10,fontWeight:700,color:tab===id?"#ec4899":"#9ca3af"}}>{label}</span>
               {id==="messages" && matches.length>0 && <span style={{position:"absolute",width:6,height:6,background:"#ef4444",borderRadius:"50%",marginTop:-14,marginLeft:18}} />}
