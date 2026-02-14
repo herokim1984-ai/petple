@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { auth, db, googleProvider } from "./firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp, onSnapshot } from "firebase/firestore";
 
 
 const LOUNGE_CATS = [
@@ -134,10 +134,7 @@ export default function App() {
   // 나를 좋아한 사람 보기
   const [showSecretLikes, setShowSecretLikes] = useState(false);
   const [secretLikesUnlocked, setSecretLikesUnlocked] = useState(false);
-  // 산책 데이트 신청
-  const [walkDateModal, setWalkDateModal] = useState(null);
-  const [walkDateForm, setWalkDateForm] = useState({date:"",time:"",place:""});
-  const [walkDateSent, setWalkDateSent] = useState(new Set());
+  // (산책 데이트 기능 제거됨)
 
   // 로그인 옵션
   const [saveEmail,  setSaveEmail]  = useState(false);
@@ -180,7 +177,12 @@ export default function App() {
 
   // 상대방 프로필 모달
   const [viewUserProfile, setViewUserProfile] = useState(null);
-  const [photoViewer, setPhotoViewer] = useState(null); // {photos:[], idx:0} // {name, img, bio, pets:[]}
+  const [photoViewer, setPhotoViewer] = useState(null); // {photos:[], idx:0}
+  const postsRef = React.useRef([]);
+  const storiesRef = React.useRef([]);
+  React.useEffect(()=>{postsRef.current=posts;},[posts]);
+  React.useEffect(()=>{storiesRef.current=myStories;},[myStories]);
+  const [authorPhotoCache, setAuthorPhotoCache] = useState({}); // uid -> photoUrl // {name, img, bio, pets:[]}
 
   // 위치
   const [userLocation,    setUserLocation]    = useState("인천 연수구");
@@ -228,7 +230,7 @@ export default function App() {
   const [meetings,       setMeetings]       = useState(INIT_MEETINGS);
   const [meetingView,    setMeetingView]    = useState("list"); // "list" | "detail"
   const [selectedMeeting,setSelectedMeeting]= useState(null);
-  const [meetingTab,     setMeetingTab]     = useState("members");
+  const [meetingTab,     setMeetingTab]     = useState("home");
   const [meetingMode,    setMeetingMode]    = useState("all"); // "all" | "mine"
   const [meetSearch,     setMeetSearch]     = useState({name:"",city:"",district:"",animal:""});
   // 모임 내부 입력
@@ -241,12 +243,12 @@ export default function App() {
   const [mGreetVal,      setMGreetVal]      = useState("");
   const [mPhotoFile,     setMPhotoFile]     = useState(null);
   const [isCreateMeeting, setIsCreateMeeting] = useState(false);
-  const [newMeetForm, setNewMeetForm] = useState({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10});
+  const [newMeetForm, setNewMeetForm] = useState({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10,coverImg:null});
   const mPhotoRef = useRef(null);
   const chatEndRef = useRef(null);
   const [showAlarm, setShowAlarm] = useState(false);
   const [showAlarmSettings, setShowAlarmSettings] = useState(false);
-  const [alarmSettings, setAlarmSettings] = useState({match:true,message:true,community:true,meeting:true,walkDate:true,marketing:false});
+  const [alarmSettings, setAlarmSettings] = useState({match:true,message:true,community:true,meeting:true,marketing:false});
   const [showPoints, setShowPoints] = useState(false);
   const [payModal,   setPayModal]   = useState(null); // {type:"point"|"sub", pkg:{...}}
   const [payMethod,  setPayMethod]  = useState(null);
@@ -291,6 +293,28 @@ export default function App() {
     img.src = dataUrl;
   });
 
+  // ── Firestore 게시글/스토리 동기화 헬퍼 ──
+  // Firestore 즉시 동기화 - ref에서 항상 최신 _fid 탐색
+  const syncPostToFirestore = (postId, data) => {
+    const p = postsRef.current.find(x=>x.id===postId);
+    const fid = p?._fid;
+    if (!fid) { console.warn("syncPost: no _fid for",postId); return; }
+    updateDoc(doc(db,"communityPosts",fid),{
+      likes: data.likes||[],
+      comments: (data.comments||[]).map(c=>({...c, byImg:null, replies:(c.replies||[]).map(r=>({...r,byImg:null}))})),
+    }).catch(e=>console.error("Post sync error:",e));
+  };
+
+  const syncStoryToFirestore = (storyId, data) => {
+    const s = storiesRef.current.find(x=>x.id===storyId);
+    const fid = s?._fid;
+    if (!fid) { console.warn("syncStory: no _fid for",storyId); return; }
+    updateDoc(doc(db,"communityStories",fid),{
+      likes: data.likes||[],
+      comments: (data.comments||[]).map(c=>({...c,byImg:null})),
+    }).catch(e=>console.error("Story sync error:",e));
+  };
+
   // ── 상대방 프로필 Firestore 조회 ──
   const openProfile = async (name, fallbackImg) => {
     // 먼저 기본 정보로 즉시 표시
@@ -301,11 +325,16 @@ export default function App() {
       if (!snap.empty) {
         const d = snap.docs[0].data();
         const photos = (d.profilePhotos||[]).filter(p=>p&&p!=="[img]");
-        const pets = (d.myPets||[]).map(p=>({
-          name:p.name, type:p.type||"", breed:p.breed||"", age:p.age||"",
-          gender:p.gender||"", traits:p.personality?p.personality.split(","):[],
-          img:(p.photo&&p.photo!=="[img]")?p.photo:null,
-        }));
+        const pets = (d.myPets||[]).map(p=>{
+          const petPhotos = (p.photos||[]).filter(x=>x&&x!=="[img]");
+          const repPhoto = petPhotos[p.repIdx||0] || petPhotos[0] || null;
+          return {
+            name:p.name||"", type:p.type||"", breed:p.breed||"", 
+            birth:p.birth||"", age:p.age||"", gender:p.gender||"",
+            food:p.food||"", traits:p.traits||[],
+            img:repPhoto, photos:petPhotos,
+          };
+        });
         setViewUserProfile({
           name:d.nick||name, img:photos[0]||fallbackImg,
           photos, location:d.userLocation||d.region||"",
@@ -330,20 +359,20 @@ export default function App() {
         const pets = data.myPets || [];
         const photo = (data.profilePhotos || []).find(p => p && p !== "[img]") || null;
         const defaultImg = "https://ui-avatars.com/api/?name=" + encodeURIComponent(data.nick) + "&background=fce7f3&color=ec4899&size=400";
+        const petDefaultImg = "https://ui-avatars.com/api/?name=🐾&background=fce7f3&color=ec4899&size=400";
         if (pets.length > 0) {
           pets.forEach((pet, pi) => {
-            const petImg = (pet.photo && pet.photo !== "[img]") ? pet.photo : defaultImg;
+            const petImg = (pet.photo && pet.photo !== "[img]") ? pet.photo : petDefaultImg;
             otherUsers.push({
               id: d.id + "_" + pi,
               name: pet.name || data.nick + "의 반려동물",
               img: petImg,
-              imgs: [petImg, photo].filter(Boolean),
+              imgs: [petImg].filter(Boolean),
               breed: pet.breed || "믹스",
               age: pet.age ? Number(pet.age) : 1,
               gender: pet.gender || "미정",
               tags: data.interests || [],
               bio: data.profileBio || pet.name + "와 함께해요 🐾",
-              score: (Math.random() * 2 + 3).toFixed(1),
               dist: (Math.random() * 8 + 0.5).toFixed(1) + "km",
               location: data.userLocation || data.region || "근처",
               owner: data.nick,
@@ -360,14 +389,13 @@ export default function App() {
           otherUsers.push({
             id: d.id + "_0",
             name: data.nick,
-            img: photo || defaultImg,
-            imgs: photo ? [photo] : [defaultImg],
+            img: petDefaultImg,
+            imgs: [petDefaultImg],
             breed: "",
             age: 0,
             gender: "",
             tags: data.interests || [],
             bio: data.profileBio || "안녕하세요! 🐾",
-            score: (Math.random() * 2 + 3).toFixed(1),
             dist: (Math.random() * 8 + 0.5).toFixed(1) + "km",
             location: data.userLocation || data.region || "근처",
             owner: data.nick,
@@ -401,8 +429,39 @@ export default function App() {
         if (!snap.empty) {
           const serverPosts = snap.docs.map(d => ({...d.data(), _fid: d.id}));
           setPosts(prev => {
-            const localOnly = prev.filter(p => !serverPosts.some(sp => sp.id === p.id));
-            return [...localOnly, ...serverPosts].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
+            // 서버 데이터가 진짜 소스. 서버에 없는 로컬 전용(방금 작성, 아직 _fid 없는)만 보존
+            const localOnly = prev.filter(p => !p._fid && !serverPosts.some(sp => sp.id === p.id));
+            // 로컬 이미지 복원
+            // localStorage 이미지 캐시에서 복원
+            let imgCache = {};
+            try { imgCache = JSON.parse(localStorage.getItem("petple_imgcache_"+user.uid)||"{}"); } catch(e){}
+            // byImg가 없는 글의 작성자 uid 수집 → 프로필 사진 로드
+            const missingUids = new Set();
+            const merged = serverPosts.map(sp => {
+              const local = prev.find(lp => lp.id === sp.id || lp._fid === sp._fid);
+              let imgs = sp.imgs||[];
+              imgs = imgs.map((img,i) => (img==="[img]" && imgCache["post_"+sp.id+"_"+i]) ? imgCache["post_"+sp.id+"_"+i] : (img==="[img]" && local?.imgs?.[i] && local.imgs[i]!=="[img]") ? local.imgs[i] : img);
+              const byImg = sp.byImg||local?.byImg;
+              if(!byImg && sp.uid) missingUids.add(sp.uid);
+              // 로컬 좋아요/댓글이 서버보다 많으면 로컬 우선 (동기화 지연 대응)
+              const likes = (local?.likes?.length||0) >= (sp.likes?.length||0) ? (local?.likes||sp.likes||[]) : (sp.likes||[]);
+              const comments = (local?.comments?.length||0) >= (sp.comments?.length||0) ? (local?.comments||sp.comments||[]) : (sp.comments||[]);
+              return {...sp, imgs, byImg, likes, comments};
+            });
+            // 캐시에 없는 작성자 프로필 사진 로드
+            if(missingUids.size > 0) {
+              missingUids.forEach(async uid => {
+                if(authorPhotoCache[uid]) return;
+                try {
+                  const uDoc = await getDoc(doc(db,"users",uid));
+                  if(uDoc.exists()){
+                    const ph = (uDoc.data().profilePhotos||[]).find(p=>p&&p!=="[img]");
+                    if(ph) setAuthorPhotoCache(c=>({...c,[uid]:ph}));
+                  }
+                } catch(e){}
+              });
+            }
+            return [...localOnly, ...merged].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
           });
         }
       }
@@ -412,8 +471,22 @@ export default function App() {
         if (!snap.empty) {
           const serverStories = snap.docs.map(d => ({...d.data(), _fid: d.id}));
           setMyStories(prev => {
-            const localOnly = prev.filter(s => !serverStories.some(ss => ss.id === s.id));
-            return [...serverStories, ...localOnly].slice(0,50);
+            const localOnly = prev.filter(s => !s._fid && !serverStories.some(ss => ss.id === s.id));
+            let imgCacheS = {};
+            try { imgCacheS = JSON.parse(localStorage.getItem("petple_imgcache_"+user.uid)||"{}"); } catch(e){}
+            const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+            const now = Date.now();
+            const merged = serverStories
+              .filter(ss => (now - (ss.ts||0)) < TWELVE_HOURS)
+              .map(ss => {
+                const local = prev.find(ls => ls.id === ss.id || ls._fid === ss._fid);
+                let img = ss.img;
+                if (img === "[img]") img = imgCacheS["story_"+ss.id] || local?.img || img;
+                const likes = (local?.likes?.length||0) >= (ss.likes?.length||0) ? (local?.likes||ss.likes||[]) : (ss.likes||[]);
+                const comments = (local?.comments?.length||0) >= (ss.comments?.length||0) ? (local?.comments||ss.comments||[]) : (ss.comments||[]);
+                return {...ss, img, byImg: ss.byImg||local?.byImg, likes, comments};
+              });
+            return [...localOnly, ...merged].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,50);
           });
         }
       }
@@ -423,8 +496,8 @@ export default function App() {
         if (!snap.empty) {
           const serverMeetings = snap.docs.map(d => ({...d.data(), _fid: d.id}));
           setMeetings(prev => {
-            const localOnly = prev.filter(m => !serverMeetings.some(sm => sm.id === m.id));
-            return [...serverMeetings, ...localOnly].slice(0,50);
+            const localOnly = prev.filter(m => !m._fid && !serverMeetings.some(sm => sm.id === m.id));
+            return [...localOnly, ...serverMeetings].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,50);
           });
         }
       }
@@ -490,16 +563,8 @@ export default function App() {
             if (data.profilePhotos) setProfilePhotos(data.profilePhotos.map(p=>p==="[img]"?null:p));
             if (typeof data.profileRepIdx === "number") setProfileRepIdx(data.profileRepIdx);
             if (data.myPets) setMyPets(data.myPets);
-            if (data.myStories) setMyStories(data.myStories);
-            if (data.posts) setPosts(data.posts);
-            // localStorage에서 이미지 복원
-            try {
-              const cached = JSON.parse(localStorage.getItem("petple_imgcache_"+firebaseUser.uid)||"{}");
-              if(Object.keys(cached).length > 0) {
-                if(data.myStories) setMyStories(ss=>ss.map(s=>({...s,img:(s.img==="[img]"&&cached["story_"+s.id])?cached["story_"+s.id]:s.img})));
-                if(data.posts) setPosts(ps=>ps.map(p=>({...p,imgs:(p.imgs||[]).map((img,i)=>(img==="[img]"&&cached["post_"+p.id+"_"+i])?cached["post_"+p.id+"_"+i]:img)})));
-              }
-            } catch(e) {}
+            // posts/stories는 공유 컬렉션에서 로드 (refreshContent에서 처리)
+            // user doc에 있던 옛 데이터는 무시
             if (data.matches) setMatches(data.matches);
             if (data.liked) setLiked(data.liked);
             if (data.userLocation) setUserLocation(data.userLocation);
@@ -539,6 +604,18 @@ export default function App() {
         detectLocation();
         // 다른 유저 + 커뮤니티 콘텐츠 자동 로드 (약간 딜레이)
         setTimeout(() => { loadNearbyUsers(); refreshContent("all"); }, 500);
+        // 전체 유저 프로필 사진 캐시 (글 목록 아바타용)
+        setTimeout(async()=>{
+          try{
+            const usnap=await getDocs(query(collection(db,"users"),fbLimit(100)));
+            const cache={};
+            usnap.docs.forEach(d=>{
+              const ph=(d.data().profilePhotos||[]).find(p=>p&&p!=="[img]"&&!p.startsWith?.("data:"));
+              if(ph) cache[d.id]=ph;
+            });
+            if(Object.keys(cache).length>0) setAuthorPhotoCache(c=>({...c,...cache}));
+          }catch(e){}
+        },1200);
         // 알림 로드
         setTimeout(async () => {
           try {
@@ -572,18 +649,15 @@ export default function App() {
   useEffect(() => {
     if (!user?.uid || !loggedIn) return;
     const timer = setTimeout(() => {
-      // base64 이미지 제거 (Firestore 1MB 제한 대응) + localStorage 캐시
-      // 이미지를 localStorage에 별도 보관
+      // 공유 컬렉션이 진짜 소스 → user doc에는 매칭/설정만 저장
+      // localStorage에 이미지 캐시 (빠른 로컬 복원용)
       try {
         const imgCache = {};
         myStories.forEach(s => { if(s.img && s.img.startsWith?.("data:")) imgCache["story_"+s.id] = s.img; });
         posts.forEach(p => { (p.imgs||[]).forEach((img,i) => { if(img && img.startsWith?.("data:")) imgCache["post_"+p.id+"_"+i] = img; }); });
         if(Object.keys(imgCache).length > 0) localStorage.setItem("petple_imgcache_"+user.uid, JSON.stringify(imgCache));
       } catch(e){}
-      const cleanPosts = posts.slice(0, 30).map(p => ({...p, imgs: (p.imgs||[]).map(img => img && img.startsWith?.("data:") ? "[img]" : img)}));
-      const cleanStories = myStories.slice(0, 20).map(s => ({...s, img: s.img && s.img.startsWith?.("data:") ? "[img]" : s.img}));
       updateDoc(doc(db, "users", user.uid), {
-        posts: cleanPosts, myStories: cleanStories,
         matches, liked, receivedLikes,
         userLocation, isBoosted, alarmSettings, recoSettings,
       }).catch(e => console.error("Firestore sync error:", e));
@@ -729,7 +803,6 @@ export default function App() {
 
   // 채팅
   function openChat(p) {
-    // 새 대화 개설 비용: 10p (이미 대화한 상대는 무료)
     if (!chatOpened.has(p.id)) {
       if (points < 10) {
         alert("새 대화를 시작하려면 🐾 10p가 필요해요!\n현재 보유: " + points + "p");
@@ -740,20 +813,78 @@ export default function App() {
       setChatOpened(s => new Set([...s, p.id]));
     }
     setChatPet(p);
-    setMsgs([{ id:1, me:false, text:`안녕하세요! 저 ${p.name}이에요 🐾 반갑습니다!` }]);
+    // Firestore 실시간 채팅 로드
+    const chatRoomId = [user.uid, p.uid].sort().join("_");
+    setChatRoomId(chatRoomId);
+    setChatMenu(false);
+    loadChatMessages(chatRoomId);
     setTab("chat");
   }
+
+  const [chatRoomId, setChatRoomId] = useState(null);
+  const [chatMenu, setChatMenu] = useState(false);
+  const chatPollRef = React.useRef(null);
+
+  async function loadChatMessages(roomId) {
+    try {
+      const q = query(collection(db, "chatRooms", roomId, "messages"), orderBy("ts","asc"), fbLimit(100));
+      const snap = await getDocs(q);
+      const loaded = snap.docs.map(d => ({id:d.id, ...d.data(), me: d.data().uid === user?.uid}));
+      setMsgs(loaded.length > 0 ? loaded : [{id:"welcome",me:false,text:"매칭되었어요! 🎉 대화를 시작해보세요."}]);
+      // 상대 메시지 읽음 처리
+      snap.docs.forEach(d=>{
+        const data=d.data();
+        if(data.uid!==user?.uid && !(data.readBy||[]).includes(user?.uid)){
+          updateDoc(doc(db,"chatRooms",roomId,"messages",d.id),{readBy:[...(data.readBy||[]),user?.uid]}).catch(()=>{});
+        }
+      });
+    } catch(e) {
+      setMsgs([{id:"welcome",me:false,text:"매칭되었어요! 🎉 대화를 시작해보세요."}]);
+    }
+    // 3초마다 새 메시지 폴링 + 읽음 갱신
+    if(chatPollRef.current) clearInterval(chatPollRef.current);
+    chatPollRef.current = setInterval(async()=>{
+      try {
+        const q2 = query(collection(db,"chatRooms",roomId,"messages"),orderBy("ts","asc"),fbLimit(100));
+        const snap2 = await getDocs(q2);
+        const msgs2 = snap2.docs.map(d=>({id:d.id,...d.data(),me:d.data().uid===user?.uid}));
+        if(msgs2.length>0) setMsgs(msgs2);
+        // 상대 메시지 읽음 처리
+        snap2.docs.forEach(d=>{
+          const data=d.data();
+          if(data.uid!==user?.uid && !(data.readBy||[]).includes(user?.uid)){
+            updateDoc(doc(db,"chatRooms",roomId,"messages",d.id),{readBy:[...(data.readBy||[]),user?.uid]}).catch(()=>{});
+          }
+        });
+      } catch(e){}
+    }, 3000);
+  }
+
+  // 채팅 탭 벗어나면 폴링 중지
+  React.useEffect(()=>{
+    if(tab!=="chat" && chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}
+    return ()=>{if(chatPollRef.current)clearInterval(chatPollRef.current);};
+  },[tab]);
+
   function sendMsg() {
-    if (!msgVal.trim()) return;
-    setMsgs(m => [...m, { id:m.length+1, me:true,  text:msgVal }]);
+    if (!msgVal.trim() || !chatRoomId) return;
+    const msg = {uid:user?.uid, by:user?.name, text:msgVal.trim(), ts:Date.now(), readBy:[user?.uid]};
+    setMsgs(m => [...m, {...msg, id:Date.now(), me:true}]);
     setMsgVal("");
-    // 첫 대화 포인트
+    // Firestore에 저장
+    addDoc(collection(db,"chatRooms",chatRoomId,"messages"), msg).catch(()=>{});
+    // 채팅방 메타 업데이트
+    setDoc(doc(db,"chatRooms",chatRoomId),{
+      users:[user?.uid, chatPet?.uid].filter(Boolean),
+      lastMsg:msgVal.trim().slice(0,50),
+      lastTs:Date.now(),
+      names:{[user?.uid]:user?.name, [chatPet?.uid||"?"]:chatPet?.owner||chatPet?.name},
+    },{merge:true}).catch(()=>{});
     if (!firstChatDone) {
       setFirstChatDone(true);
       setPoints(p=>p+10);
       setPointLog(l=>[{icon:"💬",label:"첫 대화 시작",pt:10,type:"earn",date:"방금 전"},...l]);
     }
-    setTimeout(() => setMsgs(m => [...m, { id:m.length+1, me:false, text:"앗 정말요? 저희 같이 산책해요! 🐕" }]), 900);
   }
 
   async function logout() {
@@ -1029,12 +1160,12 @@ export default function App() {
         {tab==="chat" ? (
           <>
             <button onClick={() => setTab("messages")} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,lineHeight:1,padding:4}}>←</button>
-            <div onClick={()=>setViewUserProfile({name:chatPet?.name,img:chatPet?.img,location:chatPet?.location||"인천 연수구",bio:chatPet?.bio||"",pets:chatPet ? [{name:chatPet.name,type:"강아지",breed:chatPet.breed||chatPet.type||"",img:chatPet.img,gender:chatPet.gender,traits:chatPet.tags||[]}] : []})}
+            <div onClick={()=>openProfile(chatPet?.owner||chatPet?.name, chatPet?.img)}
               style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
               <img src={chatPet?.img} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover"}}/>
               <div><p style={{margin:0,fontWeight:700,fontSize:15}}>{chatPet?.name}</p><p style={{margin:0,fontSize:11,color:"#10b981"}}>온라인</p></div>
             </div>
-            <div style={{width:36}} />
+            <button onClick={()=>setChatMenu(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,padding:4}}>⋮</button>
           </>
         ) : (
           <>
@@ -1416,7 +1547,7 @@ export default function App() {
                     {key:"message",icon:"💬",label:"메시지 알림",desc:"새 대화, 채팅"},
                     {key:"community",icon:"🧡",label:"라운지 알림",desc:"댓글, 좋아요, 대댓글"},
                     {key:"meeting",icon:"🏃",label:"모임 알림",desc:"가입 승인, 새 글"},
-                    {key:"walkDate",icon:"🐾",label:"산책 데이트 알림",desc:"산책 신청, 수락"},
+                    
                     {key:"marketing",icon:"📢",label:"이벤트/마케팅 알림",desc:"혜택, 이벤트 소식"},
                   ].map(item=>(
                     <div key={item.key} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 12px",borderRadius:14,background:alarmSettings[item.key]?"#fdf2f8":"#f9fafb"}}>
@@ -1619,7 +1750,7 @@ export default function App() {
                 </div>
               )}
               <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.7))",pointerEvents:"none"}} />
-              <div style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.92)",backdropFilter:"blur(6px)",padding:"5px 11px",borderRadius:20,fontSize:13,fontWeight:700}}>⭐ {pet.score}</div>
+
               <div style={{position:"absolute",bottom:14,left:14,color:"white"}}>
                 <h2 style={{margin:"0 0 2px",fontSize:24,fontWeight:800,textShadow:"0 1px 4px rgba(0,0,0,.3)"}}>{pet.name}</h2>
                 <p style={{margin:0,fontSize:14,textShadow:"0 1px 3px rgba(0,0,0,.3)"}}>{pet.breed} · {pet.age}살 · {pet.gender}</p>
@@ -1760,7 +1891,7 @@ export default function App() {
                     style={{background:"white",borderRadius:18,padding:16,marginBottom:10,boxShadow:"0 2px 8px rgba(0,0,0,.05)",cursor:"pointer"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                       <div onClick={openAuthorProfile} style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#fce7f3,#ede9fe)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,cursor:"pointer",overflow:"hidden"}}>
-                        {p.byImg ? <img src={p.byImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : p.by?.[0]||"🐾"}
+                        {(p.byImg||authorPhotoCache[p.uid]) ? <img src={p.byImg||authorPhotoCache[p.uid]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : p.by?.[0]||"🐾"}
                       </div>
                       <div style={{flex:1}}>
                         <p onClick={openAuthorProfile} style={{margin:0,fontWeight:700,fontSize:13,cursor:"pointer",display:"inline-block"}}>{p.by}</p>
@@ -1805,13 +1936,13 @@ export default function App() {
         const isLiked = post.likes.includes(user?.name);
 
         const addLike = () => {
-          setPosts(ps => ps.map(p => p.id===post.id
-            ? {...p, likes: isLiked ? p.likes.filter(n=>n!==user?.name) : [...p.likes, user?.name]}
-            : p));
-          setSelectedPost(p => ({...p, likes: isLiked ? p.likes.filter(n=>n!==user?.name) : [...p.likes, user?.name]}));
+          const newLikes = isLiked ? post.likes.filter(n=>n!==user?.name) : [...post.likes, user?.name];
+          setPosts(ps => ps.map(p => p.id===post.id ? {...p, likes: newLikes} : p));
+          setSelectedPost(p => ({...p, likes: newLikes}));
+          // Firestore 즉시 동기화
+          syncPostToFirestore(post.id, {likes:newLikes, comments:post.comments});
           if (!isLiked && post.by !== user?.name) {
             setAlarms(a=>[{id:Date.now(),icon:"❤️",text:`${user?.name}님이 회원님의 글에 좋아요를 눌렀어요`,time:"방금 전",unread:true},...a]);
-            // 상대방에게 알림 저장
             if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"like",from:user?.name,postId:post.id,text:"회원님의 글에 좋아요를 눌렀어요 ❤️",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
         };
@@ -1819,8 +1950,11 @@ export default function App() {
         const addComment = () => {
           if (!commentVal.trim()) return;
           const newC = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:commentVal.trim(),time:"방금 전",likes:[],replies:[]};
-          setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:[...p.comments,newC]} : p));
-          setSelectedPost(p=>({...p,comments:[...p.comments,newC]}));
+          const updatedComments = [...post.comments, newC];
+          setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
+          setSelectedPost(p=>({...p,comments:updatedComments}));
+          // Firestore 즉시 동기화
+          syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
           setCommentVal("");
           if (post.by !== user?.name) {
             setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${commentVal.trim().slice(0,20)}..."`,time:"방금 전",unread:true},...a]);
@@ -1832,8 +1966,10 @@ export default function App() {
           if (!replyVal.trim()) return;
           const newR = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:"방금 전"};
           const updateComments = cs => cs.map(c => c.id===commentId ? {...c,replies:[...c.replies,newR]} : c);
-          setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updateComments(p.comments)} : p));
-          setSelectedPost(p=>({...p,comments:updateComments(p.comments)}));
+          const updatedComments = updateComments(post.comments);
+          setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
+          setSelectedPost(p=>({...p,comments:updatedComments}));
+          syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
           const comment = post.comments.find(c=>c.id===commentId);
           setReplyTarget(null); setReplyVal("");
           if (comment && comment.by !== user?.name) {
@@ -1845,8 +1981,10 @@ export default function App() {
           const updateCs = cs => cs.map(c => c.id===commentId
             ? {...c, likes: c.likes.includes(user?.name) ? c.likes.filter(n=>n!==user?.name) : [...c.likes,user?.name]}
             : c);
-          setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updateCs(p.comments)} : p));
-          setSelectedPost(p=>({...p,comments:updateCs(p.comments)}));
+          const updatedComments = updateCs(post.comments);
+          setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
+          setSelectedPost(p=>({...p,comments:updatedComments}));
+          syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
         };
 
         return (
@@ -1862,7 +2000,7 @@ export default function App() {
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                 <div onClick={()=>openProfile(post.by, post.byImg)}
                   style={{width:42,height:42,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"white",fontWeight:700,cursor:"pointer",overflow:"hidden"}}>
-                  {post.byImg ? <img src={post.byImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : post.by?.[0]||"🐾"}
+                  {(post.byImg||authorPhotoCache[post.uid]) ? <img src={post.byImg||authorPhotoCache[post.uid]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : post.by?.[0]||"🐾"}
                 </div>
                 <div style={{flex:1,cursor:"pointer"}} onClick={()=>openProfile(post.by, post.byImg)}>
                   <p style={{margin:0,fontWeight:700,fontSize:14}}>{post.by}</p>
@@ -2056,16 +2194,7 @@ export default function App() {
                     <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15}}>{m.name}</p>
                     <p style={{margin:0,color:"#9ca3af",fontSize:13}}>새로운 매칭 🎉</p>
                   </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-                    {walkDateSent.has(m.id) ? (
-                      <span style={{fontSize:11,color:"#10b981",fontWeight:600}}>🐾 산책 신청됨</span>
-                    ) : (
-                      <button onClick={(e)=>{e.stopPropagation();setWalkDateModal(m);setWalkDateForm({date:"",time:"",place:""});}}
-                        style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"white",border:"none",padding:"5px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
-                        🐾 산책 데이트
-                      </button>
-                    )}
-                  </div>
+
                 </div>
                 );
               })}
@@ -2129,18 +2258,31 @@ export default function App() {
       {/* 채팅 */}
       {tab==="chat" && (
         <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 65px)"}}>
+          {/* 채팅 메뉴 */}
+          {chatMenu && (
+            <div style={{position:"fixed",inset:0,zIndex:50}} onClick={()=>setChatMenu(false)}>
+              <div style={{position:"absolute",top:55,right:12,background:"white",borderRadius:14,boxShadow:"0 8px 30px rgba(0,0,0,.15)",overflow:"hidden",minWidth:160}}>
+                <button onClick={(e)=>{e.stopPropagation();setChatMenu(false);openProfile(chatPet?.owner||chatPet?.name,chatPet?.img);}} style={{display:"block",width:"100%",padding:"12px 16px",border:"none",background:"white",cursor:"pointer",fontSize:13,fontWeight:600,textAlign:"left",color:"#374151"}}>👤 프로필 보기</button>
+                <button onClick={(e)=>{e.stopPropagation();setChatMenu(false);if(!confirm("대화방을 나가시겠어요? 대화 기록이 삭제됩니다."))return;if(chatRoomId){deleteDoc(doc(db,"chatRooms",chatRoomId)).catch(()=>{});}setMatches(ms=>ms.filter(x=>x.uid!==chatPet?.uid&&x.name!==chatPet?.name));setChatPet(null);setChatRoomId(null);setTab("messages");alert("대화방에서 나갔습니다.");}}
+                  style={{display:"block",width:"100%",padding:"12px 16px",border:"none",background:"white",cursor:"pointer",fontSize:13,fontWeight:600,textAlign:"left",color:"#ef4444",borderTop:"1px solid #f3f4f6"}}>🚪 대화방 나가기</button>
+              </div>
+            </div>
+          )}
           <div style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
-            {msgs.map(m => (
-              <div key={m.id} style={{display:"flex",justifyContent:m.me?"flex-end":"flex-start",alignItems:"flex-end",gap:8}}>
-                {!m.me && <img onClick={()=>{const pd=nearbyPets.find(p=>p.owner===chatPet?.name||p.name===chatPet?.name);setViewUserProfile({name:chatPet?.name,img:chatPet?.img,location:pd?.location||"인천 연수구",bio:pd?.bio||"",pets:pd?[{name:pd.name,type:"강아지",breed:pd.breed,img:pd.img,gender:pd.gender,traits:pd.tags}]:[]});}} src={chatPet?.img} alt="" style={{width:30,height:30,borderRadius:"50%",objectFit:"cover",cursor:"pointer",flexShrink:0}} />}
-                <div style={{maxWidth:"72%",padding:"10px 14px",borderRadius:m.me?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.me?G:"white",color:m.me?"white":"#1f2937",fontSize:14,boxShadow:"0 2px 8px rgba(0,0,0,.07)",lineHeight:1.5}}>
-                  {m.text}
+            {msgs.map((m,mi) => (
+              <div key={m.id||mi} style={{display:"flex",flexDirection:"column",alignItems:m.me?"flex-end":"flex-start"}}>
+                <div style={{display:"flex",alignItems:m.me?"flex-end":"flex-start",gap:8,maxWidth:"80%"}}>
+                  {!m.me && <img onClick={()=>openProfile(chatPet?.owner||chatPet?.name,chatPet?.img)} src={chatPet?.img} alt="" style={{width:30,height:30,borderRadius:"50%",objectFit:"cover",cursor:"pointer",flexShrink:0}} />}
+                  <div style={{maxWidth:"100%",padding:"10px 14px",borderRadius:m.me?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.me?G:"white",color:m.me?"white":"#1f2937",fontSize:14,boxShadow:"0 2px 8px rgba(0,0,0,.07)",lineHeight:1.5}}>
+                    {m.text}
+                  </div>
                 </div>
+                {m.me && <span style={{fontSize:10,color:(m.readBy||[]).length>=2?"#3b82f6":"#d1d5db",marginTop:2,marginRight:4,fontWeight:600}}>{(m.readBy||[]).length>=2?"읽음":"전송됨"}</span>}
               </div>
             ))}
           </div>
           <div style={{padding:"12px 14px",background:"white",borderTop:"1px solid #f3f4f6",display:"flex",gap:10}}>
-            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyPress={e => e.key==="Enter"&&sendMsg()} placeholder="메시지를 입력하세요..."
+            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&sendMsg()} placeholder="메시지를 입력하세요..."
               style={{flex:1,padding:"10px 16px",border:"2px solid #f3f4f6",borderRadius:24,fontSize:14,outline:"none"}} />
             <button onClick={sendMsg} disabled={!msgVal.trim()}
               style={{width:44,height:44,background:G,border:"none",borderRadius:"50%",cursor:"pointer",color:"white",fontSize:18,opacity:msgVal.trim()?1:.4,display:"flex",alignItems:"center",justifyContent:"center"}}>➤</button>
@@ -2419,8 +2561,8 @@ export default function App() {
                 </div>
                 <p style={{margin:"4px 0 0",fontSize:11,color:"#374151",fontWeight:600,width:64,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>내 스토리</p>
               </div>
-              {/* 내가 올린 스토리들 */}
-              {myStories.map((s,i)=>(
+              {/* 내가 올린 스토리들 (12시간 이내) */}
+              {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000).map((s,i)=>(
                 <div key={i} onClick={()=>setViewStory(s)} style={{flexShrink:0,textAlign:"center",cursor:"pointer"}}>
                   <div style={{width:64,height:64,borderRadius:"50%",padding:2,boxSizing:"border-box",
                     background:`linear-gradient(135deg,#ec4899,#a855f7)`,overflow:"hidden"}}>
@@ -2454,7 +2596,7 @@ export default function App() {
             </div>
           )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,padding:"0 16px"}}>
-            {myStories.map(s=>({...s,isMine:true})).map((s,i)=>(
+            {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000).map(s=>({...s,isMine:true})).map((s,i)=>(
               <div key={i} onClick={()=>setViewStory(s)} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)",cursor:"pointer",position:"relative"}}>
                 <div style={{height:160,background:"#f3f4f6",overflow:"hidden"}}>
                   {s.img
@@ -2546,7 +2688,9 @@ export default function App() {
                 const newStory = {id:Date.now(),petName:pet.name,petIcon:"🐾",img:storyImg,content:storyContent,by:user?.name,byImg:profilePhotos[profileRepIdx]||null,uid:user?.uid,time:"방금 전",isMine:true,ts:Date.now(),likes:[],comments:[]};
                 setMyStories(ss=>[...ss,newStory]);
                 // Firestore 공유 컬렉션에 저장 (이미지 제외)
-                addDoc(collection(db,"communityStories"),{...newStory, img:"[img]", uid:user?.uid}).catch(()=>{});
+                addDoc(collection(db,"communityStories"),{...newStory, img:"[img]", uid:user?.uid}).then(ref=>{
+                  setMyStories(ss=>ss.map(s=>s.id===newStory.id?{...s,_fid:ref.id}:s));
+                }).catch(()=>{});
                 setPointLog(l=>[{icon:"📸",label:"스토리 업로드",pt:5,type:"earn",date:"방금 전"},...l]);
                 setPoints(p=>p+5);
                 setIsAddStory(false);
@@ -2567,14 +2711,17 @@ export default function App() {
           const newLikes = sLiked ? viewStory.likes.filter(n=>n!==user?.name) : [...(viewStory.likes||[]),user?.name];
           setViewStory(s=>({...s,likes:newLikes}));
           setMyStories(ss=>ss.map(s=>s.id===viewStory.id?{...s,likes:newLikes}:s));
+          syncStoryToFirestore(viewStory.id, {likes:newLikes, comments:viewStory.comments||[]});
         };
         const addStoryComment = (e) => {
           e.stopPropagation();
           const text = prompt("댓글을 입력하세요:");
           if (!text?.trim()) return;
           const nc = {id:Date.now(),by:user?.name,text:text.trim(),time:"방금 전"};
-          setViewStory(s=>({...s,comments:[...(s.comments||[]),nc]}));
-          setMyStories(ss=>ss.map(s=>s.id===viewStory.id?{...s,comments:[...(s.comments||[]),nc]}:s));
+          const updComments = [...(viewStory.comments||[]),nc];
+          setViewStory(s=>({...s,comments:updComments}));
+          setMyStories(ss=>ss.map(s=>s.id===viewStory.id?{...s,comments:updComments}:s));
+          syncStoryToFirestore(viewStory.id, {likes:viewStory.likes||[], comments:updComments});
         };
         return (
         <div onClick={()=>setViewStory(null)} style={{position:"fixed",inset:0,zIndex:70,background:"black",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
@@ -2763,6 +2910,15 @@ export default function App() {
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div>
+                <label style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:4,display:"block"}}>📸 모임 대표 사진</label>
+                <div onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const c=document.createElement("canvas");const sz=Math.min(img.width,img.height,600);c.width=sz;c.height=sz;const ctx=c.getContext("2d");ctx.drawImage(img,(img.width-sz)/2,(img.height-sz)/2,sz,sz,0,0,sz,sz);setNewMeetForm(f2=>({...f2,coverImg:c.toDataURL("image/jpeg",0.6)}));};img.src=ev.target.result;};r.readAsDataURL(f);};inp.click();}}
+                  style={{width:"100%",height:120,borderRadius:14,border:"2px dashed #e5e7eb",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#f9fafb",marginBottom:12}}>
+                  {newMeetForm.coverImg
+                    ? <img src={newMeetForm.coverImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    : <span style={{fontSize:13,color:"#9ca3af"}}>📷 탭하여 사진 추가</span>}
+                </div>
+              </div>
+              <div>
                 <label style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:4,display:"block"}}>모임 이름</label>
                 <input value={newMeetForm.title} onChange={e=>setNewMeetForm(f=>({...f,title:e.target.value}))} placeholder="모임 이름을 입력하세요"
                   style={{width:"100%",padding:"10px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:14,outline:"none",boxSizing:"border-box"}}/>
@@ -2803,14 +2959,16 @@ export default function App() {
               <button onClick={()=>{
                 if(!newMeetForm.title.trim()||!newMeetForm.desc.trim()) return;
                 const nm={id:Date.now(),title:newMeetForm.title.trim(),region:newMeetForm.city+" "+newMeetForm.district,animal:newMeetForm.animal,
-                  desc:newMeetForm.desc.trim(),max:newMeetForm.max,tags:[],
+                  desc:newMeetForm.desc.trim(),max:newMeetForm.max,tags:[],coverImg:newMeetForm.coverImg||null,homeContent:newMeetForm.desc.trim(),
                   members:[{name:user?.name,role:"운영자",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
                   greetings:[],board:[],photos:[],votes:[],chats:[],pending:[],myJoined:true};
                 setMeetings(ms=>[nm,...ms]);
                 // Firestore 공유 컬렉션에 저장
-                addDoc(collection(db,"communityMeetings"),{...nm, ts:Date.now(), uid:user?.uid}).catch(()=>{});
+                addDoc(collection(db,"communityMeetings"),{...nm, coverImg:null, ts:Date.now(), uid:user?.uid}).then(ref=>{
+                  setMeetings(ms=>ms.map(x=>x.id===nm.id?{...x,_fid:ref.id}:x));
+                }).catch(()=>{});
                 setIsCreateMeeting(false);
-                setNewMeetForm({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10});
+                setNewMeetForm({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10,coverImg:null});
               }} disabled={!newMeetForm.title.trim()||!newMeetForm.desc.trim()}
                 style={{background:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"#e5e7eb":G,color:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"#9ca3af":"white",border:"none",padding:"13px 0",borderRadius:14,fontWeight:700,fontSize:15,cursor:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"default":"pointer",marginTop:4}}>
                 모임 만들기
@@ -2826,18 +2984,26 @@ export default function App() {
         const isMember = m.myJoined || m.members.some(mb=>mb.name===user?.name);
         const isOwner  = m.members[0]?.name===user?.name;
         const MTABS = [
+          {key:"home",   label:"홈",icon:"🏠"},
           {key:"members",label:"멤버",icon:"👥"},
           {key:"greet",  label:"가입인사",icon:"👋"},
-          {key:"board",  label:"게시판",icon:"📋"},
-          {key:"photos", label:"사진첩",icon:"📸"},
-          {key:"vote",   label:"투표",icon:"🗳️"},
-          {key:"chat",   label:"채팅",icon:"💬"},
+          {key:"board",  label:"게시판",icon:"📋",memberOnly:true},
+          {key:"photos", label:"사진첩",icon:"📸",memberOnly:true},
+          {key:"vote",   label:"투표",icon:"🗳️",memberOnly:true},
+          {key:"chat",   label:"채팅",icon:"💬",memberOnly:true},
           {key:"manage", label:"가입관리",icon:"⚙️"},
         ];
 
         const updMeeting = fn => {
-          setMeetings(ms=>ms.map(x=>x.id===m.id?fn(x):x));
-          setSelectedMeeting(fn(m));
+          const updated = fn(m);
+          setMeetings(ms=>ms.map(x=>x.id===m.id?updated:x));
+          setSelectedMeeting(updated);
+          // Firestore 동기화
+          if(m._fid) {
+            const clean = {...updated};
+            delete clean._fid;
+            updateDoc(doc(db,"communityMeetings",m._fid), clean).catch(()=>{});
+          }
         };
 
         return (
@@ -2862,7 +3028,7 @@ export default function App() {
             <div style={{background:"white",borderBottom:"1px solid #f3f4f6",flexShrink:0}}>
               <div style={{display:"flex",overflowX:"auto",scrollbarWidth:"none"}}>
                 {MTABS.map(t=>(
-                  <button key={t.key} onClick={()=>setMeetingTab(t.key)}
+                  <button key={t.key} onClick={()=>{if(t.memberOnly&&!isMember){alert("모임 가입 후 이용할 수 있어요!");return;}setMeetingTab(t.key);}}
                     style={{flexShrink:0,padding:"10px 12px",border:"none",cursor:"pointer",fontSize:11,fontWeight:700,background:"none",
                       color:meetingTab===t.key?"#ec4899":"#9ca3af",
                       borderBottom:meetingTab===t.key?"2px solid #ec4899":"2px solid transparent",
@@ -2875,6 +3041,39 @@ export default function App() {
 
             {/* 탭 콘텐츠 */}
             <div style={{flex:1,overflowY:"auto",padding:16}}>
+
+              {/* 모임 홈 */}
+              {meetingTab==="home" && (
+                <div>
+                  {m.coverImg && <img src={m.coverImg} alt="" style={{width:"100%",height:180,objectFit:"cover",borderRadius:16,marginBottom:14}}/>}
+                  <h3 style={{margin:"0 0 6px",fontSize:18,fontWeight:800}}>{m.title}</h3>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                    <span style={{fontSize:12,color:"#6b7280",background:"#f3f4f6",padding:"3px 10px",borderRadius:12}}>📍 {m.region}</span>
+                    <span style={{fontSize:12,color:"#6b7280",background:"#f3f4f6",padding:"3px 10px",borderRadius:12}}>🐾 {m.animal||"전체"}</span>
+                    <span style={{fontSize:12,color:"#6b7280",background:"#f3f4f6",padding:"3px 10px",borderRadius:12}}>👥 {m.members.length}/{m.max||50}명</span>
+                  </div>
+                  <div style={{background:"#f9fafb",borderRadius:14,padding:"14px 16px",marginBottom:14}}>
+                    <p style={{margin:0,fontSize:14,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{m.homeContent||m.desc||"아직 모임 소개가 작성되지 않았어요."}</p>
+                  </div>
+                  {(isOwner || m.members.find(x=>x.name===user?.name)?.role==="운영진") && (
+                    <button onClick={()=>{
+                      const newContent = prompt("모임 소개를 수정하세요:", m.homeContent||m.desc||"");
+                      if(newContent!==null) updMeeting(x=>({...x, homeContent:newContent}));
+                    }} style={{background:"#f3f4f6",color:"#6b7280",border:"none",padding:"8px 16px",borderRadius:12,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                      ✏️ 소개 수정
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* 비회원 접근 차단 가드 */}
+              {!isMember && ["board","photos","vote","chat"].includes(meetingTab) && (
+                <div style={{textAlign:"center",padding:"60px 20px"}}>
+                  <p style={{fontSize:48,margin:"0 0 12px"}}>🔒</p>
+                  <p style={{fontSize:15,fontWeight:700,color:"#374151",margin:"0 0 6px"}}>가입 후 이용할 수 있어요</p>
+                  <p style={{fontSize:13,color:"#9ca3af"}}>모임에 가입 신청 후 승인을 받으면<br/>게시판, 사진첩, 투표, 채팅을 이용할 수 있어요</p>
+                </div>
+              )}
 
               {/* 멤버 */}
               {meetingTab==="members" && (
@@ -3327,13 +3526,15 @@ export default function App() {
                 if (!postForm.content.trim() || points < WRITE_COST) return;
                 const catInfo = LOUNGE_CATS.find(c=>c.key===postForm.cat);
                 const newPost = {
-                  id: Date.now(), cat:postForm.cat, by:user?.name, byImg:profilePhotos[profileRepIdx]||null, uid:user?.uid, ago:"방금 전", ts:Date.now(),
+                  id: Date.now(), cat:postForm.cat, by:user?.name, byImg:(profilePhotos[profileRepIdx]&&profilePhotos[profileRepIdx]!=="[img]")?profilePhotos[profileRepIdx]:null, uid:user?.uid, ago:"방금 전", ts:Date.now(),
                   content:postForm.content.trim(), imgs:postForm.imgs,
                   likes:[], comments:[]
                 };
                 setPosts(ps=>[newPost,...ps]);
-                // Firestore 공유 컬렉션에 저장
-                addDoc(collection(db,"communityPosts"),{...newPost, imgs:[], uid:user?.uid}).catch(()=>{});
+                // Firestore 공유 컬렉션에 저장 + _fid 돌려받기
+                addDoc(collection(db,"communityPosts"),{...newPost, imgs:(newPost.imgs||[]).map(img=>img&&img.startsWith?.("data:")?"[img]":img), byImg:(newPost.byImg&&!newPost.byImg.startsWith?.("data:"))?newPost.byImg:null, uid:user?.uid}).then(ref=>{
+                  setPosts(ps=>ps.map(p=>p.id===newPost.id?{...p,_fid:ref.id}:p));
+                }).catch(()=>{});
                 setPoints(p=>p-WRITE_COST);
                 setPointLog(l=>[{icon:catInfo?.icon||"📝",label:`${catInfo?.label||"글"} 등록`,pt:-WRITE_COST,type:"use",date:"방금 전"},...l]);
                 setIsWritePost(false);
@@ -3631,16 +3832,33 @@ export default function App() {
             <div style={{padding:"14px 20px 28px",borderTop:"1px solid #f3f4f6",flexShrink:0}}>
               <button onClick={() => {
                 if(!petForm.name.trim()) return;
+                // Firestore에는 사진을 작게 리사이즈하여 저장
+                const cleanPetForFirestore = (pet) => ({
+                  ...pet,
+                  photos: (pet.photos||[]).map(p => {
+                    if(!p || p==="[img]") return null;
+                    if(!p.startsWith?.("data:")) return p;
+                    // base64 이미지 → 작은 썸네일로 리사이즈
+                    try {
+                      const canvas = document.createElement("canvas");
+                      const img2 = new Image(); img2.src = p;
+                      canvas.width = 200; canvas.height = 200;
+                      const ctx = canvas.getContext("2d");
+                      ctx.drawImage(img2,0,0,200,200);
+                      return canvas.toDataURL("image/jpeg",0.4);
+                    } catch(e) { return "[img]"; }
+                  }),
+                });
                 if(editPetIdx!==null){
                   setMyPets(p=>{
                     const updated=p.map((pet,j)=>j===editPetIdx?{...petForm}:pet);
-                    if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated}).catch(()=>{});
+                    if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated.map(cleanPetForFirestore)}).catch(()=>{});
                     return updated;
                   });
                 } else {
                   setMyPets(p=>{
                     const updated = [...p,{...petForm}];
-                    if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated}).catch(()=>{});
+                    if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated.map(cleanPetForFirestore)}).catch(()=>{});
                     return updated;
                   });
                 }
@@ -3659,7 +3877,7 @@ export default function App() {
       {tab!=="chat" && (
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
           {[["home","🏠","홈"],["community","🧡","라운지"],["story","📸","스토리"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
-            <button key={id} onClick={() => { setTab(id); if(["community","story","meeting"].includes(id)) refreshContent(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+            <button key={id} onClick={() => { setTab(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
               <span style={{fontSize:10,fontWeight:700,color:tab===id?"#ec4899":"#9ca3af"}}>{label}</span>
               {id==="messages" && matches.length>0 && <span style={{position:"absolute",width:6,height:6,background:"#ef4444",borderRadius:"50%",marginTop:-14,marginLeft:18}} />}
@@ -3729,15 +3947,28 @@ export default function App() {
                 <div style={{marginBottom:14}}>
                   <h4 style={{margin:"0 0 10px",fontSize:14,fontWeight:800}}>🐾 반려동물</h4>
                   {viewUserProfile.pets.map((pet,i)=>(
-                    <div key={i} style={{display:"flex",gap:10,alignItems:"center",background:"#f9fafb",borderRadius:14,padding:"10px 12px",marginBottom:8}}>
-                      <div onClick={()=>{if(pet.img)setPhotoViewer({photos:[pet.img],idx:0});}} style={{width:46,height:46,borderRadius:12,background:"#e5e7eb",overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:pet.img?"pointer":"default"}}>
-                        {pet.img ? <img src={pet.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : "🐾"}
+                    <div key={i} style={{background:"#f9fafb",borderRadius:14,padding:"12px",marginBottom:8}}>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <div onClick={()=>{if(pet.photos?.length>0)setPhotoViewer({photos:pet.photos,idx:0});else if(pet.img)setPhotoViewer({photos:[pet.img],idx:0});}}
+                          style={{width:52,height:52,borderRadius:14,background:"#e5e7eb",overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,cursor:(pet.img||pet.photos?.length)?"pointer":"default"}}>
+                          {pet.img ? <img src={pet.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : "🐾"}
+                        </div>
+                        <div style={{flex:1}}>
+                          <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15}}>{pet.name}</p>
+                          <p style={{margin:0,fontSize:12,color:"#6b7280"}}>{[pet.type,pet.breed,pet.gender].filter(Boolean).join(" · ")}</p>
+                          {pet.birth && <p style={{margin:"2px 0 0",fontSize:11,color:"#9ca3af"}}>🎂 {pet.birth}</p>}
+                        </div>
                       </div>
-                      <div>
-                        <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14}}>{pet.name}</p>
-                        <p style={{margin:0,fontSize:12,color:"#6b7280"}}>{[pet.type,pet.breed,pet.age?pet.age+"살":"",pet.gender].filter(Boolean).join(" · ")}</p>
-                        {pet.traits?.length>0 && <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>{pet.traits.slice(0,4).map((t,j)=><span key={j} style={{background:"#fce7f3",color:"#be185d",fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10}}>{t}</span>)}</div>}
-                      </div>
+                      {pet.food && <p style={{margin:"6px 0 0 0",fontSize:12,color:"#6b7280",paddingLeft:62}}>🍖 {pet.food}</p>}
+                      {pet.traits?.length>0 && <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6,paddingLeft:62}}>{pet.traits.map((t,j)=><span key={j} style={{background:"#fce7f3",color:"#be185d",fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10}}>{t}</span>)}</div>}
+                      {pet.photos?.length>1 && (
+                        <div style={{display:"flex",gap:4,marginTop:8,paddingLeft:62,overflowX:"auto"}}>
+                          {pet.photos.map((ph,j)=>(
+                            <img key={j} src={ph} alt="" onClick={()=>setPhotoViewer({photos:pet.photos,idx:j})}
+                              style={{width:44,height:44,borderRadius:8,objectFit:"cover",cursor:"pointer",flexShrink:0,border:"2px solid white"}}/>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -3885,53 +4116,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 산책 데이트 신청 모달 */}
-      {walkDateModal && (
-        <div style={{position:"fixed",inset:0,zIndex:110,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div onClick={()=>setWalkDateModal(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
-          <div style={{position:"relative",background:"white",borderRadius:24,padding:"28px 24px",maxWidth:340,width:"90%"}}>
-            <div style={{textAlign:"center",marginBottom:16}}>
-              <div style={{width:56,height:56,background:"linear-gradient(135deg,#10b981,#059669)",borderRadius:"50%",margin:"0 auto 10px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🐾</div>
-              <h3 style={{margin:"0 0 4px",fontSize:18,fontWeight:800}}>산책 데이트 신청</h3>
-              <p style={{margin:0,fontSize:13,color:"#6b7280"}}>{walkDateModal.name}에게 산책을 신청해요!</p>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
-              <div>
-                <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>📅 날짜</label>
-                <input type="date" value={walkDateForm.date} onChange={e=>setWalkDateForm(f=>({...f,date:e.target.value}))}
-                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-              </div>
-              <div>
-                <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>⏰ 시간</label>
-                <select value={walkDateForm.time} onChange={e=>setWalkDateForm(f=>({...f,time:e.target.value}))}
-                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,outline:"none",background:"white",cursor:"pointer"}}>
-                  <option value="">선택</option>
-                  {["오전 7시","오전 8시","오전 9시","오전 10시","오전 11시","오후 12시","오후 1시","오후 2시","오후 3시","오후 4시","오후 5시","오후 6시","오후 7시","오후 8시"].map(t=><option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>📍 장소</label>
-                <input value={walkDateForm.place} onChange={e=>setWalkDateForm(f=>({...f,place:e.target.value}))}
-                  placeholder="예: 센트럴파크 정문 앞"
-                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>setWalkDateModal(null)}
-                style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>
-              <button onClick={()=>{
-                if(!walkDateForm.date||!walkDateForm.time||!walkDateForm.place.trim()){alert("날짜, 시간, 장소를 모두 입력해주세요!");return;}
-                setWalkDateSent(s=>new Set([...s,walkDateModal.id]));
-                setAlarms(a=>[{id:Date.now(),icon:"🐾",text:`${walkDateModal.owner||walkDateModal.name}님에게 산책 데이트를 신청했어요! ${walkDateForm.date} ${walkDateForm.time}`,time:"방금 전",unread:true},...a]);
-                setWalkDateModal(null);
-                alert("🐾 산책 데이트를 신청했어요!\n상대방이 수락하면 알림으로 알려드릴게요.");
-              }}
-                style={{flex:1,background:"linear-gradient(135deg,#10b981,#059669)",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신청하기</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      
       {/* 온보딩 튜토리얼 */}
       {showOnboarding && (
         <div style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(5px)"}}>
@@ -3940,12 +4125,12 @@ export default function App() {
               {icon:"🐾",title:"환영해요!",desc:"펫플은 반려동물을 기반으로\n새로운 인연을 만드는 소셜 앱이에요"},
               {icon:"💎",title:"스와이프로 매칭해요",desc:"좋아요(🐾)로 관심 표현!\n슈퍼좋아요(💎)는 100% 매칭 보장!\n매일 "+DAILY_SWIPE_LIMIT+"번 스와이프할 수 있어요"},
               {icon:"🐶",title:"반려동물을 등록하세요",desc:"프로필에 반려동물을 등록하면\n매칭 확률이 크게 올라가요!\n사진도 잊지 마세요 📸"},
-              {icon:"🤝",title:"모임에 참여해보세요",desc:"전국 산책 모임에 참여하고\n산책 데이트도 신청해보세요!\n새 친구가 기다리고 있어요 💕"},
+              {icon:"🤝",title:"모임에 참여해보세요",desc:"전국 산책 모임에 참여하고\n새로운 펫 친구를 만들어보세요!\n즐거운 경험이 기다리고 있어요 💕"},
             ][onboardingStep] && (() => {
               const step = [{icon:"🐾",title:"환영해요!",desc:"펫플은 반려동물을 기반으로\n새로운 인연을 만드는 소셜 앱이에요"},
                 {icon:"💎",title:"스와이프로 매칭해요",desc:"좋아요(🐾)로 관심 표현!\n슈퍼좋아요(💎)는 100% 매칭 보장!\n매일 "+DAILY_SWIPE_LIMIT+"번 스와이프할 수 있어요"},
                 {icon:"🐶",title:"반려동물을 등록하세요",desc:"프로필에 반려동물을 등록하면\n매칭 확률이 크게 올라가요!\n사진도 잊지 마세요 📸"},
-                {icon:"🤝",title:"모임에 참여해보세요",desc:"전국 산책 모임에 참여하고\n산책 데이트도 신청해보세요!\n새 친구가 기다리고 있어요 💕"}][onboardingStep];
+                {icon:"🤝",title:"모임에 참여해보세요",desc:"전국 산책 모임에 참여하고\n새로운 펫 친구를 만들어보세요!\n즐거운 경험이 기다리고 있어요 💕"}][onboardingStep];
               return (<>
                 <div style={{fontSize:64,marginBottom:14}}>{step.icon}</div>
                 <h2 style={{margin:"0 0 8px",fontSize:22,fontWeight:800}}>{step.title}</h2>
