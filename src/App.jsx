@@ -3,7 +3,6 @@ import { auth, db, googleProvider } from "./firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp } from "firebase/firestore";
 
-const PETS = [];
 
 const LOUNGE_CATS = [
   {key:"all",label:"전체",icon:"🐾"},
@@ -159,6 +158,7 @@ export default function App() {
   const [idx,      setIdx]      = useState(0);
   const [matches,  setMatches]  = useState([]);
   const [liked,    setLiked]    = useState([]);
+  const [nearbyPets, setNearbyPets] = useState([]);
   const [receivedLikes, setReceivedLikes] = useState([]);
   const [anim,     setAnim]     = useState(null);
   const [popup,    setPopup]    = useState(null);
@@ -214,6 +214,8 @@ export default function App() {
 
   // 스토리
   const [myStories,      setMyStories]      = useState([]);
+  const [showStoryFilter, setShowStoryFilter] = useState(false);
+  const [storyFilter, setStoryFilter] = useState({petType:"all",region:"all",sort:"latest"});
   const [isAddStory,     setIsAddStory]     = useState(false);
   const [storyPetSel,    setStoryPetSel]    = useState(null); // 선택된 반려동물 id
   const [storyContent,   setStoryContent]   = useState("");
@@ -272,7 +274,7 @@ export default function App() {
     { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true },
   ]);
 
-  const pet = PETS.length > 0 ? PETS[idx % PETS.length] : null;
+  const pet = nearbyPets.length > 0 ? nearbyPets[idx % nearbyPets.length] : null;
 
   // ── 이미지 압축 (Firestore 1MB 제한 대응) ──
   const compressImage = (dataUrl, maxSize=400) => new Promise(resolve => {
@@ -287,6 +289,80 @@ export default function App() {
     };
     img.src = dataUrl;
   });
+
+  // ── 다른 사용자 프로필 로드 (펫친 추천) ──
+  const loadNearbyUsers = async () => {
+    if (!user?.uid) return;
+    try {
+      const q = query(collection(db, "users"), fbLimit(50));
+      const snap = await getDocs(q);
+      const otherUsers = [];
+      snap.forEach(d => {
+        const data = d.data();
+        if (d.id === user.uid) return; // 자기 자신 제외
+        if (!data.nick) return;
+        const pets = data.myPets || [];
+        const photo = (data.profilePhotos || []).find(p => p && p !== "[img]") || null;
+        const defaultImg = "https://ui-avatars.com/api/?name=" + encodeURIComponent(data.nick) + "&background=fce7f3&color=ec4899&size=400";
+        if (pets.length > 0) {
+          pets.forEach((pet, pi) => {
+            const petImg = (pet.photo && pet.photo !== "[img]") ? pet.photo : defaultImg;
+            otherUsers.push({
+              id: d.id + "_" + pi,
+              name: pet.name || data.nick + "의 반려동물",
+              img: petImg,
+              imgs: [petImg, photo].filter(Boolean),
+              breed: pet.breed || "믹스",
+              age: pet.age ? Number(pet.age) : 1,
+              gender: pet.gender || "미정",
+              tags: data.interests || [],
+              bio: data.profileBio || pet.name + "와 함께해요 🐾",
+              score: (Math.random() * 2 + 3).toFixed(1),
+              dist: (Math.random() * 8 + 0.5).toFixed(1) + "km",
+              location: data.userLocation || data.region || "근처",
+              owner: data.nick,
+              ownerRegion: data.userLocation || data.region || "",
+              ownerGender: data.gender || "",
+              ownerBirth: data.birth || "",
+              ownerInterests: data.interests || [],
+              verified: data.verified || false,
+              uid: d.id,
+            });
+          });
+        } else {
+          // 반려동물 미등록 유저도 표시
+          otherUsers.push({
+            id: d.id + "_0",
+            name: data.nick,
+            img: photo || defaultImg,
+            imgs: photo ? [photo] : [defaultImg],
+            breed: "",
+            age: 0,
+            gender: "",
+            tags: data.interests || [],
+            bio: data.profileBio || "안녕하세요! 🐾",
+            score: (Math.random() * 2 + 3).toFixed(1),
+            dist: (Math.random() * 8 + 0.5).toFixed(1) + "km",
+            location: data.userLocation || data.region || "근처",
+            owner: data.nick,
+            ownerRegion: data.userLocation || data.region || "",
+            ownerGender: data.gender || "",
+            ownerBirth: data.birth || "",
+            ownerInterests: data.interests || [],
+            verified: data.verified || false,
+            uid: d.id,
+          });
+        }
+      });
+      // 셔플
+      for (let i = otherUsers.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [otherUsers[i], otherUsers[j]] = [otherUsers[j], otherUsers[i]];
+      }
+      setNearbyPets(otherUsers);
+      setIdx(0);
+    } catch (e) { console.error("Load users error:", e); }
+  };
 
   // ── 커뮤니티 데이터 새로고침 (Firestore 공유 컬렉션) ──
   const refreshContent = async (targetTab) => {
@@ -425,7 +501,11 @@ export default function App() {
           setLoggedIn(true);
         }
       }
-      if (firebaseUser) detectLocation();
+      if (firebaseUser) {
+        detectLocation();
+        // 다른 유저 + 커뮤니티 콘텐츠 자동 로드 (약간 딜레이)
+        setTimeout(() => { loadNearbyUsers(); refreshContent("all"); }, 500);
+      }
       setAuthLoading(false);
     });
     return () => unsub();
@@ -556,7 +636,7 @@ export default function App() {
 
   // 스와이프
   function swipe(dir) {
-    if (PETS.length === 0) return;
+    if (nearbyPets.length === 0) return;
     // 일일 스와이프 제한 (슈퍼좋아요는 포인트 소모라 제한 없음)
     if (dir !== "U" && dailySwipes >= DAILY_SWIPE_LIMIT) {
       alert("오늘의 스와이프 횟수를 모두 사용했어요!\n("+DAILY_SWIPE_LIMIT+"/"+DAILY_SWIPE_LIMIT+")\n\n내일 다시 이용하거나, 슈퍼좋아요(💎)는 계속 사용할 수 있어요!");
@@ -565,7 +645,7 @@ export default function App() {
     if (dir !== "U") setDailySwipes(d => d + 1);
     // 슈퍼좋아요는 모달에서 확인 후 호출됨
     setAnim(dir);
-    const cur = PETS[idx % PETS.length];
+    const cur = nearbyPets[idx % nearbyPets.length];
     setPhotoIdx(0);
     setTimeout(() => {
       setAnim(null);
@@ -629,7 +709,7 @@ export default function App() {
     setProfileBio(""); setProfilePhotos([null,null,null,null,null]); setProfileRepIdx(0);
     setMyPets([]); setMyStories([]); setPosts([]);
     setIsVerified(false); setIsBoosted(false); setUserLocation("인천 연수구");
-    setDailySwipes(0);
+    setDailySwipes(0); setNearbyPets([]);
   }
 
   // ── 로딩 화면 (Firebase 인증 확인 중) ──
@@ -1431,7 +1511,13 @@ export default function App() {
       {/* 홈 */}
       {tab==="home" && (
         <div style={{padding:"20px 16px"}}>
-          {/* 스와이프 카운터 + 부스트 */}
+          {/* 새로고침 + 스와이프 카운터 */}
+          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+            <button onClick={()=>{loadNearbyUsers();}} disabled={isRefreshing}
+              style={{background:"linear-gradient(135deg,#ec4899,#a855f7)",color:"white",border:"none",padding:"5px 12px",borderRadius:16,fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+              🔄 새 펫친 불러오기
+            </button>
+          </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:13,color:dailySwipes>=DAILY_SWIPE_LIMIT?"#ef4444":"#6b7280",fontWeight:600}}>
@@ -1445,7 +1531,7 @@ export default function App() {
                 style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>⚙️</button>
             </div>
           </div>
-          {PETS.length===0 || idx>=PETS.length ? (
+          {nearbyPets.length===0 || idx>=nearbyPets.length ? (
             <div style={{background:"white",borderRadius:24,boxShadow:"0 8px 32px rgba(0,0,0,.1)",padding:"60px 24px",textAlign:"center"}}>
               <div style={{fontSize:64,marginBottom:16}}>🐾</div>
               <h2 style={{margin:"0 0 8px",fontSize:20,fontWeight:800,color:"#1f2937"}}>아직 주변에 펫친이 없어요</h2>
@@ -1536,7 +1622,7 @@ export default function App() {
               <button key={d} style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,background:i===1?G:"#f3f4f6",color:i===1?"white":"#6b7280"}}>{d}</button>
             ))}
           </div>
-          {PETS.length===0 ? (
+          {nearbyPets.length===0 ? (
             <div style={{background:"white",borderRadius:18,padding:"40px 20px",textAlign:"center"}}>
               <p style={{fontSize:40,margin:"0 0 8px"}}>🔍</p>
               <p style={{margin:"0 0 4px",fontWeight:600,color:"#374151"}}>아직 주변에 펫친이 없어요</p>
@@ -1544,7 +1630,7 @@ export default function App() {
             </div>
           ) : (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            {PETS.map(p => (
+            {nearbyPets.map(p => (
               <div key={p.id} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)"}}>
                 <div style={{position:"relative",height:140}}>
                   <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
@@ -1612,14 +1698,14 @@ export default function App() {
                 const isLiked = p.likes.includes(user?.name);
                 const openAuthorProfile = (e) => {
                   e.stopPropagation();
-                  setViewUserProfile({name:p.by,img:null,location:"인천 연수구",bio:"",pets:[]});
+                  setViewUserProfile({name:p.by,img:p.byImg||null,location:"인천 연수구",bio:"",pets:[]});
                 };
                 return (
                   <div key={p.id} onClick={()=>setSelectedPost(p)}
                     style={{background:"white",borderRadius:18,padding:16,marginBottom:10,boxShadow:"0 2px 8px rgba(0,0,0,.05)",cursor:"pointer"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                      <div onClick={openAuthorProfile} style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#fce7f3,#ede9fe)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,cursor:"pointer"}}>
-                        {p.by?.[0]||"🐾"}
+                      <div onClick={openAuthorProfile} style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#fce7f3,#ede9fe)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,cursor:"pointer",overflow:"hidden"}}>
+                        {p.byImg ? <img src={p.byImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : p.by?.[0]||"🐾"}
                       </div>
                       <div style={{flex:1}}>
                         <p onClick={openAuthorProfile} style={{margin:0,fontWeight:700,fontSize:13,cursor:"pointer",display:"inline-block"}}>{p.by}</p>
@@ -1675,7 +1761,7 @@ export default function App() {
 
         const addComment = () => {
           if (!commentVal.trim()) return;
-          const newC = {id:Date.now(),by:user?.name,text:commentVal.trim(),time:"방금 전",likes:[],replies:[]};
+          const newC = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:commentVal.trim(),time:"방금 전",likes:[],replies:[]};
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:[...p.comments,newC]} : p));
           setSelectedPost(p=>({...p,comments:[...p.comments,newC]}));
           setCommentVal("");
@@ -1686,7 +1772,7 @@ export default function App() {
 
         const addReply = (commentId) => {
           if (!replyVal.trim()) return;
-          const newR = {id:Date.now(),by:user?.name,text:replyVal.trim(),time:"방금 전"};
+          const newR = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:"방금 전"};
           const updateComments = cs => cs.map(c => c.id===commentId ? {...c,replies:[...c.replies,newR]} : c);
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updateComments(p.comments)} : p));
           setSelectedPost(p=>({...p,comments:updateComments(p.comments)}));
@@ -1716,11 +1802,11 @@ export default function App() {
             {/* 글 본문 */}
             <div style={{background:"white",padding:18,margin:"0 0 8px",borderBottom:"1px solid #f3f4f6"}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                <div onClick={()=>setViewUserProfile({name:post.by,img:null,location:"인천 연수구",bio:"",pets:[]})}
-                  style={{width:42,height:42,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"white",fontWeight:700,cursor:"pointer"}}>
-                  {post.by?.[0]||"🐾"}
+                <div onClick={()=>setViewUserProfile({name:post.by,img:post.byImg||null,location:"인천 연수구",bio:"",pets:[]})}
+                  style={{width:42,height:42,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"white",fontWeight:700,cursor:"pointer",overflow:"hidden"}}>
+                  {post.byImg ? <img src={post.byImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : post.by?.[0]||"🐾"}
                 </div>
-                <div style={{flex:1,cursor:"pointer"}} onClick={()=>setViewUserProfile({name:post.by,img:null,location:"인천 연수구",bio:"",pets:[]})}>
+                <div style={{flex:1,cursor:"pointer"}} onClick={()=>setViewUserProfile({name:post.by,img:post.byImg||null,location:"인천 연수구",bio:"",pets:[]})}>
                   <p style={{margin:0,fontWeight:700,fontSize:14}}>{post.by}</p>
                   <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{post.ago}</p>
                 </div>
@@ -1778,8 +1864,8 @@ export default function App() {
                 : post.comments.map(c=>(
                   <div key={c.id} style={{padding:"14px 0",borderBottom:"1px solid #f9fafb"}}>
                     <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                      <div style={{width:34,height:34,borderRadius:"50%",background:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0,fontWeight:700}}>
-                        {c.by?.[0]||"🐾"}
+                      <div style={{width:34,height:34,borderRadius:"50%",background:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0,fontWeight:700,overflow:"hidden"}}>
+                        {c.byImg ? <img src={c.byImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : c.by?.[0]||"🐾"}
                       </div>
                       <div style={{flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
@@ -1900,7 +1986,7 @@ export default function App() {
                   <button onClick={() => setTab("home")} style={{marginTop:20,background:G,color:"white",border:"none",padding:"11px 22px",borderRadius:20,fontWeight:700,cursor:"pointer",fontSize:14,boxShadow:"0 4px 14px rgba(236,72,153,.35)"}}>펫친 찾으러 가기 🐾</button>
                 </div>
               ) : matches.map((m,i) => {
-                const petData = PETS.find(p=>p.owner===m.name||p.name===m.name);
+                const petData = nearbyPets.find(p=>p.owner===m.name||p.name===m.name);
                 const buildProfile = () => setViewUserProfile({name:m.name,img:m.img,location:petData?.location||"인천 연수구",bio:petData?.bio||"",pets:petData?[{name:petData.name,type:"강아지",breed:petData.breed,img:petData.img,gender:petData.gender,traits:petData.tags}]:[]});
                 return (
                 <div key={i} onClick={() => openChat(m)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 20px",borderBottom:"1px solid #f9fafb",cursor:"pointer",background:"white"}}>
@@ -1988,7 +2074,7 @@ export default function App() {
           <div style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
             {msgs.map(m => (
               <div key={m.id} style={{display:"flex",justifyContent:m.me?"flex-end":"flex-start",alignItems:"flex-end",gap:8}}>
-                {!m.me && <img onClick={()=>{const pd=PETS.find(p=>p.owner===chatPet?.name||p.name===chatPet?.name);setViewUserProfile({name:chatPet?.name,img:chatPet?.img,location:pd?.location||"인천 연수구",bio:pd?.bio||"",pets:pd?[{name:pd.name,type:"강아지",breed:pd.breed,img:pd.img,gender:pd.gender,traits:pd.tags}]:[]});}} src={chatPet?.img} alt="" style={{width:30,height:30,borderRadius:"50%",objectFit:"cover",cursor:"pointer",flexShrink:0}} />}
+                {!m.me && <img onClick={()=>{const pd=nearbyPets.find(p=>p.owner===chatPet?.name||p.name===chatPet?.name);setViewUserProfile({name:chatPet?.name,img:chatPet?.img,location:pd?.location||"인천 연수구",bio:pd?.bio||"",pets:pd?[{name:pd.name,type:"강아지",breed:pd.breed,img:pd.img,gender:pd.gender,traits:pd.tags}]:[]});}} src={chatPet?.img} alt="" style={{width:30,height:30,borderRadius:"50%",objectFit:"cover",cursor:"pointer",flexShrink:0}} />}
                 <div style={{maxWidth:"72%",padding:"10px 14px",borderRadius:m.me?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.me?G:"white",color:m.me?"white":"#1f2937",fontSize:14,boxShadow:"0 2px 8px rgba(0,0,0,.07)",lineHeight:1.5}}>
                   {m.text}
                 </div>
@@ -2071,7 +2157,7 @@ export default function App() {
 
           {/* 통계 */}
           <div style={{padding:"12px 20px",display:"flex",gap:8}}>
-            {[[matches.length,"매칭","💕"],[liked.length,"좋아요","💗"],[PETS.length?idx%PETS.length:0,"프로필","👀"]].map(([n,label,icon],i)=>(
+            {[[matches.length,"매칭","💕"],[liked.length,"좋아요","💗"],[nearbyPets.length?idx%nearbyPets.length:0,"프로필","👀"]].map(([n,label,icon],i)=>(
               <div key={i} style={{flex:1,background:"white",borderRadius:14,padding:"10px 8px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
                 <p style={{margin:"0 0 2px",fontSize:18,fontWeight:800}}>{icon} {n}</p>
                 <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{label}</p>
@@ -2189,13 +2275,72 @@ export default function App() {
       {/* 스토리 */}
       {tab==="story" && (
         <div style={{paddingBottom:20}}>
-          {/* 새로고침 바 */}
-          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-end"}}>
+          {/* 새로고침 + 필터 바 */}
+          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <button onClick={()=>setShowStoryFilter(true)}
+              style={{background:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#fdf2f8":"#f3f4f6",color:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#ec4899":"#6b7280",border:storyFilter.petType!=="all"||storyFilter.region!=="all"?"1px solid #fce7f3":"1px solid #e5e7eb",padding:"6px 12px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+              🔍 필터 {(storyFilter.petType!=="all"||storyFilter.region!=="all")?"✓":""}
+            </button>
             <button onClick={()=>refreshContent("story")} disabled={isRefreshing}
               style={{background:isRefreshing?"#f3f4f6":"linear-gradient(135deg,#ec4899,#a855f7)",color:isRefreshing?"#9ca3af":"white",border:"none",padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:isRefreshing?"default":"pointer",display:"flex",alignItems:"center",gap:4}}>
               <span style={{display:"inline-block",animation:isRefreshing?"spin 1s linear infinite":"none"}}>🔄</span> {isRefreshing?"불러오는 중...":"새로고침"}
             </button>
           </div>
+          {/* 스토리 필터 모달 */}
+          {showStoryFilter && (
+            <div style={{position:"fixed",inset:0,zIndex:55,display:"flex",flexDirection:"column"}}>
+              <div onClick={()=>setShowStoryFilter(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)"}} />
+              <div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderRadius:"24px 24px 0 0",padding:"0 0 24px",boxShadow:"0 -8px 40px rgba(0,0,0,.2)"}}>
+                <div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,margin:"12px auto 0"}} />
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 20px 8px"}}>
+                  <h3 style={{margin:0,fontSize:17,fontWeight:800}}>🔍 스토리 필터</h3>
+                  <button onClick={()=>setShowStoryFilter(false)} style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:32,height:32,borderRadius:"50%",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                </div>
+                <div style={{padding:"8px 20px"}}>
+                  <div style={{marginBottom:16}}>
+                    <p style={{margin:"0 0 8px",fontWeight:700,fontSize:14}}>🐾 반려동물 종류</p>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {[["all","전체"],["강아지","🐶 강아지"],["고양이","🐱 고양이"],["소동물","🐹 소동물"],["기타","기타"]].map(([val,label])=>(
+                        <button key={val} onClick={()=>setStoryFilter(s=>({...s,petType:val}))}
+                          style={{padding:"7px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
+                            background:storyFilter.petType===val?G:"#f3f4f6",color:storyFilter.petType===val?"white":"#6b7280"}}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{marginBottom:16}}>
+                    <p style={{margin:"0 0 8px",fontWeight:700,fontSize:14}}>📍 지역</p>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {[["all","전국"],["인천","인천"],["서울","서울"],["경기","경기"],["부산","부산"],["기타","기타"]].map(([val,label])=>(
+                        <button key={val} onClick={()=>setStoryFilter(s=>({...s,region:val}))}
+                          style={{padding:"7px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
+                            background:storyFilter.region===val?G:"#f3f4f6",color:storyFilter.region===val?"white":"#6b7280"}}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{marginBottom:16}}>
+                    <p style={{margin:"0 0 8px",fontWeight:700,fontSize:14}}>🔃 정렬</p>
+                    <div style={{display:"flex",gap:6}}>
+                      {[["latest","최신순"],["popular","인기순"]].map(([val,label])=>(
+                        <button key={val} onClick={()=>setStoryFilter(s=>({...s,sort:val}))}
+                          style={{padding:"7px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
+                            background:storyFilter.sort===val?G:"#f3f4f6",color:storyFilter.sort===val?"white":"#6b7280"}}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>{setStoryFilter({petType:"all",region:"all",sort:"latest"});setShowStoryFilter(false);}}
+                      style={{flex:1,background:"#f3f4f6",color:"#6b7280",border:"none",padding:"12px 0",borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer"}}>
+                      초기화
+                    </button>
+                    <button onClick={()=>setShowStoryFilter(false)}
+                      style={{flex:2,background:G,color:"white",border:"none",padding:"12px 0",borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:"0 4px 14px rgba(236,72,153,.3)"}}>
+                      적용하기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* 숨겨진 파일 인풋 */}
           <input ref={storyFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
             const file=e.target.files[0]; if(!file) return;
@@ -2263,7 +2408,7 @@ export default function App() {
                   <p style={{margin:"0 0 1px",fontWeight:700,fontSize:13}}>{s.petName}</p>
                   <p onClick={e=>{
                     e.stopPropagation();
-                    const petData=PETS.find(p=>p.owner===s.by||p.name===s.petName);
+                    const petData=nearbyPets.find(p=>p.owner===s.by||p.name===s.petName);
                     setViewUserProfile({name:s.by||user?.name,img:s.img,location:petData?.location||"인천 연수구",bio:petData?.bio||"",pets:petData?[{name:petData.name,type:"강아지",breed:petData.breed,img:petData.img,gender:petData.gender,traits:petData.tags}]:[]});
                   }} style={{margin:0,fontSize:11,opacity:.8,cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>{s.by||user?.name}</p>
                 </div>
@@ -2921,6 +3066,24 @@ export default function App() {
                       </div>
                     ))
                   }
+                  {/* 모임 해체 (운영자 전용) */}
+                  {isOwner && (
+                    <div style={{marginTop:24,padding:"16px 0",borderTop:"1px solid #f3f4f6"}}>
+                      <button onClick={()=>{
+                        if(!confirm("⚠️ 정말로 이 모임을 해체하시겠어요?\n\n모든 멤버가 탈퇴되고, 게시글·사진·채팅 등 모든 데이터가 삭제됩니다.\n\n이 작업은 되돌릴 수 없습니다.")) return;
+                        if(!confirm("마지막 확인: 정말 해체하시겠어요?")) return;
+                        setMeetings(ms=>ms.filter(x=>x.id!==m.id));
+                        if(m._fid) deleteDoc(doc(db,"communityMeetings",m._fid)).catch(()=>{});
+                        setMeetingView("list");
+                        setSelectedMeeting(null);
+                        alert("모임이 해체되었습니다.");
+                      }}
+                        style={{width:"100%",background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",padding:"12px 0",borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer"}}>
+                        🗑️ 모임 해체하기
+                      </button>
+                      <p style={{margin:"8px 0 0",fontSize:11,color:"#9ca3af",textAlign:"center"}}>운영자만 모임을 해체할 수 있어요</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3035,7 +3198,7 @@ export default function App() {
                 if (!postForm.content.trim() || points < WRITE_COST) return;
                 const catInfo = LOUNGE_CATS.find(c=>c.key===postForm.cat);
                 const newPost = {
-                  id: Date.now(), cat:postForm.cat, by:user?.name, ago:"방금 전", ts:Date.now(),
+                  id: Date.now(), cat:postForm.cat, by:user?.name, byImg:profilePhotos[profileRepIdx]||null, ago:"방금 전", ts:Date.now(),
                   content:postForm.content.trim(), imgs:postForm.imgs,
                   likes:[], comments:[]
                 };
@@ -3534,7 +3697,7 @@ export default function App() {
                   <p style={{color:"#9ca3af",fontSize:13}}>아직 좋아요를 보낸 사람이 없어요<br/>프로필을 매력적으로 꾸며보세요!</p>
                 </div>
               : <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  {PETS.slice(0,3).map((p,i)=>(
+                  {nearbyPets.slice(0,3).map((p,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:"#f9fafb",borderRadius:14,padding:12}}>
                       <img src={p.img} alt="" style={{width:50,height:50,borderRadius:"50%",objectFit:"cover"}}/>
                       <div style={{flex:1}}>
