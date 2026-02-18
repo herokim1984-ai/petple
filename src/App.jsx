@@ -178,10 +178,10 @@ export default function App() {
   // 상대방 프로필 모달
   const [viewUserProfile, setViewUserProfile] = useState(null);
   const [photoViewer, setPhotoViewer] = useState(null); // {photos:[], idx:0}
-  const postsRef = React.useRef([]);
-  const storiesRef = React.useRef([]);
-  React.useEffect(()=>{postsRef.current=posts;},[posts]);
-  React.useEffect(()=>{storiesRef.current=myStories;},[myStories]);
+  const postsRef = useRef([]);
+  const storiesRef = useRef([]);
+  useEffect(()=>{postsRef.current=posts;},[posts]);
+  useEffect(()=>{storiesRef.current=myStories;},[myStories]);
   const [authorPhotoCache, setAuthorPhotoCache] = useState({}); // uid -> photoUrl // {name, img, bio, pets:[]}
 
   // 위치
@@ -823,7 +823,7 @@ export default function App() {
 
   const [chatRoomId, setChatRoomId] = useState(null);
   const [chatMenu, setChatMenu] = useState(false);
-  const chatPollRef = React.useRef(null);
+  const chatPollRef = useRef(null);
 
   async function loadChatMessages(roomId) {
     try {
@@ -861,7 +861,7 @@ export default function App() {
   }
 
   // 채팅 탭 벗어나면 폴링 중지
-  React.useEffect(()=>{
+  useEffect(()=>{
     if(tab!=="chat" && chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}
     return ()=>{if(chatPollRef.current)clearInterval(chatPollRef.current);};
   },[tab]);
