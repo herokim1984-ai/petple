@@ -323,16 +323,79 @@ export default function App() {
   const [chatOpened, setChatOpened] = useState(new Set()); // 대화 개설 추적
 
   const BUY_PACKAGES = [
-    { icon:"🌱", label:"스타터", amount:500, price:"500원", popular:false },
-    { icon:"🌿", label:"베이직", amount:1200, price:"1,000원", popular:false },
-    { icon:"🌳", label:"스탠다드", amount:3000, price:"2,000원", popular:true },
-    { icon:"🏆", label:"프리미엄", amount:8000, price:"5,000원", popular:false },
+    { id:"point_500",  icon:"🌱", label:"스타터",   amount:500,  priceNum:500,  price:"500원",   popular:false },
+    { id:"point_1200", icon:"🌿", label:"베이직",   amount:1200, priceNum:1000, price:"1,000원", popular:false },
+    { id:"point_3000", icon:"🌳", label:"스탠다드", amount:3000, priceNum:2000, price:"2,000원", popular:true },
+    { id:"point_8000", icon:"🏆", label:"프리미엄", amount:8000, priceNum:5000, price:"5,000원", popular:false },
   ];
   const [alarms, setAlarms] = useState([
     { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true, nav:null },
   ]);
 
   const pet = nearbyPets.length > 0 ? nearbyPets[idx % nearbyPets.length] : null;
+
+  // ── 포트원 결제 요청 ──
+  const IMP_CODE = "imp00000000"; // ⚠️ 포트원 가맹점코드 - 실제 코드로 교체 필요
+  const [payLoading, setPayLoading] = useState(false);
+
+  const requestPayment = (pkg) => {
+    const IMP = window.IMP;
+    if(!IMP) { alert("결제 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요."); return; }
+    IMP.init(IMP_CODE);
+    setPayLoading(true);
+
+    const merchantUid = "petple_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+
+    IMP.request_pay({
+      pg: "tosspayments",
+      pay_method: "card",
+      merchant_uid: merchantUid,
+      name: "펫플 발자국 " + pkg.amount + "p (" + pkg.label + ")",
+      amount: pkg.priceNum,
+      buyer_name: user?.name || "펫플유저",
+      buyer_email: user?.email || "",
+    }, async function(res) {
+      setPayLoading(false);
+      if(res.success) {
+        // 결제 성공 → 서버 검증
+        try {
+          const verifyRes = await fetch("https://us-central1-petpleclaude.cloudfunctions.net/verifyPayment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imp_uid: res.imp_uid,
+              merchant_uid: merchantUid,
+              item_id: pkg.id,
+              expected_amount: pkg.priceNum,
+              uid: user?.uid,
+            }),
+          });
+          const result = await verifyRes.json();
+          if(result.success) {
+            // 포인트 지급
+            setPoints(p => p + pkg.amount);
+            setPointLog(l => [{icon:"💳",label:pkg.label+" 충전",pt:pkg.amount,type:"earn",date:"방금 전"},...l]);
+            // Firestore에도 포인트 반영
+            if(user?.uid) updateDoc(doc(db,"users",user.uid),{points:(points+pkg.amount)}).catch(()=>{});
+            alert("✅ 결제 완료!\n\n" + pkg.amount.toLocaleString() + "p가 충전되었어요 🐾");
+            setPayModal(null);
+          } else {
+            alert("⚠️ 결제 검증 실패: " + (result.message || "서버 오류") + "\n고객센터로 문의해주세요.\n주문번호: " + merchantUid);
+          }
+        } catch(e) {
+          // 검증 서버 오류 시에도 결제는 됐을 수 있으므로 안내
+          console.error("Payment verify error:", e);
+          alert("⚠️ 결제 확인 중 오류가 발생했어요.\n잠시 후 포인트가 반영될 수 있어요.\n\n문제가 계속되면 고객센터로 문의해주세요.\n주문번호: " + merchantUid);
+        }
+      } else {
+        // 결제 실패/취소
+        if(res.error_msg && !res.error_msg.includes("사용자가 결제를 취소")) {
+          alert("결제 실패: " + res.error_msg);
+        }
+        // 사용자 취소는 조용히 닫기
+      }
+    });
+  };
 
   // ── 이미지 압축 (Firestore 1MB 제한 대응) ──
   const compressImage = (dataUrl, maxSize=400) => new Promise(resolve => {
@@ -1572,20 +1635,20 @@ export default function App() {
               {/* 구매 */}
               {pointsTab==="buy" && (
                 <div>
-                  {/* 서비스 준비 중 배너 */}
-                  <div style={{background:"linear-gradient(135deg,#fef3c7,#fef9c3)",borderRadius:16,padding:"16px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
-                    <span style={{fontSize:28}}>🚀</span>
+                  {/* 안내 배너 */}
+                  <div style={{background:"linear-gradient(135deg,#dcfce7,#ecfdf5)",borderRadius:16,padding:"16px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:28}}>💳</span>
                     <div>
-                      <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14,color:"#92400e"}}>결제 서비스 준비 중이에요!</p>
-                      <p style={{margin:0,fontSize:12,color:"#a16207"}}>곧 포인트 충전과 구독이 가능해져요</p>
+                      <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14,color:"#065f46"}}>포인트를 충전해보세요!</p>
+                      <p style={{margin:0,fontSize:12,color:"#047857"}}>카드, 카카오페이 등으로 간편 결제</p>
                     </div>
                   </div>
 
-                  <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>출시 예정 상품을 미리 확인해보세요</p>
-                  <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20,opacity:.55,pointerEvents:"none"}}>
+                  <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>원하는 포인트 상품을 선택하세요</p>
+                  <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20}}>
                     {BUY_PACKAGES.map((pkg,i)=>(
-                      <div key={i}
-                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#ec4899":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(236,72,153,.2)":"none"}}>
+                      <button key={i} onClick={()=>requestPayment(pkg)} disabled={payLoading}
+                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#ec4899":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(236,72,153,.2)":"none",cursor:payLoading?"wait":"pointer",opacity:payLoading?.7:1,transition:"all .15s"}}>
                         {pkg.popular && <div style={{position:"absolute",top:-1,right:14,background:G,color:"white",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:"0 0 10px 10px"}}>BEST</div>}
                         <span style={{fontSize:28}}>{pkg.icon}</span>
                         <div style={{flex:1}}>
@@ -1593,7 +1656,7 @@ export default function App() {
                           <p style={{margin:0,fontSize:13,fontWeight:800,color:"#ec4899"}}>{pkg.amount.toLocaleString()}p</p>
                         </div>
                         <div style={{background:pkg.popular?G:"#f3f4f6",color:pkg.popular?"white":"#374151",padding:"8px 16px",borderRadius:20,fontSize:14,fontWeight:700,whiteSpace:"nowrap"}}>{pkg.price}</div>
-                      </div>
+                      </button>
                     ))}
                   </div>
 
@@ -1626,13 +1689,18 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* 사전 알림 신청 */}
-                  <div style={{marginTop:16,background:"#f9fafb",borderRadius:14,padding:"14px 16px",textAlign:"center"}}>
-                    <p style={{margin:"0 0 8px",fontSize:13,color:"#6b7280"}}>결제 서비스가 열리면 알려드릴까요?</p>
-                    <button onClick={()=>alert("사전 알림이 등록되었어요! 🔔\n서비스가 시작되면 알려드릴게요.")}
-                      style={{background:"white",border:"2px solid #ec4899",color:"#ec4899",padding:"9px 24px",borderRadius:20,fontSize:13,fontWeight:700,cursor:"pointer"}}>
-                      🔔 사전 알림 신청
-                    </button>
+                  {/* 결제 안내 */}
+                  <div style={{marginTop:16,background:"#f9fafb",borderRadius:14,padding:"14px 16px"}}>
+                    <p style={{margin:"0 0 6px",fontSize:13,fontWeight:600,color:"#374151"}}>💡 결제 안내</p>
+                    <p style={{margin:0,fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
+                      · 결제 후 즉시 포인트가 충전됩니다<br/>
+                      · 충전된 포인트는 환불이 어렵습니다<br/>
+                      · 결제 문의: 0502-1927-8252
+                    </p>
+                    <p style={{margin:"8px 0 0",fontSize:9,color:"#c0c0c0",lineHeight:1.5}}>
+                      상호: 펫플 | 대표: 김영웅 | 사업자번호: 743-09-03086<br/>
+                      주소: 인천광역시 계양구 장제로 762 | 전화: 0502-1927-8252
+                    </p>
                   </div>
                 </div>
               )}
