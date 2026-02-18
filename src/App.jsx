@@ -181,9 +181,63 @@ export default function App() {
   // postsRef, storiesRef는 myStories 선언 이후에 배치 (TDZ 방지)
   const [authorPhotoCache, setAuthorPhotoCache] = useState({}); // uid -> photoUrl // {name, img, bio, pets:[]}
 
+  // 알림 클릭 → 해당 화면 이동
+  const handleAlarmClick = (alarm) => {
+    // 읽음 처리
+    setAlarms(a=>a.map(x=>x.id===alarm.id?{...x,unread:false}:x));
+    if(alarm._fid) updateDoc(doc(db,"notifications",alarm._fid),{read:true}).catch(()=>{});
+    setShowAlarm(false);
+    setShowAlarmSettings(false);
+    const nav = alarm.nav;
+    if(!nav) return;
+    if(nav.type==="post") {
+      // 라운지 게시글로 이동
+      setTab("community");
+      const p = posts.find(x=>x.id===nav.postId || x._fid===nav.postId);
+      if(p) { setTimeout(()=>setSelectedPost(p),100); }
+    } else if(nav.type==="chat") {
+      // 채팅방으로 이동
+      const m = matches.find(x=>x.uid===nav.uid);
+      if(m) { openChat(m); }
+      else { setTab("messages"); setInterestMode("chat"); }
+    } else if(nav.type==="match") {
+      // 매칭 목록으로 이동
+      setTab("messages"); setInterestMode("chat");
+    } else if(nav.type==="meeting") {
+      setTab("meeting");
+    } else if(nav.type==="story") {
+      setTab("story");
+    }
+  };
+
   // 위치
   const [userLocation,    setUserLocation]    = useState("인천 연수구");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullY, setPullY] = useState(0);
+  const [pulling, setPulling] = useState(false);
+  const pullStartY = useRef(0);
+  const pullTabRef = useRef("");
+
+  const handleTouchStart = (e, tabName) => {
+    const el = e.currentTarget;
+    if(el.scrollTop <= 0) { pullStartY.current = e.touches[0].clientY; pullTabRef.current = tabName; }
+  };
+  const handleTouchMove = (e) => {
+    if(!pullStartY.current) return;
+    const el = e.currentTarget;
+    if(el.scrollTop > 0) { pullStartY.current = 0; setPullY(0); setPulling(false); return; }
+    const dy = e.touches[0].clientY - pullStartY.current;
+    if(dy > 0) { setPullY(Math.min(dy * 0.5, 80)); setPulling(dy > 60); }
+  };
+  const handleTouchEnd = () => {
+    if(pulling && !isRefreshing) {
+      const t = pullTabRef.current;
+      if(t==="community") refreshContent("community");
+      else if(t==="story") refreshContent("story");
+      else if(t==="meeting") refreshContent("meeting");
+    }
+    setPullY(0); setPulling(false); pullStartY.current = 0;
+  };
   const [locationUpdating, setLocationUpdating] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
@@ -275,7 +329,7 @@ export default function App() {
     { icon:"🏆", label:"프리미엄", amount:8000, price:"5,000원", popular:false },
   ];
   const [alarms, setAlarms] = useState([
-    { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true },
+    { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true, nav:null },
   ]);
 
   const pet = nearbyPets.length > 0 ? nearbyPets[idx % nearbyPets.length] : null;
@@ -605,18 +659,8 @@ export default function App() {
       }
       if (firebaseUser) {
         detectLocation();
-        // 온라인 상태 기록
+        // 온라인 상태 기록 (로그인 시)
         updateDoc(doc(db,"users",firebaseUser.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
-        // 30초마다 온라인 상태 갱신
-        const presenceInterval = setInterval(()=>{
-          if(auth.currentUser) updateDoc(doc(db,"users",auth.currentUser.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
-        },30000);
-        // 탭 닫을 때 오프라인 처리
-        const handleBeforeUnload = ()=>{
-          if(auth.currentUser) navigator.sendBeacon?.("about:blank"); // 간단한 트리거
-          // Firestore에 오프라인 마킹은 onDisconnect로 대체 어려움 → lastSeen 기반 판별
-        };
-        window.addEventListener("beforeunload",handleBeforeUnload);
         // 다른 유저 + 커뮤니티 콘텐츠 자동 로드 (약간 딜레이)
         setTimeout(() => { loadNearbyUsers(); refreshContent("all"); }, 500);
         // Firestore chatRooms에서 내 대화방 로드 → 매칭 목록 복원
@@ -678,7 +722,11 @@ export default function App() {
             if (!nSnap.empty) {
               const newAlarms = nSnap.docs.map(d=>{
                 const n=d.data();
-                return {id:d.id,icon:n.type==="like"?"❤️":"💬",text:n.from+"님이 "+n.text,time:"새 알림",unread:true,_fid:d.id};
+                const navInfo = n.type==="like"||n.type==="comment" ? {type:"post",postId:n.postId||null}
+                  : n.type==="match" ? {type:"match",uid:n.matchData?.uid||null}
+                  : n.type==="message" ? {type:"chat",uid:n.fromUid||null}
+                  : null;
+                return {id:d.id,icon:n.type==="like"?"❤️":n.type==="match"?"💕":"💬",text:n.from+"님이 "+n.text,time:"새 알림",unread:true,_fid:d.id,nav:navInfo};
               });
               setAlarms(a=>[...newAlarms,...a]);
             }
@@ -893,7 +941,7 @@ export default function App() {
       getDoc(doc(db,"users",p.uid)).then(d=>{
         if(d.exists()){
           const ls=d.data().lastSeen||0;
-          const isOnline=(Date.now()-ls)<60000; // 1분 이내 접속 = 온라인
+          const isOnline=(Date.now()-ls)<30000; // 30초 이내 활동 = 온라인
           setChatPet({...p,online:isOnline});
         }else{setChatPet(p);}
       }).catch(()=>setChatPet(p));
@@ -908,6 +956,10 @@ export default function App() {
 
   const [chatRoomId, setChatRoomId] = useState(null);
   const [chatMenu, setChatMenu] = useState(false);
+  const chatContainerRef = useRef(null);
+  const [chatAtBottom, setChatAtBottom] = useState(true);
+  const [newMsgAlert, setNewMsgAlert] = useState(false);
+  const prevMsgCountRef = useRef(0);
   const chatPollRef = useRef(null);
 
   async function loadChatMessages(roomId) {
@@ -916,6 +968,10 @@ export default function App() {
       const snap = await getDocs(q);
       const loaded = snap.docs.map(d => ({id:d.id, ...d.data(), me: d.data().uid === user?.uid}));
       setMsgs(loaded.length > 0 ? loaded : [{id:"welcome",me:false,text:"매칭되었어요! 🎉 대화를 시작해보세요."}]);
+      prevMsgCountRef.current = loaded.length;
+      setChatAtBottom(true);
+      setNewMsgAlert(false);
+      setTimeout(()=>{chatContainerRef.current?.scrollTo({top:chatContainerRef.current.scrollHeight});},100);
       // 상대 메시지 읽음 처리
       snap.docs.forEach(d=>{
         const data=d.data();
@@ -933,7 +989,19 @@ export default function App() {
         const q2 = query(collection(db,"chatRooms",roomId,"messages"),orderBy("ts","asc"),fbLimit(100));
         const snap2 = await getDocs(q2);
         const msgs2 = snap2.docs.map(d=>({id:d.id,...d.data(),me:d.data().uid===user?.uid}));
-        if(msgs2.length>0) setMsgs(msgs2);
+        if(msgs2.length>0){
+          const hadNew = msgs2.length > prevMsgCountRef.current;
+          const lastIsOther = msgs2.length>0 && !msgs2[msgs2.length-1].me;
+          setMsgs(msgs2);
+          prevMsgCountRef.current = msgs2.length;
+          if(hadNew){
+            if(chatAtBottom){
+              setTimeout(()=>{chatContainerRef.current?.scrollTo({top:chatContainerRef.current.scrollHeight,behavior:"smooth"});},50);
+            } else if(lastIsOther){
+              setNewMsgAlert(true);
+            }
+          }
+        }
         // 상대 메시지 읽음 처리
         snap2.docs.forEach(d=>{
           const data=d.data();
@@ -942,13 +1010,15 @@ export default function App() {
           }
         });
       } catch(e){}
-      // 상대방 온라인 상태 갱신
+      // 내 lastSeen 갱신 (채팅 읽는 중 = 온라인)
+      if(user?.uid) updateDoc(doc(db,"users",user.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
+      // 상대방 온라인 상태 갱신 (30초 이내 활동 = 온라인)
       if(chatPet?.uid){
         try{
           const uDoc=await getDoc(doc(db,"users",chatPet.uid));
           if(uDoc.exists()){
             const ls=uDoc.data().lastSeen||0;
-            const isOnline=(Date.now()-ls)<60000;
+            const isOnline=(Date.now()-ls)<30000;
             setChatPet(prev=>prev?{...prev,online:isOnline}:prev);
           }
         }catch(e){}
@@ -967,6 +1037,10 @@ export default function App() {
     const msg = {uid:user?.uid, by:user?.name, text:msgVal.trim(), ts:Date.now(), readBy:[user?.uid]};
     setMsgs(m => [...m, {...msg, id:Date.now(), me:true}]);
     setMsgVal("");
+    // 내 메시지 → 항상 스크롤 다운
+    setTimeout(()=>{chatContainerRef.current?.scrollTo({top:chatContainerRef.current.scrollHeight,behavior:"smooth"});},50);
+    // 온라인 상태 갱신
+    if(user?.uid) updateDoc(doc(db,"users",user.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
     // Firestore에 저장
     addDoc(collection(db,"chatRooms",chatRoomId,"messages"), msg).catch(()=>{});
     // 채팅방 메타 업데이트
@@ -976,6 +1050,14 @@ export default function App() {
       lastTs:Date.now(),
       names:{[user?.uid]:user?.name, [chatPet?.uid||"?"]:chatPet?.owner||chatPet?.name},
     },{merge:true}).catch(()=>{});
+    // 상대방에게 메시지 알림 전송
+    if(chatPet?.uid) {
+      addDoc(collection(db,"notifications"),{
+        to:chatPet.uid,type:"message",from:user?.name,fromUid:user?.uid,
+        text:"새 메시지: "+msgVal.trim().slice(0,30),
+        time:new Date().toISOString(),read:false
+      }).catch(()=>{});
+    }
     if (!firstChatDone) {
       setFirstChatDone(true);
       setPoints(p=>p+10);
@@ -1670,13 +1752,19 @@ export default function App() {
                       <p style={{margin:0,fontSize:14,color:"#9ca3af"}}>새로운 알림이 없어요</p>
                     </div>
                   ) : alarms.map(a => (
-                    <div key={a.id} style={{display:"flex",gap:12,padding:"14px 8px",borderBottom:"1px solid #f3f4f6",background:a.unread?"#fdf2f8":"transparent",borderRadius:12,marginBottom:2}}>
+                    <div key={a.id} onClick={()=>handleAlarmClick(a)}
+                      style={{display:"flex",gap:12,padding:"14px 8px",borderBottom:"1px solid #f3f4f6",background:a.unread?"#fdf2f8":"transparent",borderRadius:12,marginBottom:2,cursor:a.nav?"pointer":"default",transition:"background .15s"}}
+                      onMouseDown={e=>{if(a.nav)e.currentTarget.style.background="#fce7f3";}}
+                      onMouseUp={e=>{e.currentTarget.style.background=a.unread?"#fdf2f8":"transparent";}}>
                       <span style={{fontSize:24,flexShrink:0}}>{a.icon}</span>
                       <div style={{flex:1}}>
                         <p style={{margin:"0 0 3px",fontSize:14,fontWeight:a.unread?600:400,color:"#1f2937"}}>{a.text}</p>
                         <p style={{margin:0,fontSize:12,color:"#9ca3af"}}>{a.time}</p>
                       </div>
-                      {a.unread && <span style={{width:8,height:8,background:"#ec4899",borderRadius:"50%",marginTop:6,flexShrink:0}} />}
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                        {a.unread && <span style={{width:8,height:8,background:"#ec4899",borderRadius:"50%"}} />}
+                        {a.nav && <span style={{fontSize:14,color:"#d1d5db"}}>›</span>}
+                      </div>
                     </div>
                   ))}
                   {alarms.length>0 && (
@@ -1931,14 +2019,20 @@ export default function App() {
 
       {/* 라운지 */}
       {tab==="community" && !selectedPost && (
-        <div>
-          {/* 새로고침 바 */}
-          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-end",borderBottom:"1px solid #f9fafb"}}>
-            <button onClick={()=>refreshContent("community")} disabled={isRefreshing}
-              style={{background:isRefreshing?"#f3f4f6":"linear-gradient(135deg,#ec4899,#a855f7)",color:isRefreshing?"#9ca3af":"white",border:"none",padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:isRefreshing?"default":"pointer",display:"flex",alignItems:"center",gap:4}}>
-              <span style={{display:"inline-block",animation:isRefreshing?"spin 1s linear infinite":"none"}}>🔄</span> {isRefreshing?"불러오는 중...":"새로고침"}
-            </button>
-          </div>
+        <div onTouchStart={e=>handleTouchStart(e,"community")} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+          {/* 당겨서 새로고침 인디케이터 */}
+          {pullY > 5 && pullTabRef.current==="community" && (
+            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#fdf2f8",transition:pulling?"none":"padding .2s"}}>
+              <span style={{fontSize:16,transform:`rotate(${Math.min(pullY*4,360)}deg)`,transition:pulling?"none":"transform .2s"}}>🔄</span>
+              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
+            </div>
+          )}
+          {isRefreshing && (
+            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#fdf2f8"}}>
+              <span style={{fontSize:14,animation:"spin 1s linear infinite"}}>🔄</span>
+              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
+            </div>
+          )}
           {/* 카테고리 탭 - 항상 펼침 */}
           <div style={{background:"white",borderBottom:"1px solid #f3f4f6",position:"sticky",top:57,zIndex:9,padding:"10px 12px 8px"}}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
@@ -2038,7 +2132,7 @@ export default function App() {
           // Firestore 즉시 동기화
           syncPostToFirestore(post.id, {likes:newLikes, comments:post.comments});
           if (!isLiked && post.by !== user?.name) {
-            setAlarms(a=>[{id:Date.now(),icon:"❤️",text:`${user?.name}님이 회원님의 글에 좋아요를 눌렀어요`,time:"방금 전",unread:true},...a]);
+            setAlarms(a=>[{id:Date.now(),icon:"❤️",text:`${user?.name}님이 회원님의 글에 좋아요를 눌렀어요`,time:"방금 전",unread:true,nav:{type:"post",postId:post.id}},...a]);
             if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"like",from:user?.name,postId:post.id,text:"회원님의 글에 좋아요를 눌렀어요 ❤️",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
         };
@@ -2053,7 +2147,7 @@ export default function App() {
           syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
           setCommentVal("");
           if (post.by !== user?.name) {
-            setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${commentVal.trim().slice(0,20)}..."`,time:"방금 전",unread:true},...a]);
+            setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${commentVal.trim().slice(0,20)}..."`,time:"방금 전",unread:true,nav:{type:"post",postId:post.id}},...a]);
             if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"comment",from:user?.name,postId:post.id,text:commentVal.trim().slice(0,30)+"...",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
         };
@@ -2069,7 +2163,7 @@ export default function App() {
           const comment = post.comments.find(c=>c.id===commentId);
           setReplyTarget(null); setReplyVal("");
           if (comment && comment.by !== user?.name) {
-            setAlarms(a=>[{id:Date.now(),icon:"↩️",text:`${user?.name}님이 대댓글을 달았어요`,time:"방금 전",unread:true},...a]);
+            setAlarms(a=>[{id:Date.now(),icon:"↩️",text:`${user?.name}님이 대댓글을 달았어요`,time:"방금 전",unread:true,nav:{type:"post",postId:post.id}},...a]);
           }
         };
 
@@ -2364,7 +2458,8 @@ export default function App() {
               </div>
             </div>
           )}
-          <div style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
+          <div ref={chatContainerRef} onScroll={(e)=>{const el=e.target;const atBot=el.scrollHeight-el.scrollTop-el.clientHeight<60;setChatAtBottom(atBot);if(atBot)setNewMsgAlert(false);}}
+            style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10,position:"relative"}}>
             {msgs.map((m,mi) => (
               <div key={m.id||mi} style={{display:"flex",flexDirection:"column",alignItems:m.me?"flex-end":"flex-start"}}>
                 <div style={{display:"flex",alignItems:m.me?"flex-end":"flex-start",gap:8,maxWidth:"80%"}}>
@@ -2377,6 +2472,15 @@ export default function App() {
               </div>
             ))}
           </div>
+          {/* 새 메시지 알림 버튼 */}
+          {newMsgAlert && (
+            <div style={{position:"absolute",bottom:80,left:"50%",transform:"translateX(-50%)",zIndex:5}}>
+              <button onClick={()=>{chatContainerRef.current?.scrollTo({top:chatContainerRef.current.scrollHeight,behavior:"smooth"});setNewMsgAlert(false);}}
+                style={{background:G,color:"white",border:"none",padding:"8px 18px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(236,72,153,.4)",display:"flex",alignItems:"center",gap:6}}>
+                ↓ 새 메시지
+              </button>
+            </div>
+          )}
           <div style={{padding:"12px 14px",background:"white",borderTop:"1px solid #f3f4f6",display:"flex",gap:10}}>
             <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&sendMsg()} placeholder="메시지를 입력하세요..."
               style={{flex:1,padding:"10px 16px",border:"2px solid #f3f4f6",borderRadius:24,fontSize:14,outline:"none"}} />
@@ -2571,16 +2675,24 @@ export default function App() {
 
       {/* 스토리 */}
       {tab==="story" && (
-        <div style={{paddingBottom:20}}>
-          {/* 새로고침 + 필터 바 */}
-          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{paddingBottom:20}} onTouchStart={e=>handleTouchStart(e,"story")} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+          {/* 필터 바 */}
+          {pullY > 5 && pullTabRef.current==="story" && (
+            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#fdf2f8",transition:pulling?"none":"padding .2s"}}>
+              <span style={{fontSize:16,transform:`rotate(${Math.min(pullY*4,360)}deg)`,transition:pulling?"none":"transform .2s"}}>🔄</span>
+              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
+            </div>
+          )}
+          {isRefreshing && pullTabRef.current==="story" && (
+            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#fdf2f8"}}>
+              <span style={{fontSize:14,animation:"spin 1s linear infinite"}}>🔄</span>
+              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
+            </div>
+          )}
+          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-start",alignItems:"center"}}>
             <button onClick={()=>setShowStoryFilter(true)}
               style={{background:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#fdf2f8":"#f3f4f6",color:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#ec4899":"#6b7280",border:storyFilter.petType!=="all"||storyFilter.region!=="all"?"1px solid #fce7f3":"1px solid #e5e7eb",padding:"6px 12px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
               🔍 필터 {(storyFilter.petType!=="all"||storyFilter.region!=="all")?"✓":""}
-            </button>
-            <button onClick={()=>refreshContent("story")} disabled={isRefreshing}
-              style={{background:isRefreshing?"#f3f4f6":"linear-gradient(135deg,#ec4899,#a855f7)",color:isRefreshing?"#9ca3af":"white",border:"none",padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:isRefreshing?"default":"pointer",display:"flex",alignItems:"center",gap:4}}>
-              <span style={{display:"inline-block",animation:isRefreshing?"spin 1s linear infinite":"none"}}>🔄</span> {isRefreshing?"불러오는 중...":"새로고침"}
             </button>
           </div>
           {/* 스토리 필터 모달 */}
@@ -2866,14 +2978,20 @@ export default function App() {
       })()}
       {/* 모임 */}
       {tab==="meeting" && meetingView==="list" && (
-        <div style={{paddingBottom:20}}>
-          {/* 새로고침 바 */}
-          <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-end"}}>
-            <button onClick={()=>refreshContent("meeting")} disabled={isRefreshing}
-              style={{background:isRefreshing?"#f3f4f6":"linear-gradient(135deg,#ec4899,#a855f7)",color:isRefreshing?"#9ca3af":"white",border:"none",padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:isRefreshing?"default":"pointer",display:"flex",alignItems:"center",gap:4}}>
-              <span style={{display:"inline-block",animation:isRefreshing?"spin 1s linear infinite":"none"}}>🔄</span> {isRefreshing?"불러오는 중...":"새로고침"}
-            </button>
-          </div>
+        <div style={{paddingBottom:20}} onTouchStart={e=>handleTouchStart(e,"meeting")} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+          {/* 당겨서 새로고침 인디케이터 */}
+          {pullY > 5 && pullTabRef.current==="meeting" && (
+            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#fdf2f8",transition:pulling?"none":"padding .2s"}}>
+              <span style={{fontSize:16,transform:`rotate(${Math.min(pullY*4,360)}deg)`,transition:pulling?"none":"transform .2s"}}>🔄</span>
+              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
+            </div>
+          )}
+          {isRefreshing && pullTabRef.current==="meeting" && (
+            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#fdf2f8"}}>
+              <span style={{fontSize:14,animation:"spin 1s linear infinite"}}>🔄</span>
+              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
+            </div>
+          )}
           {/* 검색 영역 */}
           <div style={{padding:"14px 16px",background:"white",borderBottom:"1px solid #f3f4f6"}}>
             <div style={{display:"flex",gap:8,marginBottom:8}}>
@@ -3482,7 +3600,7 @@ export default function App() {
                                 greetings:[...x.greetings,{by:p.name,text:p.msg||"안녕하세요! 잘 부탁드려요.",time:"방금 전"}]
                               }));
                               // 가입 승인 알림
-                              setAlarms(a=>[{id:Date.now(),icon:"🏃",text:`${p.name}님이 모임에 가입했어요!`,time:"방금 전",unread:true},...a]);
+                              setAlarms(a=>[{id:Date.now(),icon:"🏃",text:`${p.name}님이 모임에 가입했어요!`,time:"방금 전",unread:true,nav:{type:"meeting"}},...a]);
                             }} style={{flex:1,background:G,color:"white",border:"none",padding:"9px 0",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>승인</button>
                             <button onClick={()=>updMeeting(x=>({...x,pending:x.pending.filter((_,j)=>j!==i)}))}
                               style={{flex:1,background:"#f3f4f6",color:"#6b7280",border:"none",padding:"9px 0",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>거절</button>
