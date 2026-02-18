@@ -1268,7 +1268,7 @@ export default function App() {
           {signup && (
             <p style={{margin:"6px 0 0",textAlign:"center",fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
               가입 시 <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("펫플 서비스 이용약관\n\n제1조 (목적)\n이 약관은 펫플(이하 \'서비스\')의 이용 조건을 규정합니다.\n\n제2조 (이용자 의무)\n이용자는 타인의 반려동물을 존중하며 건전한 커뮤니티 문화를 유지해야 합니다.")}>이용약관</span> 및{" "}
-              <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("개인정보 처리방침\n\n펫플은 이용자의 개인정보를 중요시하며,\n관련 법령을 준수합니다.\n\n수집 항목: 이메일, 닉네임, 위치 정보\n수집 목적: 서비스 제공 및 개선\n보유 기간: 회원 탈퇴 시까지")}>개인정보 처리방침</span>에 동의하게 됩니다.
+              <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집 항목: 이메일, 닉네임, 위치 정보, 반려동물 정보\n2. 수집 목적: 서비스 제공, 매칭, 커뮤니티 운영\n3. 보유 기간: 회원 탈퇴 시까지\n4. 파기 방법: 전자적 파일은 기술적 방법으로 삭제\n\n사업자: 펫플 | 대표: 김영웅\n주소: 인천광역시 계양구 장제로 762\n전화: 0502-1927-8252")}>개인정보 처리방침</span>에 동의하게 됩니다.
             </p>
           )}
         </div>
@@ -1328,7 +1328,7 @@ export default function App() {
 
   // ── 메인 앱 ──────────────────────────────────────────────
   return (
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#f9fafb",fontFamily:"system-ui,sans-serif",paddingBottom:tab==="chat"?0:72}}>
+    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#f9fafb",fontFamily:"system-ui,sans-serif",paddingBottom:tab==="chat"?0:90}}>
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       {/* 드롭다운 오버레이 */}
       {/* (알람 오버레이는 바텀시트 모달 내부에서 처리) */}
@@ -2653,7 +2653,8 @@ export default function App() {
                 {icon:"📢",label:"공지사항",action:()=>alert("📢 펫플 v1.0 출시!\n\n반려동물 친구 만들기 서비스 펫플이 정식 출시되었습니다. 🐾")},
                 {icon:"💡",label:"자주 묻는 질문",action:()=>alert("Q. 매칭은 어떻게 되나요?\nA. 홈에서 프로필을 스와이프하세요. 오른쪽=좋아요, 왼쪽=패스!\n\nQ. 포인트는 어떻게 모으나요?\nA. 출석체크, 스토리 업로드 등 활동하면 자동 적립돼요.")},
                 {icon:"📄",label:"이용약관",action:()=>alert("펫플 서비스 이용약관\n\n제1조 이 약관은 펫플 서비스의 이용 조건을 규정합니다.\n제2조 이용자는 건전한 커뮤니티 문화를 유지해야 합니다.")},
-                {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("수집 항목: 이메일, 닉네임, 위치 정보\n수집 목적: 서비스 제공 및 개선\n보유 기간: 회원 탈퇴 시까지")},
+                {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집 항목: 이메일, 닉네임, 위치 정보, 반려동물 정보\n2. 수집 목적: 서비스 제공, 매칭, 커뮤니티 운영\n3. 보유 기간: 회원 탈퇴 시까지\n4. 파기 방법: 전자적 파일은 기술적 방법으로 삭제\n\n사업자: 펫플 | 대표: 김영웅\n주소: 인천광역시 계양구 장제로 762\n전화: 0502-1927-8252\n이메일: support@petple.app")},
+                {icon:"🏢",label:"사업자정보",action:()=>alert("상호명: 펫플\n대표자명: 김영웅\n사업자등록번호: 743-09-03086\n사업장주소: 인천광역시 계양구 장제로 762\n전화번호: 0502-1927-8252\n이메일: support@petple.app")},
                 {icon:"💬",label:"고객센터",action:()=>alert("📮 support@petple.app\n운영시간: 평일 10:00 ~ 18:00")},
                 {icon:"🚪",label:"회원탈퇴",action:()=>setDeleteAccModal(true),danger:true},
               ].map((item,i)=>(
@@ -2666,9 +2667,16 @@ export default function App() {
               ))}
             </div>
             <button onClick={logout} style={{width:"100%",background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,color:"#6b7280",fontWeight:600,fontSize:14,cursor:"pointer",marginBottom:12}}>로그아웃</button>
-            <p style={{margin:0,fontSize:10,color:"#d1d5db",textAlign:"center",lineHeight:1.8}}>
-              🐾 펫플 v1.0.0 | 상호: 펫플 | 대표: 김영웅<br/>사업자등록번호: 743-09-03086 | support@petple.app
-            </p>
+            <div style={{margin:"0 0 8px",padding:"12px 14px",background:"#f9fafb",borderRadius:12}}>
+              <p style={{margin:0,fontSize:10,color:"#9ca3af",textAlign:"center",lineHeight:1.8,letterSpacing:"-0.2px"}}>
+                🐾 펫플 v1.0.0<br/>
+                상호명: 펫플 | 대표자명: 김영웅<br/>
+                사업자등록번호: 743-09-03086<br/>
+                사업장주소: 인천광역시 계양구 장제로 762<br/>
+                전화번호: 0502-1927-8252<br/>
+                이메일: support@petple.app
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -4084,7 +4092,14 @@ export default function App() {
 
       {/* 하단 탭바 */}
       {tab!=="chat" && (
-        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
+        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:10}}>
+          {/* 사업자정보 - PG 심사 요건 상시 노출 */}
+          <div style={{background:"#f9fafb",borderTop:"1px solid #f3f4f6",padding:"4px 12px",textAlign:"center"}}>
+            <p style={{margin:0,fontSize:8,color:"#c0c0c0",lineHeight:1.5,letterSpacing:"-0.3px"}}>
+              상호명: 펫플 | 대표자: 김영웅 | 사업자등록번호: 743-09-03086 | 주소: 인천광역시 계양구 장제로 762 | 전화: 0502-1927-8252
+            </p>
+          </div>
+          <div style={{background:"white",borderTop:"1px solid #f3f4f6",display:"flex"}}>
           {[["home","🏠","홈"],["community","🧡","라운지"],["story","📸","스토리"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
             <button key={id} onClick={() => { setTab(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
@@ -4092,6 +4107,7 @@ export default function App() {
               {id==="messages" && matches.length>0 && <span style={{position:"absolute",width:6,height:6,background:"#ef4444",borderRadius:"50%",marginTop:-14,marginLeft:18}} />}
             </button>
           ))}
+          </div>
         </div>
       )}
 
