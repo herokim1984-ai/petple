@@ -363,12 +363,14 @@ export default function App() {
         const petDefaultImg = "https://ui-avatars.com/api/?name=🐾&background=fce7f3&color=ec4899&size=400";
         if (pets.length > 0) {
           pets.forEach((pet, pi) => {
-            const petImg = (pet.photo && pet.photo !== "[img]") ? pet.photo : petDefaultImg;
+            const petPhotos = (pet.photos||[]).filter(x=>x&&x!=="[img]");
+            const petImg = petPhotos[pet.repIdx||0] || petPhotos[0] || (pet.photo && pet.photo !== "[img]" ? pet.photo : null) || petDefaultImg;
+            const allPetImgs = petPhotos.length > 0 ? petPhotos : [petImg];
             otherUsers.push({
               id: d.id + "_" + pi,
               name: pet.name || data.nick + "의 반려동물",
               img: petImg,
-              imgs: [petImg].filter(Boolean),
+              imgs: allPetImgs,
               breed: pet.breed || "믹스",
               age: pet.age ? Number(pet.age) : 1,
               gender: pet.gender || "미정",
@@ -603,8 +605,59 @@ export default function App() {
       }
       if (firebaseUser) {
         detectLocation();
+        // 온라인 상태 기록
+        updateDoc(doc(db,"users",firebaseUser.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
+        // 30초마다 온라인 상태 갱신
+        const presenceInterval = setInterval(()=>{
+          if(auth.currentUser) updateDoc(doc(db,"users",auth.currentUser.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
+        },30000);
+        // 탭 닫을 때 오프라인 처리
+        const handleBeforeUnload = ()=>{
+          if(auth.currentUser) navigator.sendBeacon?.("about:blank"); // 간단한 트리거
+          // Firestore에 오프라인 마킹은 onDisconnect로 대체 어려움 → lastSeen 기반 판별
+        };
+        window.addEventListener("beforeunload",handleBeforeUnload);
         // 다른 유저 + 커뮤니티 콘텐츠 자동 로드 (약간 딜레이)
         setTimeout(() => { loadNearbyUsers(); refreshContent("all"); }, 500);
+        // Firestore chatRooms에서 내 대화방 로드 → 매칭 목록 복원
+        setTimeout(async()=>{
+          try{
+            const roomSnap=await getDocs(query(collection(db,"chatRooms"),where("users","array-contains",firebaseUser.uid)));
+            if(!roomSnap.empty){
+              const chatMatches=[];
+              for(const rd of roomSnap.docs){
+                const rData=rd.data();
+                const otherUid=(rData.users||[]).find(u=>u!==firebaseUser.uid);
+                if(!otherUid) continue;
+                const otherName=rData.names?.[otherUid]||"펫친";
+                // 상대 유저 정보 로드
+                try{
+                  const uDoc=await getDoc(doc(db,"users",otherUid));
+                  if(uDoc.exists()){
+                    const ud=uDoc.data();
+                    const pets=ud.myPets||[];
+                    const pet=pets[0];
+                    const petPhotos=pet?(pet.photos||[]).filter(x=>x&&x!=="[img]"):[];
+                    const petImg=petPhotos[0]||"https://ui-avatars.com/api/?name=🐾&background=fce7f3&color=ec4899&size=400";
+                    chatMatches.push({
+                      uid:otherUid,name:pet?.name||ud.nick||otherName,
+                      img:petImg,breed:pet?.breed||"",age:pet?.age||0,
+                      gender:pet?.gender||"",owner:ud.nick||otherName,
+                      lastMsg:rData.lastMsg||"",lastTs:rData.lastTs||0,
+                    });
+                  }
+                }catch(e){}
+              }
+              if(chatMatches.length>0){
+                setMatches(prev=>{
+                  const existingUids=new Set(prev.map(m=>m.uid));
+                  const newOnes=chatMatches.filter(m=>!existingUids.has(m.uid));
+                  return [...prev,...newOnes];
+                });
+              }
+            }
+          }catch(e){}
+        },800);
         // 전체 유저 프로필 사진 캐시 (글 목록 아바타용)
         setTimeout(async()=>{
           try{
@@ -790,11 +843,33 @@ export default function App() {
         setMatches(m => [...m, cur]);
         setPopup(cur);
         setTimeout(() => setPopup(null), 2500);
+        // 상대방에게 매칭 알림 + 채팅방 사전 생성
+        if(cur.uid && user?.uid) {
+          const roomId = [user.uid, cur.uid].sort().join("_");
+          setDoc(doc(db,"chatRooms",roomId),{
+            users:[user.uid, cur.uid],
+            lastMsg:"매칭되었어요! 🎉",
+            lastTs:Date.now(),
+            names:{[user.uid]:user?.name,[cur.uid]:cur.owner||cur.name},
+          },{merge:true}).catch(()=>{});
+          addDoc(collection(db,"notifications"),{to:cur.uid,type:"match",from:user?.name,text:user?.name+"님과 매칭되었어요! 💕",time:new Date().toISOString(),read:false,matchData:{uid:user.uid,name:user?.name,img:profilePhotos[profileRepIdx]||null}}).catch(()=>{});
+        }
       } else if (dir !== "L") {
         if (Math.random() < 0.35) {
           setMatches(m => [...m, cur]);
           setPopup(cur);
           setTimeout(() => setPopup(null), 2500);
+          // 상대방에게 매칭 알림 + 채팅방 사전 생성
+          if(cur.uid && user?.uid) {
+            const roomId = [user.uid, cur.uid].sort().join("_");
+            setDoc(doc(db,"chatRooms",roomId),{
+              users:[user.uid, cur.uid],
+              lastMsg:"매칭되었어요! 🎉",
+              lastTs:Date.now(),
+              names:{[user.uid]:user?.name,[cur.uid]:cur.owner||cur.name},
+            },{merge:true}).catch(()=>{});
+            addDoc(collection(db,"notifications"),{to:cur.uid,type:"match",from:user?.name,text:user?.name+"님과 매칭되었어요! 💕",time:new Date().toISOString(),read:false,matchData:{uid:user.uid,name:user?.name,img:profilePhotos[profileRepIdx]||null}}).catch(()=>{});
+          }
         } else {
           setLiked(l => [...l, cur]);
         }
@@ -813,7 +888,16 @@ export default function App() {
       setPointLog(l => [{icon:"💌",label:"대화방 개설 ("+p.name+")",pt:-10,type:"use",date:"방금 전"},...l]);
       setChatOpened(s => new Set([...s, p.id]));
     }
-    setChatPet(p);
+    // 상대방 온라인 상태 확인
+    if(p.uid){
+      getDoc(doc(db,"users",p.uid)).then(d=>{
+        if(d.exists()){
+          const ls=d.data().lastSeen||0;
+          const isOnline=(Date.now()-ls)<60000; // 1분 이내 접속 = 온라인
+          setChatPet({...p,online:isOnline});
+        }else{setChatPet(p);}
+      }).catch(()=>setChatPet(p));
+    }else{setChatPet(p);}
     // Firestore 실시간 채팅 로드
     const chatRoomId = [user.uid, p.uid].sort().join("_");
     setChatRoomId(chatRoomId);
@@ -858,6 +942,17 @@ export default function App() {
           }
         });
       } catch(e){}
+      // 상대방 온라인 상태 갱신
+      if(chatPet?.uid){
+        try{
+          const uDoc=await getDoc(doc(db,"users",chatPet.uid));
+          if(uDoc.exists()){
+            const ls=uDoc.data().lastSeen||0;
+            const isOnline=(Date.now()-ls)<60000;
+            setChatPet(prev=>prev?{...prev,online:isOnline}:prev);
+          }
+        }catch(e){}
+      }
     }, 3000);
   }
 
@@ -1164,7 +1259,7 @@ export default function App() {
             <div onClick={()=>openProfile(chatPet?.owner||chatPet?.name, chatPet?.img)}
               style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
               <img src={chatPet?.img} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover"}}/>
-              <div><p style={{margin:0,fontWeight:700,fontSize:15}}>{chatPet?.name}</p><p style={{margin:0,fontSize:11,color:"#10b981"}}>온라인</p></div>
+              <div><p style={{margin:0,fontWeight:700,fontSize:15}}>{chatPet?.name}</p><p style={{margin:0,fontSize:11,color:chatPet?.online?"#10b981":"#9ca3af"}}>{chatPet?.online?"온라인":"오프라인"}</p></div>
             </div>
             <button onClick={()=>setChatMenu(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,padding:4}}>⋮</button>
           </>
@@ -2189,11 +2284,11 @@ export default function App() {
                 <div key={i} onClick={() => openChat(m)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 20px",borderBottom:"1px solid #f9fafb",cursor:"pointer",background:"white"}}>
                   <div onClick={e=>{e.stopPropagation();buildProfile();}} style={{position:"relative",cursor:"pointer"}}>
                     <img src={m.img} alt={m.name} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}} />
-                    <span style={{position:"absolute",bottom:1,right:1,width:12,height:12,background:"#10b981",borderRadius:"50%",border:"2px solid white"}} />
+                    <span style={{position:"absolute",bottom:1,right:1,width:12,height:12,background:m.online?"#10b981":"#d1d5db",borderRadius:"50%",border:"2px solid white"}} />
                   </div>
                   <div style={{flex:1}}>
                     <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15}}>{m.name}</p>
-                    <p style={{margin:0,color:"#9ca3af",fontSize:13}}>새로운 매칭 🎉</p>
+                    <p style={{margin:0,color:"#9ca3af",fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:200}}>{m.lastMsg||"새로운 매칭 🎉"}</p>
                   </div>
 
                 </div>
@@ -2320,18 +2415,19 @@ export default function App() {
               </div>
             </div>
             {profileBio && <p style={{margin:"12px 0 0",fontSize:13,color:"#374151",lineHeight:1.5,background:"rgba(255,255,255,.7)",borderRadius:10,padding:"8px 12px"}}>{profileBio}</p>}
+            {/* 관심사 태그 - 프로필수정 버튼 위에 배치 */}
+            {user?.interests && user.interests.length>0 && (
+              <div style={{marginTop:12,display:"flex",flexWrap:"wrap",gap:4}}>
+                {user.interests.map((t,i)=><span key={i} style={{background:"rgba(255,255,255,.8)",color:"#be185d",padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>#{t}</span>)}
+              </div>
+            )}
             <button onClick={() => { setEditBioVal(profileBio); setEditNickVal(user?.name||""); setIsEditProfile(true); }}
-              style={{marginTop:12,background:"rgba(255,255,255,.85)",color:"#ec4899",border:"none",padding:"8px 18px",borderRadius:20,fontSize:13,fontWeight:700,cursor:"pointer",width:"100%"}}>
+              style={{marginTop:10,background:"rgba(255,255,255,.85)",color:"#ec4899",border:"none",padding:"8px 18px",borderRadius:20,fontSize:13,fontWeight:700,cursor:"pointer",width:"100%"}}>
               ✏️ 프로필 수정
             </button>
           </div>
 
-          {/* 관심사 + 인증 + 완성도 */}
-          {user?.interests && user.interests.length>0 && (
-            <div style={{padding:"0 20px 8px",display:"flex",flexWrap:"wrap",gap:4}}>
-              {user.interests.map((t,i)=><span key={i} style={{background:"#fce7f3",color:"#be185d",padding:"3px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>#{t}</span>)}
-            </div>
-          )}
+          {/* 인증 + 완성도 */}
           {!isVerified && (
             <div style={{margin:"0 20px 8px",background:"#eff6ff",borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:18}}>🛡️</span>
@@ -4167,6 +4263,14 @@ export default function App() {
                 style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>
               <button onClick={()=>{
                 if(!reportReason){alert("신고 사유를 선택해주세요.");return;}
+                // Firestore reports 컬렉션에 저장
+                addDoc(collection(db,"reports"),{
+                  reporterUid:user?.uid,reporterName:user?.name,
+                  targetName:reportModal.name,targetUid:reportModal.uid||null,
+                  reason:reportReason,
+                  ts:Date.now(),time:new Date().toISOString(),
+                  status:"pending"
+                }).catch(()=>{});
                 alert("신고가 접수되었어요. 검토 후 조치하겠습니다.");
                 setReportModal(null);setReportReason("");
               }} style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신고하기</button>
