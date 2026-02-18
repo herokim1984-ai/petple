@@ -178,10 +178,7 @@ export default function App() {
   // 상대방 프로필 모달
   const [viewUserProfile, setViewUserProfile] = useState(null);
   const [photoViewer, setPhotoViewer] = useState(null); // {photos:[], idx:0}
-  const postsRef = useRef([]);
-  const storiesRef = useRef([]);
-  useEffect(()=>{postsRef.current=posts;},[posts]);
-  useEffect(()=>{storiesRef.current=myStories;},[myStories]);
+  // postsRef, storiesRef는 myStories 선언 이후에 배치 (TDZ 방지)
   const [authorPhotoCache, setAuthorPhotoCache] = useState({}); // uid -> photoUrl // {name, img, bio, pets:[]}
 
   // 위치
@@ -217,6 +214,10 @@ export default function App() {
 
   // 스토리
   const [myStories,      setMyStories]      = useState([]);
+  const postsRef = useRef([]);
+  const storiesRef = useRef([]);
+  useEffect(()=>{postsRef.current=posts;},[posts]);
+  useEffect(()=>{storiesRef.current=myStories;},[myStories]);
   const [showStoryFilter, setShowStoryFilter] = useState(false);
   const [storyFilter, setStoryFilter] = useState({petType:"all",region:"all",sort:"latest"});
   const [isAddStory,     setIsAddStory]     = useState(false);
@@ -1178,7 +1179,7 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",gap:4}}>
               {/* 발자국 포인트 */}
               <button onClick={() => { setShowPoints(p=>!p); setShowAlarm(false); }}
-                style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:20,background:showPoints?"#fce7f3":"transparent"}}>
+                style={{border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:20,background:showPoints?"#fce7f3":"transparent"}}>
                 <span style={{fontSize:16}}>🐾</span>
                 <span style={{fontSize:13,fontWeight:700,color:"#ec4899"}}>{points.toLocaleString()}</span>
               </button>
@@ -3838,15 +3839,9 @@ export default function App() {
                   photos: (pet.photos||[]).map(p => {
                     if(!p || p==="[img]") return null;
                     if(!p.startsWith?.("data:")) return p;
-                    // base64 이미지 → 작은 썸네일로 리사이즈
-                    try {
-                      const canvas = document.createElement("canvas");
-                      const img2 = new Image(); img2.src = p;
-                      canvas.width = 200; canvas.height = 200;
-                      const ctx = canvas.getContext("2d");
-                      ctx.drawImage(img2,0,0,200,200);
-                      return canvas.toDataURL("image/jpeg",0.4);
-                    } catch(e) { return "[img]"; }
+                    // base64가 너무 크면 Firestore 1MB 제한에 걸림 → [img]로 대체
+                    if(p.length > 200000) return "[img]";
+                    return p;
                   }),
                 });
                 if(editPetIdx!==null){

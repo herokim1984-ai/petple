@@ -1,4 +1,4 @@
-const CACHE_NAME = 'petple-v1';
+const CACHE_NAME = 'petple-v2';
 const ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', (e) => {
@@ -19,6 +19,7 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // 네트워크 우선 전략 - 항상 최신 버전 서빙
   e.respondWith(
     fetch(e.request)
       .then((res) => {
