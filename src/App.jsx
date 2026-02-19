@@ -62,6 +62,19 @@ const filterBadWords = (text) => {
 };
 const hasBadWord = (text) => BAD_WORDS.some(w => text.toLowerCase().includes(w.toLowerCase()));
 
+// ── 시간 포맷 ──
+const timeNow = () => {
+  const d = new Date();
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? "오후" : "오전";
+  return ampm + " " + (h%12||12) + ":" + String(m).padStart(2,"0");
+};
+const dateNow = () => {
+  const d = new Date();
+  return (d.getMonth()+1) + "/" + d.getDate() + " " + timeNow();
+};
+
 const INIT_MEETINGS = [];
 
 const G = "linear-gradient(135deg,#ec4899,#a855f7)";
@@ -330,7 +343,7 @@ export default function App() {
   const [checkedIn, setCheckedIn] = useState(false);
   const [earnDone, setEarnDone] = useState({});
   const [pointLog, setPointLog] = useState([
-    { icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" },
+    { icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:dateNow() },
   ]);
   const [nickAvail, setNickAvail] = useState(null); // signup: null|"ok"|"dup"|"checking"
   const [deleteAccModal, setDeleteAccModal] = useState(false);
@@ -342,9 +355,7 @@ export default function App() {
     { icon:"🔥", label:"활동팩",     amount:500,  price:"₩5,500",  popular:false, desc:"2주 활동량" },
     { icon:"👑", label:"프리미엄팩", amount:1200, price:"₩11,000", popular:false, desc:"한 달 넉넉" },
   ];
-  const [alarms, setAlarms] = useState([
-    { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true, nav:null },
-  ]);
+  const [alarms, setAlarms] = useState([]);
 
   const pet = nearbyPets.length > 0 ? nearbyPets[idx % nearbyPets.length] : null;
 
@@ -413,6 +424,37 @@ export default function App() {
       } else { setViewUserProfile(v=>v?{...v,loading:false}:v); }
     } catch(e) { setViewUserProfile(v=>v?{...v,loading:false}:v); }
   };
+
+  // ── 펫친 추천 시간 로직 (9시, 12시, 15시, 18시 KST / 5명씩) ──
+  const [recoRefreshCount, setRecoRefreshCount] = useState(0);
+  const [lastRecoHour, setLastRecoHour] = useState(-1);
+  const RECO_HOURS = [9, 12, 15, 18]; // KST 추천 시간
+  const RECO_PER_SLOT = 5;
+  const MAX_DAILY_RECO = 20;
+
+  useEffect(() => {
+    const checkRecoTime = () => {
+      const kstH = new Date(Date.now() + 9*60*60*1000).getUTCHours();
+      if (RECO_HOURS.includes(kstH) && kstH !== lastRecoHour && recoRefreshCount < MAX_DAILY_RECO) {
+        setLastRecoHour(kstH);
+        loadNearbyUsers(RECO_PER_SLOT);
+        setRecoRefreshCount(c => c + RECO_PER_SLOT);
+      }
+    };
+    const interval = setInterval(checkRecoTime, 60000); // 1분마다 체크
+    checkRecoTime();
+    return () => clearInterval(interval);
+  }, [lastRecoHour, recoRefreshCount]);
+
+  // 자정에 카운터 리셋
+  useEffect(() => {
+    const resetDaily = () => {
+      const kstH = new Date(Date.now() + 9*60*60*1000).getUTCHours();
+      if (kstH === 0) { setRecoRefreshCount(0); setLastRecoHour(-1); }
+    };
+    const interval = setInterval(resetDaily, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // ── 다른 사용자 프로필 로드 (펫친 추천) ──
   const loadNearbyUsers = async () => {
@@ -651,7 +693,7 @@ export default function App() {
               email: firebaseUser.email,
               nick: gNick,
               points: 150,
-              pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" }],
+              pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:dateNow() }],
               created: new Date().toISOString(),
             };
             try {
@@ -820,7 +862,7 @@ export default function App() {
             interests: signupInterests,
             verified: false,
             points: 150,
-            pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:"오늘" }],
+            pointLog: [{ icon:"🎁", label:"가입 환영 보너스", pt:150, type:"earn", date:dateNow() }],
             created: new Date().toISOString(),
           });
         } catch (fsErr) {
@@ -899,7 +941,7 @@ export default function App() {
         // 슈퍼좋아요: -30p 사용 + 매칭 100% 보장
         setPoints(p => p - 50);
         setPointLog(l => [
-          {icon:"💎",label:"슈퍼좋아요 ("+cur.name+")",pt:-50,type:"use",date:"방금 전"},
+          {icon:"💎",label:"슈퍼좋아요 ("+cur.name+")",pt:-50,type:"use",date:dateNow()},
           ...l
         ]);
         setMatches(m => [...m, cur]);
@@ -947,7 +989,7 @@ export default function App() {
         return;
       }
       setPoints(pt => pt - 30);
-      setPointLog(l => [{icon:"💌",label:"대화방 개설 ("+p.name+")",pt:-30,type:"use",date:"방금 전"},...l]);
+      setPointLog(l => [{icon:"💌",label:"대화방 개설 ("+p.name+")",pt:-30,type:"use",date:dateNow()},...l]);
       setChatOpened(s => new Set([...s, p.id]));
     }
     // 상대방 온라인 상태 확인
@@ -1076,7 +1118,7 @@ export default function App() {
     if (!firstChatDone) {
       setFirstChatDone(true);
       setPoints(p=>p+5);
-      setPointLog(l=>[{icon:"💬",label:"첫 대화 시작",pt:5,type:"earn",date:"방금 전"},...l]);
+      setPointLog(l=>[{icon:"💬",label:"첫 대화 시작",pt:5,type:"earn",date:dateNow()},...l]);
     }
   }
 
@@ -1084,7 +1126,7 @@ export default function App() {
     try { await signOut(auth); } catch {}
     setLoggedIn(false); setUser(null); setPw(""); setPwConfirm(""); setNick(""); setErr(""); setSignup(false);
     setMatches([]); setLiked([]); setReceivedLikes([]); setIdx(0); setTab("home"); setChatPet(null);
-    setPoints(150); setPointLog([{icon:"🎁",label:"가입 환영 보너스",pt:150,type:"earn",date:"오늘"}]);
+    setPoints(150); setPointLog([{icon:"🎁",label:"가입 환영 보너스",pt:150,type:"earn",date:dateNow()}]);
     setProfileBio(""); setProfilePhotos([null,null,null,null,null]); setProfileRepIdx(0);
     setMyPets([]); setMyStories([]); setPosts([]);
     setIsVerified(false); setIsBoosted(false); setUserLocation("인천 연수구");
@@ -1282,8 +1324,8 @@ export default function App() {
           {/* 이용약관 동의 안내 */}
           {signup && (
             <p style={{margin:"6px 0 0",textAlign:"center",fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
-              가입 시 <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("펫플 서비스 이용약관\n\n제1조 (목적)\n이 약관은 펫플(이하 \'서비스\')의 이용 조건을 규정합니다.\n\n제2조 (이용자 의무)\n이용자는 타인의 반려동물을 존중하며 건전한 커뮤니티 문화를 유지해야 합니다.")}>이용약관</span> 및{" "}
-              <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집 항목: 이메일, 닉네임, 위치 정보, 반려동물 정보\n2. 수집 목적: 서비스 제공, 매칭, 커뮤니티 운영\n3. 보유 기간: 회원 탈퇴 시까지\n4. 파기 방법: 전자적 파일은 기술적 방법으로 삭제\n\n사업자: 펫플 | 대표: 김영웅\n주소: 인천광역시 계양구 장제로 762\n전화: 0502-1927-8252")}>개인정보 처리방침</span>에 동의하게 됩니다.
+              가입 시 <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")}>이용약관</span> 및{" "}
+              <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1927-8252")}>개인정보 처리방침</span>에 동의하게 됩니다.
             </p>
           )}
         </div>
@@ -1343,7 +1385,7 @@ export default function App() {
 
   // ── 메인 앱 ──────────────────────────────────────────────
   return (
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#f9fafb",fontFamily:"system-ui,sans-serif",paddingBottom:tab==="chat"?0:90}}>
+    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#f9fafb",fontFamily:"system-ui,sans-serif",paddingBottom:tab==="chat"?0:72}}>
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       {/* 드롭다운 오버레이 */}
       {/* (알람 오버레이는 바텀시트 모달 내부에서 처리) */}
@@ -1418,7 +1460,7 @@ export default function App() {
               <div style={{position:"absolute",bottom:-30,right:20,width:140,height:140,background:"rgba(255,255,255,.05)",borderRadius:"50%"}} />
               <p style={{margin:"0 0 4px",fontSize:12,opacity:.8}}>보유 포인트</p>
               <p style={{margin:"0 0 12px",fontSize:36,fontWeight:900,letterSpacing:-1}}>{points.toLocaleString()}<span style={{fontSize:16,fontWeight:600,marginLeft:4}}>p</span></p>
-              <button onClick={() => { if(!checkedIn){ setPoints(p=>p+3); setCheckedIn(true); setEarnDone(d=>({...d,checkin:true})); setPointLog(l=>[{icon:"✅",label:"출석 체크",pt:3,type:"earn",date:"방금 전"},...l]); } }}
+              <button onClick={() => { if(!checkedIn){ setPoints(p=>p+3); setCheckedIn(true); setEarnDone(d=>({...d,checkin:true})); setPointLog(l=>[{icon:"✅",label:"출석 체크",pt:3,type:"earn",date:dateNow()},...l]); } }}
                 style={{background:checkedIn?"rgba(255,255,255,.2)":"white",border:"none",padding:"8px 18px",borderRadius:20,fontSize:13,fontWeight:700,cursor:checkedIn?"not-allowed":"pointer",color:checkedIn?"rgba(255,255,255,.6)":"#ec4899"}}>
                 {checkedIn ? "✓ 출석 완료" : "출석 체크 +3p"}
               </button>
@@ -1474,7 +1516,7 @@ export default function App() {
                           if(item.action==="checkin" && !checkedIn){
                             setCheckedIn(true);
                             setPoints(p=>p+item.pt);
-                            setPointLog(l=>[{icon:item.icon,label:item.label,pt:item.pt,type:"earn",date:"방금 전"},...l]);
+                            setPointLog(l=>[{icon:item.icon,label:item.label,pt:item.pt,type:"earn",date:dateNow()},...l]);
                           } else if(item.action==="invite"){
                             if(navigator.share){navigator.share({title:"펫플 - 반려동물 소셜",text:"우리 아이 친구 만들기! 펫플에서 만나요 🐾",url:"https://petple.app/invite"}).catch(()=>{});}
                             else{navigator.clipboard?.writeText("https://petple.app/invite");alert("초대 링크가 복사되었어요!");}
@@ -1501,8 +1543,7 @@ export default function App() {
                         {icon:"💎",label:"슈퍼좋아요",cost:50,desc:"100% 매칭 보장"},
                         {icon:"💌",label:"대화 시작",cost:30,desc:"새 대화 개설"},
                         {icon:"📌",label:"글 상단 고정",cost:30,desc:"24시간"},
-                        {icon:"👀",label:"좋아한 사람 보기",cost:200,desc:"해금"},
-                        {icon:"✏️",label:"닉네임 변경",cost:200,desc:"1회"},
+                                                {icon:"✏️",label:"닉네임 변경",cost:200,desc:"1회"},
                       ].map((s,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.7)",borderRadius:10,padding:"8px 12px"}}>
                           <span style={{fontSize:18}}>{s.icon}</span>
@@ -1516,55 +1557,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* 나를 좋아한 사람 보기 */}
-                  <div style={{background:"linear-gradient(135deg,#fdf2f8,#ede9fe)",borderRadius:16,padding:16,marginBottom:16}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                      <span style={{fontSize:28}}>👀</span>
-                      <div style={{flex:1}}>
-                        <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14}}>나를 좋아한 사람 {liked.length>0?`(${liked.length}명)`:""}</p>
-                        <p style={{margin:0,fontSize:12,color:"#6b7280"}}>누가 내 프로필에 좋아요를 눌렀는지 확인하세요</p>
-                      </div>
-                    </div>
-                    {secretLikesUnlocked ? (
-                      <button onClick={()=>setShowSecretLikes(true)}
-                        style={{width:"100%",background:G,color:"white",border:"none",padding:"10px 0",borderRadius:12,fontSize:13,fontWeight:700,cursor:"pointer"}}>
-                        👀 확인하기
-                      </button>
-                    ) : (
-                      <button onClick={()=>{
-                        if(points<200){alert("🐾 200p가 필요해요!\n현재 보유: "+points+"p");return;}
-                        if(!confirm("🐾 200p를 사용해서 나를 좋아한 사람을 확인하시겠어요?")) return;
-                        setPoints(p=>p-200);
-                        setPointLog(l=>[{icon:"👀",label:"좋아한 사람 보기 해금",pt:-200,type:"use",date:"방금 전"},...l]);
-                        setSecretLikesUnlocked(true);
-                        setShowSecretLikes(true);
-                      }}
-                        style={{width:"100%",background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",border:"none",padding:"10px 0",borderRadius:12,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(245,158,11,.3)"}}>
-                        🔓 100p로 해금하기
-                      </button>
-                    )}
-                  </div>
 
-                  {/* 기타 프리미엄 기능 (잠금) */}
-                  <div style={{background:"#f9fafb",border:"2px dashed #e5e7eb",borderRadius:16,padding:16,marginBottom:16,position:"relative"}}>
-                    <div style={{position:"absolute",top:-8,right:12,background:"#f59e0b",color:"white",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10}}>SOON</div>
-                    <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>🔓 프리미엄 기능 (출시 예정)</p>
-                    <div style={{display:"flex",flexDirection:"column",gap:8,opacity:.6}}>
-                      {[
-                        {icon:"🔥",label:"프로필 부스트 (3일간)",cost:150},
-                        {icon:"♾️",label:"무제한 스와이프 (1주)",cost:300},
-                        {icon:"🎨",label:"프로필 테마 꾸미기",cost:100},
-                      ].map((s,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"white",borderRadius:10,padding:"8px 12px"}}>
-                          <span style={{fontSize:18}}>{s.icon}</span>
-                          <p style={{margin:0,fontSize:13,fontWeight:600,color:"#374151",flex:1}}>{s.label}</p>
-                          <span style={{fontSize:13,fontWeight:800,color:"#9ca3af"}}>{s.cost}p</span>
-                          <span style={{fontSize:11}}>🔒</span>
-                        </div>
-                      ))}
-                    </div>
-                    <p style={{margin:"10px 0 0",fontSize:11,color:"#9ca3af",textAlign:"center"}}>💡 매일 꾸준히 활동하면 약 10~15p를 모을 수 있어요</p>
-                  </div>
+
+
 
                   <div style={{background:"#f9fafb",borderRadius:16,padding:16}}>
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>📅 최근 획득 내역</p>
@@ -1592,8 +1587,8 @@ export default function App() {
                   <div style={{background:"linear-gradient(135deg,#fef3c7,#fef9c3)",borderRadius:16,padding:"16px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
                     <span style={{fontSize:28}}>🚀</span>
                     <div>
-                      <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14,color:"#92400e"}}>Google Play 인앱결제 준비 중!</p>
-                      <p style={{margin:0,fontSize:12,color:"#a16207"}}>플레이스토어 앱에서 포인트 충전이 가능해져요</p>
+                      <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14,color:"#92400e"}}>인앱결제 준비 중!</p>
+                      <p style={{margin:0,fontSize:12,color:"#a16207"}}>앱 내에서 포인트 충전이 가능해져요</p>
                     </div>
                   </div>
 
@@ -1635,7 +1630,7 @@ export default function App() {
 
                   {/* 결제 안내 */}
                   <div style={{marginTop:16,background:"#f9fafb",borderRadius:14,padding:"14px 16px",textAlign:"center"}}>
-                    <p style={{margin:"0 0 8px",fontSize:13,color:"#6b7280"}}>Google Play 스토어 앱에서 결제가 가능해요!</p>
+                    <p style={{margin:"0 0 8px",fontSize:13,color:"#6b7280"}}>앱 스토어에서 인앱구매로 결제가 가능해요!</p>
                     <p style={{margin:0,fontSize:9,color:"#c0c0c0",lineHeight:1.5}}>
                       상호: 펫플 | 대표: 김영웅 | 사업자번호: 743-09-03086<br/>
                       주소: 인천광역시 계양구 장제로 762 | 전화: 0502-1927-8252
@@ -1888,13 +1883,7 @@ export default function App() {
       {/* 홈 */}
       {tab==="home" && (
         <div style={{padding:"20px 16px"}}>
-          {/* 새로고침 + 스와이프 카운터 */}
-          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
-            <button onClick={()=>{loadNearbyUsers();}} disabled={isRefreshing}
-              style={{background:"linear-gradient(135deg,#ec4899,#a855f7)",color:"white",border:"none",padding:"5px 12px",borderRadius:16,fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
-              🔄 새 펫친 불러오기
-            </button>
-          </div>
+          {/* 스와이프 카운터 */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:13,color:dailySwipes>=DAILY_SWIPE_LIMIT?"#ef4444":"#6b7280",fontWeight:600}}>
@@ -2129,7 +2118,7 @@ export default function App() {
                           if(points<30){alert("🐾 상단 고정에 30p가 필요해요!\n현재 보유: "+points+"p");return;}
                           if(!confirm("🐾 30p를 사용해서 이 글을 24시간 상단에 고정할까요?"))return;
                           setPoints(pt=>pt-30);
-                          setPointLog(l=>[{icon:"📌",label:"글 상단 고정",pt:-30,type:"use",date:"방금 전"},...l]);
+                          setPointLog(l=>[{icon:"📌",label:"글 상단 고정",pt:-30,type:"use",date:dateNow()},...l]);
                           const pinUntil=Date.now()+24*60*60*1000;
                           setPosts(ps=>ps.map(x=>x.id===p.id?{...x,pinnedUntil:pinUntil}:x));
                           if(p._fid) updateDoc(doc(db,"communityPosts",p._fid),{pinnedUntil:pinUntil}).catch(()=>{});
@@ -2170,7 +2159,7 @@ export default function App() {
           // Firestore 즉시 동기화
           syncPostToFirestore(post.id, {likes:newLikes, comments:post.comments});
           if (!isLiked && post.by !== user?.name) {
-            setAlarms(a=>[{id:Date.now(),icon:"❤️",text:`${user?.name}님이 회원님의 글에 좋아요를 눌렀어요`,time:"방금 전",unread:true,nav:{type:"post",postId:post.id}},...a]);
+            setAlarms(a=>[{id:Date.now(),icon:"❤️",text:`${user?.name}님이 회원님의 글에 좋아요를 눌렀어요`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
             if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"like",from:user?.name,postId:post.id,text:"회원님의 글에 좋아요를 눌렀어요 ❤️",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
         };
@@ -2178,7 +2167,7 @@ export default function App() {
         const addComment = () => {
           if (!commentVal.trim()) return;
           if (hasBadWord(commentVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
-          const newC = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:commentVal.trim(),time:"방금 전",likes:[],replies:[]};
+          const newC = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:commentVal.trim(),time:timeNow(),likes:[],replies:[]};
           const updatedComments = [...post.comments, newC];
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
           setSelectedPost(p=>({...p,comments:updatedComments}));
@@ -2186,7 +2175,7 @@ export default function App() {
           syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
           setCommentVal("");
           if (post.by !== user?.name) {
-            setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${commentVal.trim().slice(0,20)}..."`,time:"방금 전",unread:true,nav:{type:"post",postId:post.id}},...a]);
+            setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${commentVal.trim().slice(0,20)}..."`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
             if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"comment",from:user?.name,postId:post.id,text:commentVal.trim().slice(0,30)+"...",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
         };
@@ -2194,7 +2183,7 @@ export default function App() {
         const addReply = (commentId) => {
           if (!replyVal.trim()) return;
           if (hasBadWord(replyVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
-          const newR = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:"방금 전"};
+          const newR = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:timeNow()};
           const updateComments = cs => cs.map(c => c.id===commentId ? {...c,replies:[...c.replies,newR]} : c);
           const updatedComments = updateComments(post.comments);
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
@@ -2203,7 +2192,7 @@ export default function App() {
           const comment = post.comments.find(c=>c.id===commentId);
           setReplyTarget(null); setReplyVal("");
           if (comment && comment.by !== user?.name) {
-            setAlarms(a=>[{id:Date.now(),icon:"↩️",text:`${user?.name}님이 대댓글을 달았어요`,time:"방금 전",unread:true,nav:{type:"post",postId:post.id}},...a]);
+            setAlarms(a=>[{id:Date.now(),icon:"↩️",text:`${user?.name}님이 대댓글을 달았어요`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
           }
         };
 
@@ -2678,7 +2667,7 @@ export default function App() {
                 if(points<50){alert("🐾 50p가 필요해요! (보유: "+points+"p)");return;}
                 if(!confirm("🔥 50p로 프로필 부스트?\n3일간 우선 노출!")) return;
                 setPoints(p=>p-50);
-                setPointLog(l=>[{icon:"🔥",label:"프로필 부스트",pt:-50,type:"use",date:"방금 전"},...l]);
+                setPointLog(l=>[{icon:"🔥",label:"프로필 부스트",pt:-50,type:"use",date:dateNow()},...l]);
                 setIsBoosted(true);
               }} style={{width:"100%",background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",border:"none",padding:"11px 0",borderRadius:14,fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8,boxShadow:"0 2px 10px rgba(245,158,11,.2)"}}>
                 🔥 프로필 부스트 (50p · 3일)
@@ -2692,8 +2681,8 @@ export default function App() {
               {[
                 {icon:"📢",label:"공지사항",action:()=>alert("📢 펫플 v1.0 출시!\n\n반려동물 친구 만들기 서비스 펫플이 정식 출시되었습니다. 🐾")},
                 {icon:"💡",label:"자주 묻는 질문",action:()=>alert("Q. 매칭은 어떻게 되나요?\nA. 홈에서 프로필을 스와이프하세요. 오른쪽=좋아요, 왼쪽=패스!\n\nQ. 포인트는 어떻게 모으나요?\nA. 출석체크, 스토리 업로드 등 활동하면 자동 적립돼요.")},
-                {icon:"📄",label:"이용약관",action:()=>alert("펫플 서비스 이용약관\n\n제1조 이 약관은 펫플 서비스의 이용 조건을 규정합니다.\n제2조 이용자는 건전한 커뮤니티 문화를 유지해야 합니다.")},
-                {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집 항목: 이메일, 닉네임, 위치 정보, 반려동물 정보\n2. 수집 목적: 서비스 제공, 매칭, 커뮤니티 운영\n3. 보유 기간: 회원 탈퇴 시까지\n4. 파기 방법: 전자적 파일은 기술적 방법으로 삭제\n\n사업자: 펫플 | 대표: 김영웅\n주소: 인천광역시 계양구 장제로 762\n전화: 0502-1927-8252\n이메일: support@petple.app")},
+                {icon:"📄",label:"이용약관",action:()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")},
+                {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1927-8252")},
                 {icon:"🏢",label:"사업자정보",action:()=>alert("상호명: 펫플\n대표자명: 김영웅\n사업자등록번호: 743-09-03086\n사업장주소: 인천광역시 계양구 장제로 762\n전화번호: 0502-1927-8252\n이메일: support@petple.app")},
                 {icon:"💬",label:"고객센터",action:()=>alert("📮 support@petple.app\n운영시간: 평일 10:00 ~ 18:00")},
                 {icon:"🚪",label:"회원탈퇴",action:()=>setDeleteAccModal(true),danger:true},
@@ -2943,13 +2932,13 @@ export default function App() {
                 if(myPets.length===0||storyPetSel===null) return;
                 if(storyContent && hasBadWord(storyContent)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                 const pet=myPets[storyPetSel];
-                const newStory = {id:Date.now(),petName:pet.name,petIcon:"🐾",img:storyImg,content:storyContent,by:user?.name,byImg:profilePhotos[profileRepIdx]||null,uid:user?.uid,time:"방금 전",isMine:true,ts:Date.now(),likes:[],comments:[]};
+                const newStory = {id:Date.now(),petName:pet.name,petIcon:"🐾",img:storyImg,content:storyContent,by:user?.name,byImg:profilePhotos[profileRepIdx]||null,uid:user?.uid,time:timeNow(),isMine:true,ts:Date.now(),likes:[],comments:[]};
                 setMyStories(ss=>[...ss,newStory]);
                 // Firestore 공유 컬렉션에 저장 (이미지 제외)
                 addDoc(collection(db,"communityStories"),{...newStory, img:"[img]", uid:user?.uid}).then(ref=>{
                   setMyStories(ss=>ss.map(s=>s.id===newStory.id?{...s,_fid:ref.id}:s));
                 }).catch(()=>{});
-                setPointLog(l=>[{icon:"📸",label:"스토리 업로드",pt:5,type:"earn",date:"방금 전"},...l]);
+                setPointLog(l=>[{icon:"📸",label:"스토리 업로드",pt:5,type:"earn",date:dateNow()},...l]);
                 setPoints(p=>p+5);
                 setIsAddStory(false);
               }} disabled={myPets.length===0||storyPetSel===null}
@@ -2975,7 +2964,7 @@ export default function App() {
           e.stopPropagation();
           const text = prompt("댓글을 입력하세요:");
           if (!text?.trim()) return;
-          const nc = {id:Date.now(),by:user?.name,text:text.trim(),time:"방금 전"};
+          const nc = {id:Date.now(),by:user?.name,text:text.trim(),time:timeNow()};
           const updComments = [...(viewStory.comments||[]),nc];
           setViewStory(s=>({...s,comments:updComments}));
           setMyStories(ss=>ss.map(s=>s.id===viewStory.id?{...s,comments:updComments}:s));
@@ -3150,7 +3139,7 @@ export default function App() {
                         const cardPending = m.pending.some(p=>p.name===user?.name);
                         return cardPending
                           ? <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20}}>⏳ 대기중</span>
-                          : <button onClick={(e)=>{e.stopPropagation();setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,{name:user?.name,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:"방금 전"}]}:x));}}
+                          : <button onClick={(e)=>{e.stopPropagation();setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,{name:user?.name,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}:x));}}
                             style={{background:G,color:"white",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20,border:"none",cursor:"pointer"}}>가입하기</button>;
                       })()}
                   </div>
@@ -3283,7 +3272,7 @@ export default function App() {
                 const isPending = m.pending.some(p=>p.name===user?.name);
                 return isPending
                   ? <span style={{background:"#f3f4f6",color:"#9ca3af",padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700}}>⏳ 승인 대기중</span>
-                  : <button onClick={(e)=>{e.stopPropagation();updMeeting(x=>({...x,pending:[...x.pending,{name:user?.name,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:"방금 전"}]}));}}
+                  : <button onClick={(e)=>{e.stopPropagation();updMeeting(x=>({...x,pending:[...x.pending,{name:user?.name,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}));}}
                     style={{background:G,color:"white",border:"none",padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer"}}>가입 신청</button>;
               })()}
             </div>
@@ -3418,7 +3407,7 @@ export default function App() {
                         style={{width:"100%",padding:"10px 12px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",resize:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
                       <button onClick={()=>{
                         if(!mGreetVal.trim()) return;
-                        updMeeting(x=>({...x,greetings:[...x.greetings,{by:user?.name,text:mGreetVal.trim(),time:"방금 전"}]}));
+                        updMeeting(x=>({...x,greetings:[...x.greetings,{by:user?.name,text:mGreetVal.trim(),time:timeNow()}]}));
                         setMGreetVal("");
                       }} style={{marginTop:8,background:G,color:"white",border:"none",padding:"9px 20px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>등록</button>
                     </div>
@@ -3437,7 +3426,7 @@ export default function App() {
                         style={{width:"100%",padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",resize:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
                       <button onClick={()=>{
                         if(!mBoardForm.title.trim()||!mBoardForm.content.trim()) return;
-                        const newPost={id:Date.now(),by:user?.name,title:mBoardForm.title.trim(),content:mBoardForm.content.trim(),time:"방금 전",likes:[],comments:[]};
+                        const newPost={id:Date.now(),by:user?.name,title:mBoardForm.title.trim(),content:mBoardForm.content.trim(),time:timeNow(),likes:[],comments:[]};
                         updMeeting(x=>({...x,board:[newPost,...x.board]}));
                         setMBoardForm({title:"",content:""});
                       }} style={{marginTop:8,background:G,color:"white",border:"none",padding:"9px 20px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>등록</button>
@@ -3497,7 +3486,7 @@ export default function App() {
                       placeholder="댓글 달기..." style={{flex:1,padding:"10px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
                     <button onClick={()=>{
                       if(!mBoardCommentVal.trim()) return;
-                      const newC={by:user?.name,text:mBoardCommentVal.trim(),time:"방금 전"};
+                      const newC={by:user?.name,text:mBoardCommentVal.trim(),time:timeNow()};
                       const updated={...mBoardDetail,comments:[...mBoardDetail.comments,newC]};
                       updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
                       setMBoardDetail(updated); setMBoardCommentVal("");
@@ -3512,7 +3501,7 @@ export default function App() {
                   <input ref={mPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                     const file=e.target.files[0]; if(!file) return;
                     const r=new FileReader(); r.onload=ev=>{
-                      updMeeting(x=>({...x,photos:[{url:ev.target.result,by:user?.name,time:"방금 전"},...x.photos]}));
+                      updMeeting(x=>({...x,photos:[{url:ev.target.result,by:user?.name,time:timeNow()},...x.photos]}));
                     }; r.readAsDataURL(file); e.target.value="";
                   }}/>
                   {isMember && <button onClick={()=>mPhotoRef.current.click()}
@@ -3646,10 +3635,10 @@ export default function App() {
                               updMeeting(x=>({...x,
                                 members:[...x.members,{name:p.name,role:"멤버",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
                                 pending:x.pending.filter((_,j)=>j!==i),
-                                greetings:[...x.greetings,{by:p.name,text:p.msg||"안녕하세요! 잘 부탁드려요.",time:"방금 전"}]
+                                greetings:[...x.greetings,{by:p.name,text:p.msg||"안녕하세요! 잘 부탁드려요.",time:timeNow()}]
                               }));
                               // 가입 승인 알림
-                              setAlarms(a=>[{id:Date.now(),icon:"🏃",text:`${p.name}님이 모임에 가입했어요!`,time:"방금 전",unread:true,nav:{type:"meeting"}},...a]);
+                              setAlarms(a=>[{id:Date.now(),icon:"🏃",text:`${p.name}님이 모임에 가입했어요!`,time:timeNow(),unread:true,nav:{type:"meeting"}},...a]);
                             }} style={{flex:1,background:G,color:"white",border:"none",padding:"9px 0",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>승인</button>
                             <button onClick={()=>updMeeting(x=>({...x,pending:x.pending.filter((_,j)=>j!==i)}))}
                               style={{flex:1,background:"#f3f4f6",color:"#6b7280",border:"none",padding:"9px 0",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>거절</button>
@@ -3688,7 +3677,7 @@ export default function App() {
                   : <>
                     <input value={mChatVal} onChange={e=>setMChatVal(e.target.value)} onKeyDown={e=>{
                       if(e.key==="Enter"&&mChatVal.trim()){
-                        updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:"방금 전"}]}));
+                        updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow()}]}));
                         setMChatVal("");
                         setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
                       }
@@ -3696,7 +3685,7 @@ export default function App() {
                       style={{flex:1,background:"#f3f4f6",border:"none",outline:"none",borderRadius:22,padding:"10px 16px",fontSize:14}}/>
                     <button onClick={()=>{
                       if(!mChatVal.trim()) return;
-                      updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:"방금 전"}]}));
+                      updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow()}]}));
                       setMChatVal("");
                       setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
                     }} style={{background:mChatVal.trim()?G:"#e5e7eb",color:mChatVal.trim()?"white":"#9ca3af",border:"none",cursor:"pointer",borderRadius:"50%",width:40,height:40,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
@@ -3801,7 +3790,7 @@ export default function App() {
                   setPosts(ps=>ps.map(p=>p.id===newPost.id?{...p,_fid:ref.id}:p));
                 }).catch(()=>{});
                 setPoints(p=>p-WRITE_COST);
-                setPointLog(l=>[{icon:catInfo?.icon||"📝",label:`${catInfo?.label||"글"} 등록`,pt:-WRITE_COST,type:"use",date:"방금 전"},...l]);
+                setPointLog(l=>[{icon:catInfo?.icon||"📝",label:`${catInfo?.label||"글"} 등록`,pt:-WRITE_COST,type:"use",date:dateNow()},...l]);
                 setIsWritePost(false);
                 setLoungeCat("all");
               }}
@@ -3931,7 +3920,7 @@ export default function App() {
                       if (!canSave) return;
                       if (nickChanged && nickCheckStatus==="ok") {
                         setPoints(p => p - NICK_COST);
-                        setPointLog(l=>[{icon:"✏️",label:"닉네임 변경",pt:-NICK_COST,type:"use",date:"방금 전"},...l]);
+                        setPointLog(l=>[{icon:"✏️",label:"닉네임 변경",pt:-NICK_COST,type:"use",date:dateNow()},...l]);
                         setUser(u=>({...u,name:editNickVal.trim()}));
                       }
                       setProfileBio(editBioVal);
@@ -4134,14 +4123,7 @@ export default function App() {
 
       {/* 하단 탭바 */}
       {tab!=="chat" && (
-        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,zIndex:10}}>
-          {/* 사업자정보 - PG 심사 요건 상시 노출 */}
-          <div style={{background:"#f9fafb",borderTop:"1px solid #f3f4f6",padding:"4px 12px",textAlign:"center"}}>
-            <p style={{margin:0,fontSize:8,color:"#c0c0c0",lineHeight:1.5,letterSpacing:"-0.3px"}}>
-              상호명: 펫플 | 대표자: 김영웅 | 사업자등록번호: 743-09-03086 | 주소: 인천광역시 계양구 장제로 762 | 전화: 0502-1927-8252
-            </p>
-          </div>
-          <div style={{background:"white",borderTop:"1px solid #f3f4f6",display:"flex"}}>
+        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
           {[["home","🏠","홈"],["community","🧡","라운지"],["story","📸","스토리"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
             <button key={id} onClick={() => { setTab(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
@@ -4149,7 +4131,6 @@ export default function App() {
               {id==="messages" && matches.length>0 && <span style={{position:"absolute",width:6,height:6,background:"#ef4444",borderRadius:"50%",marginTop:-14,marginLeft:18}} />}
             </button>
           ))}
-          </div>
         </div>
       )}
 
@@ -4461,7 +4442,7 @@ export default function App() {
                         text:"회원님의 게시물이 다수의 신고로 삭제되었습니다.",
                         time:new Date().toISOString(), read:false
                       }).catch(()=>{});
-                      setAlarms(a=>[{id:Date.now(),icon:"🚨",text:p.by+"님의 게시물이 신고 누적으로 삭제되었어요",time:"방금 전",unread:true,nav:null},...a]);
+                      setAlarms(a=>[{id:Date.now(),icon:"🚨",text:p.by+"님의 게시물이 신고 누적으로 삭제되었어요",time:timeNow(),unread:true,nav:null},...a]);
                       return null; // 삭제 마킹
                     }
                     if(p._fid) updateDoc(doc(db,"communityPosts",p._fid),{reportCount:cnt}).catch(()=>{});
