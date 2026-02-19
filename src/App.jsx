@@ -51,7 +51,7 @@ const INIT_POSTS = [];
 const WRITE_COST = 0;
 
 // ── 욕설 필터 ──
-const BAD_WORDS = ["시발","씨발","시bal","씨bal","ㅅㅂ","ㅆㅂ","시바","씨바","개새끼","개세끼","새끼","ㅅㄲ","병신","ㅂㅅ","지랄","ㅈㄹ","미친놈","미친년","꺼져","닥쳐","죽어","뒤져","존나","ㅈㄴ","좆","ㅈ같","썅","니미","니엄","느금마","엠창","쓰레기","찐따","ㅂㄹ","fuck","shit","bitch","damn","asshole"];
+const BAD_WORDS = ["시발","씨발","시bal","씨bal","ㅅㅂ","ㅆㅂ","시바","씨바","개새끼","개세끼","새끼","ㅅㄲ","병신","ㅂㅅ","지랄","ㅈㄹ","미친놈","미친년","꺼져","닥쳐","죽어","뒤져","존나","ㅈㄴ","좆","ㅈ같","썅","니미","니엄","느금마","엠창","쓰레기","찐따","ㅂㄹ","fuck","shit","bitch","damn","asshole","보지","자지","섹스","야동","포르노","딸치","자위","강간","성폭행","변태","음란","페니스","질싸","사까시","빠구리","떡치","몸파","원나잇","sex","porn","dick","pussy","penis","vagina","nude","naked"];
 const filterBadWords = (text) => {
   let filtered = text;
   BAD_WORDS.forEach(w => {
@@ -317,7 +317,10 @@ export default function App() {
   const [meetSearch,     setMeetSearch]     = useState({name:"",city:"",district:"",animal:""});
   // 모임 내부 입력
   const [mChatVal,       setMChatVal]       = useState("");
-  const [mBoardForm,     setMBoardForm]     = useState({title:"",content:""});
+  const [mPhotoDetail,   setMPhotoDetail]   = useState(null); // 사진 크게보기
+  const [mPhotoComment,  setMPhotoComment]  = useState("");
+  const [mBoardForm,     setMBoardForm]     = useState({title:"",content:"",imgs:[]});
+  const mBoardImgRef = useRef(null);
   const [mBoardDetail,   setMBoardDetail]   = useState(null);
   const [mBoardCommentVal,setMBoardCommentVal]=useState("");
   const [mVoteForm,      setMVoteForm]      = useState({title:"",options:["",""]});
@@ -540,7 +543,7 @@ export default function App() {
         const q = query(collection(db, "communityPosts"), orderBy("ts", "desc"), fbLimit(50));
         const snap = await getDocs(q);
         if (!snap.empty) {
-          const serverPosts = snap.docs.map(d => ({...d.data(), _fid: d.id}));
+          const serverPosts = snap.docs.map(d => {const dd=d.data(); return {...dd, _fid:d.id, likes:dd.likes||[], comments:dd.comments||[], imgs:dd.imgs||[], reportCount:dd.reportCount||0};});
           setPosts(prev => {
             // 서버 데이터가 진짜 소스. 서버에 없는 로컬 전용(방금 작성, 아직 _fid 없는)만 보존
             const localOnly = prev.filter(p => !p._fid && !serverPosts.some(sp => sp.id === p.id));
@@ -1253,6 +1256,7 @@ export default function App() {
                   style={{flex:1,padding:"12px 14px",border:`2px solid ${nickAvail==="ok"?"#16a34a":nickAvail==="dup"?"#ef4444":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}/>
                 <button onClick={async ()=>{
                   if(!nick.trim()||nick.trim().length<2){setNickAvail(null);return alert("닉네임은 2자 이상 입력해주세요.");}
+                  if(hasBadWord(nick.trim())){setNickAvail(null);return alert("⚠️ 부적절한 닉네임이에요. 다른 이름을 사용해주세요.");}
                   setNickAvail("checking");
                   const taken=[...TAKEN_NICKS,"테스트","관리자","admin","펫플"];
                   if(taken.map(n=>n.toLowerCase()).includes(nick.trim().toLowerCase())){setNickAvail("dup");return;}
@@ -3424,11 +3428,27 @@ export default function App() {
                         style={{width:"100%",padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
                       <textarea value={mBoardForm.content} onChange={e=>setMBoardForm(f=>({...f,content:e.target.value}))} placeholder="내용을 입력하세요" rows={3}
                         style={{width:"100%",padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",resize:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
+                      {/* 사진 첨부 */}
+                      <input ref={mBoardImgRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{
+                        Array.from(e.target.files).slice(0,3).forEach(file=>{
+                          const r=new FileReader();r.onload=ev=>setMBoardForm(f=>({...f,imgs:[...f.imgs,ev.target.result].slice(0,3)}));r.readAsDataURL(file);
+                        });e.target.value="";
+                      }}/>
+                      <div style={{display:"flex",gap:6,marginTop:8,alignItems:"center"}}>
+                        <button onClick={()=>mBoardImgRef.current.click()} style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"6px 12px",borderRadius:10,fontSize:12,fontWeight:600,color:"#6b7280"}}>📷 사진 ({mBoardForm.imgs.length}/3)</button>
+                        {mBoardForm.imgs.map((img,i)=>(
+                          <div key={i} style={{position:"relative",width:40,height:40}}>
+                            <img src={img} alt="" style={{width:"100%",height:"100%",borderRadius:8,objectFit:"cover"}}/>
+                            <button onClick={()=>setMBoardForm(f=>({...f,imgs:f.imgs.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:-4,right:-4,width:16,height:16,background:"#ef4444",border:"none",borderRadius:"50%",color:"white",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                          </div>
+                        ))}
+                      </div>
                       <button onClick={()=>{
                         if(!mBoardForm.title.trim()||!mBoardForm.content.trim()) return;
-                        const newPost={id:Date.now(),by:user?.name,title:mBoardForm.title.trim(),content:mBoardForm.content.trim(),time:timeNow(),likes:[],comments:[]};
+                        if(hasBadWord(mBoardForm.title)||hasBadWord(mBoardForm.content)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
+                        const newPost={id:Date.now(),by:user?.name,title:mBoardForm.title.trim(),content:mBoardForm.content.trim(),imgs:mBoardForm.imgs,time:timeNow(),likes:[],comments:[]};
                         updMeeting(x=>({...x,board:[newPost,...x.board]}));
-                        setMBoardForm({title:"",content:""});
+                        setMBoardForm({title:"",content:"",imgs:[]});
                       }} style={{marginTop:8,background:G,color:"white",border:"none",padding:"9px 20px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>등록</button>
                     </div>
                   )}
@@ -3459,6 +3479,11 @@ export default function App() {
                     <h3 style={{margin:"0 0 6px",fontSize:16,fontWeight:800}}>{mBoardDetail.title}</h3>
                     <p style={{margin:"0 0 12px",fontSize:12,color:"#9ca3af"}}>{mBoardDetail.by} · {mBoardDetail.time}</p>
                     <p style={{margin:"0 0 12px",fontSize:14,color:"#1f2937",lineHeight:1.7}}>{mBoardDetail.content}</p>
+                    {mBoardDetail.imgs&&mBoardDetail.imgs.length>0 && (
+                      <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto"}}>
+                        {mBoardDetail.imgs.map((img,i)=><img key={i} src={img} alt="" onClick={()=>setPhotoViewer(mBoardDetail.imgs)} style={{width:100,height:100,borderRadius:12,objectFit:"cover",flexShrink:0,cursor:"pointer"}}/>)}
+                      </div>
+                    )}
                     <button onClick={()=>{
                       const isLiked=mBoardDetail.likes.includes(user?.name);
                       const newLikes=isLiked?mBoardDetail.likes.filter(n=>n!==user?.name):[...mBoardDetail.likes,user?.name];
@@ -3486,6 +3511,7 @@ export default function App() {
                       placeholder="댓글 달기..." style={{flex:1,padding:"10px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
                     <button onClick={()=>{
                       if(!mBoardCommentVal.trim()) return;
+                      if(hasBadWord(mBoardCommentVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                       const newC={by:user?.name,text:mBoardCommentVal.trim(),time:timeNow()};
                       const updated={...mBoardDetail,comments:[...mBoardDetail.comments,newC]};
                       updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
@@ -3501,23 +3527,69 @@ export default function App() {
                   <input ref={mPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                     const file=e.target.files[0]; if(!file) return;
                     const r=new FileReader(); r.onload=ev=>{
-                      updMeeting(x=>({...x,photos:[{url:ev.target.result,by:user?.name,time:timeNow()},...x.photos]}));
+                      updMeeting(x=>({...x,photos:[{url:ev.target.result,by:user?.name,time:timeNow(),likes:[],comments:[]},...x.photos]}));
                     }; r.readAsDataURL(file); e.target.value="";
                   }}/>
                   {isMember && <button onClick={()=>mPhotoRef.current.click()}
                     style={{width:"100%",background:G,color:"white",border:"none",padding:12,borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer",marginBottom:14}}>📷 사진 올리기</button>}
                   {m.photos.length===0
                     ? <div style={{textAlign:"center",padding:"40px 0"}}><p style={{fontSize:36,margin:"0 0 8px"}}>📸</p><p style={{color:"#9ca3af",fontSize:13}}>아직 사진이 없어요</p></div>
-                    : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                    : mPhotoDetail ? (
+                      <div>
+                        <button onClick={()=>{setMPhotoDetail(null);setMPhotoComment("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#ec4899",fontWeight:700,marginBottom:10,padding:0}}>← 사진첩</button>
+                        <img src={mPhotoDetail.url} alt="" style={{width:"100%",borderRadius:14,marginBottom:10}}/>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                          <p style={{margin:0,fontSize:13,fontWeight:600}}>{mPhotoDetail.by}</p>
+                          <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{mPhotoDetail.time}</p>
+                          <button onClick={()=>{
+                            const likes=mPhotoDetail.likes||[];
+                            const isL=likes.includes(user?.name);
+                            const newL=isL?likes.filter(n=>n!==user?.name):[...likes,user?.name];
+                            const updated={...mPhotoDetail,likes:newL};
+                            updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?updated:p)}));
+                            setMPhotoDetail(updated);
+                          }} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,marginLeft:"auto"}}>
+                            {(mPhotoDetail.likes||[]).includes(user?.name)?"❤️":"🤍"} {(mPhotoDetail.likes||[]).length}
+                          </button>
+                        </div>
+                        {(mPhotoDetail.comments||[]).map((c,i)=>(
+                          <div key={i} style={{display:"flex",gap:8,padding:"8px 0",borderBottom:"1px solid #f3f4f6"}}>
+                            <span style={{fontWeight:700,fontSize:12,flexShrink:0}}>{c.by}</span>
+                            <p style={{margin:0,fontSize:13,flex:1}}>{c.text}</p>
+                            <span style={{fontSize:10,color:"#9ca3af",flexShrink:0}}>{c.time}</span>
+                          </div>
+                        ))}
+                        {isMember && (
+                          <div style={{display:"flex",gap:8,marginTop:10}}>
+                            <input value={mPhotoComment} onChange={e=>setMPhotoComment(e.target.value)} placeholder="댓글 달기..."
+                              style={{flex:1,padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none"}}/>
+                            <button onClick={()=>{
+                              if(!mPhotoComment.trim()) return;
+                              if(hasBadWord(mPhotoComment)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
+                              const newC={by:user?.name,text:mPhotoComment.trim(),time:timeNow()};
+                              const updated={...mPhotoDetail,comments:[...(mPhotoDetail.comments||[]),newC]};
+                              updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?updated:p)}));
+                              setMPhotoDetail(updated);setMPhotoComment("");
+                            }} style={{background:G,color:"white",border:"none",padding:"0 14px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>등록</button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
                         {m.photos.map((ph,i)=>(
-                          <div key={i} style={{aspectRatio:"1",borderRadius:12,overflow:"hidden",position:"relative"}}>
+                          <div key={i} onClick={()=>setMPhotoDetail(ph)} style={{aspectRatio:"1",borderRadius:12,overflow:"hidden",position:"relative",cursor:"pointer"}}>
                             <img src={ph.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                            <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.5)",padding:"3px 6px"}}>
+                            <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.5)",padding:"3px 6px",display:"flex",justifyContent:"space-between"}}>
                               <p style={{margin:0,fontSize:9,color:"white"}}>{ph.by}</p>
+                              <div style={{display:"flex",gap:6}}>
+                                {(ph.likes||[]).length>0 && <span style={{fontSize:9,color:"white"}}>❤️{(ph.likes||[]).length}</span>}
+                                {(ph.comments||[]).length>0 && <span style={{fontSize:9,color:"white"}}>💬{(ph.comments||[]).length}</span>}
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
+                    )
                   }
                 </div>
               )}
@@ -3677,6 +3749,7 @@ export default function App() {
                   : <>
                     <input value={mChatVal} onChange={e=>setMChatVal(e.target.value)} onKeyDown={e=>{
                       if(e.key==="Enter"&&mChatVal.trim()){
+                        if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                         updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow()}]}));
                         setMChatVal("");
                         setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
@@ -3685,6 +3758,7 @@ export default function App() {
                       style={{flex:1,background:"#f3f4f6",border:"none",outline:"none",borderRadius:22,padding:"10px 16px",fontSize:14}}/>
                     <button onClick={()=>{
                       if(!mChatVal.trim()) return;
+                      if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                       updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow()}]}));
                       setMChatVal("");
                       setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
@@ -3918,6 +3992,7 @@ export default function App() {
                     {nickChanged && nickCheckStatus==="ok" && !notEnoughPoints && <p style={{margin:"0 0 10px",fontSize:12,color:"#ec4899",textAlign:"center"}}>닉네임 변경 시 🐾 {NICK_COST}p가 차감됩니다</p>}
                     <button onClick={() => {
                       if (!canSave) return;
+                      if (nickChanged && hasBadWord(editNickVal.trim())) { alert("⚠️ 부적절한 닉네임이에요. 다른 이름을 사용해주세요."); return; }
                       if (nickChanged && nickCheckStatus==="ok") {
                         setPoints(p => p - NICK_COST);
                         setPointLog(l=>[{icon:"✏️",label:"닉네임 변경",pt:-NICK_COST,type:"use",date:dateNow()},...l]);
