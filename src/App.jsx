@@ -535,8 +535,9 @@ export default function App() {
   };
 
   // ── 커뮤니티 데이터 새로고침 (Firestore 공유 컬렉션) ──
-  const refreshContent = async (targetTab) => {
-    if (!user?.uid) return;
+  const refreshContent = async (targetTab, forceUid) => {
+    const uid = forceUid || user?.uid;
+    if (!uid) return;
     setIsRefreshing(true);
     try {
       if (targetTab === "community" || targetTab === "all") {
@@ -550,7 +551,7 @@ export default function App() {
             // 로컬 이미지 복원
             // localStorage 이미지 캐시에서 복원
             let imgCache = {};
-            try { imgCache = JSON.parse(localStorage.getItem("petple_imgcache_"+user.uid)||"{}"); } catch(e){}
+            try { imgCache = JSON.parse(localStorage.getItem("petple_imgcache_"+uid)||"{}"); } catch(e){}
             // byImg가 없는 글의 작성자 uid 수집 → 프로필 사진 로드
             const missingUids = new Set();
             const merged = serverPosts.map(sp => {
@@ -589,7 +590,7 @@ export default function App() {
           setMyStories(prev => {
             const localOnly = prev.filter(s => !s._fid && !serverStories.some(ss => ss.id === s.id));
             let imgCacheS = {};
-            try { imgCacheS = JSON.parse(localStorage.getItem("petple_imgcache_"+user.uid)||"{}"); } catch(e){}
+            try { imgCacheS = JSON.parse(localStorage.getItem("petple_imgcache_"+uid)||"{}"); } catch(e){}
             const TWELVE_HOURS = 12 * 60 * 60 * 1000;
             const now = Date.now();
             const merged = serverStories
@@ -721,7 +722,7 @@ export default function App() {
         // 온라인 상태 기록 (로그인 시)
         updateDoc(doc(db,"users",firebaseUser.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
         // 다른 유저 + 커뮤니티 콘텐츠 자동 로드 (약간 딜레이)
-        setTimeout(() => { loadNearbyUsers(); refreshContent("all"); }, 500);
+        setTimeout(() => { loadNearbyUsers(); refreshContent("all", firebaseUser.uid); }, 500);
         // Firestore chatRooms에서 내 대화방 로드 → 매칭 목록 복원
         setTimeout(async()=>{
           try{
@@ -1129,7 +1130,7 @@ export default function App() {
     try { await signOut(auth); } catch {}
     setLoggedIn(false); setUser(null); setPw(""); setPwConfirm(""); setNick(""); setErr(""); setSignup(false);
     setMatches([]); setLiked([]); setReceivedLikes([]); setIdx(0); setTab("home"); setChatPet(null);
-    setPoints(150); setPointLog([{icon:"🎁",label:"가입 환영 보너스",pt:150,type:"earn",date:dateNow()}]);
+    setPoints(0); setPointLog([]);
     setProfileBio(""); setProfilePhotos([null,null,null,null,null]); setProfileRepIdx(0);
     setMyPets([]); setMyStories([]); setPosts([]);
     setIsVerified(false); setIsBoosted(false); setUserLocation("인천 연수구");
@@ -3954,6 +3955,7 @@ export default function App() {
                   <button onClick={() => {
                     const v = editNickVal.trim();
                     if (!v) return;
+                    if (hasBadWord(v)) { alert("⚠️ 부적절한 닉네임이에요. 다른 이름을 사용해주세요."); return; }
                     if (v === user?.name) { setNickCheckStatus("same"); return; }
                     if (TAKEN_NICKS.includes(v)) { setNickCheckStatus("dup"); return; }
                     setNickCheckStatus("ok");
