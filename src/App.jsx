@@ -319,6 +319,16 @@ export default function App() {
   const [mChatVal,       setMChatVal]       = useState("");
   const [mPhotoDetail,   setMPhotoDetail]   = useState(null); // 사진 크게보기
   const [mPhotoComment,  setMPhotoComment]  = useState("");
+  const [mBoardReplyTarget, setMBoardReplyTarget] = useState(null); // 게시판 대댓글 {commentIdx}
+  const [mBoardReplyVal, setMBoardReplyVal] = useState("");
+  const [mPhotoReplyTarget, setMPhotoReplyTarget] = useState(null);
+  const [mPhotoReplyVal, setMPhotoReplyVal] = useState("");
+  const [mVoteDetail, setMVoteDetail] = useState(null); // 투표 댓글 보기
+  const [mVoteCommentVal, setMVoteCommentVal] = useState("");
+  const [mVoteReplyTarget, setMVoteReplyTarget] = useState(null);
+  const [mVoteReplyVal, setMVoteReplyVal] = useState("");
+  const [chatReplyTo, setChatReplyTo] = useState(null); // 1:1 채팅 답글 {id,text,by}
+  const [mChatReplyTo, setMChatReplyTo] = useState(null); // 모임 채팅 답글
   const [mBoardForm,     setMBoardForm]     = useState({title:"",content:"",imgs:[]});
   const mBoardImgRef = useRef(null);
   const [mBoardDetail,   setMBoardDetail]   = useState(null);
@@ -427,6 +437,57 @@ export default function App() {
       } else { setViewUserProfile(v=>v?{...v,loading:false}:v); }
     } catch(e) { setViewUserProfile(v=>v?{...v,loading:false}:v); }
   };
+
+  // ── 모임 댓글+대댓글+좋아요 공통 렌더러 ──
+  const MeetingComments = ({comments, onUpdate, replyTarget, setReplyTarget, replyVal, setReplyVal}) => (
+    <div>
+      {(comments||[]).map((c,ci)=>(
+        <div key={ci} style={{background:"white",borderRadius:14,padding:"10px 14px",marginBottom:6,boxShadow:"0 1px 4px rgba(0,0,0,.03)"}}>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"white",fontWeight:700,flexShrink:0}}>{c.by?.[0]||"🐾"}</div>
+            <span style={{fontWeight:700,fontSize:12}}>{c.by}</span>
+            <span style={{fontSize:10,color:"#9ca3af"}}>{c.time}</span>
+            <button onClick={()=>{
+              const likes=c.likes||[];
+              const isL=likes.includes(user?.name);
+              const newL=isL?likes.filter(n=>n!==user?.name):[...likes,user?.name];
+              const updated=[...comments];updated[ci]={...c,likes:newL};
+              onUpdate(updated);
+            }} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,marginLeft:"auto",padding:0}}>
+              {(c.likes||[]).includes(user?.name)?"❤️":"🤍"} {(c.likes||[]).length||""}
+            </button>
+          </div>
+          <p style={{margin:"4px 0 4px 34px",fontSize:13,color:"#1f2937"}}>{c.text}</p>
+          {/* 대댓글 목록 */}
+          {(c.replies||[]).map((r,ri)=>(
+            <div key={ri} style={{marginLeft:34,padding:"6px 10px",background:"#f9fafb",borderRadius:10,marginBottom:4}}>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <span style={{fontWeight:700,fontSize:11}}>{r.by}</span>
+                <span style={{fontSize:10,color:"#9ca3af"}}>{r.time}</span>
+              </div>
+              <p style={{margin:"2px 0 0",fontSize:12,color:"#374151"}}>{r.text}</p>
+            </div>
+          ))}
+          <button onClick={()=>setReplyTarget(replyTarget===ci?null:ci)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#9ca3af",marginLeft:34,padding:"2px 0"}}>
+            {replyTarget===ci?"취소":"↩ 답글"}
+          </button>
+          {replyTarget===ci && (
+            <div style={{display:"flex",gap:6,marginLeft:34,marginTop:4}}>
+              <input value={replyVal} onChange={e=>setReplyVal(e.target.value)} placeholder="답글..." style={{flex:1,padding:"7px 10px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}/>
+              <button onClick={()=>{
+                if(!replyVal.trim())return;
+                if(hasBadWord(replyVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
+                const updated=[...comments];
+                updated[ci]={...c,replies:[...(c.replies||[]),{by:user?.name,text:replyVal.trim(),time:timeNow()}]};
+                onUpdate(updated);
+                setReplyTarget(null);setReplyVal("");
+              }} style={{background:G,color:"white",border:"none",padding:"0 12px",borderRadius:10,fontWeight:700,fontSize:11,cursor:"pointer"}}>등록</button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 
   // ── 펫친 추천 시간 로직 (9시, 12시, 15시, 18시 KST / 5명씩) ──
   const [recoRefreshCount, setRecoRefreshCount] = useState(0);
@@ -1095,7 +1156,7 @@ export default function App() {
   function sendMsg() {
     if (!msgVal.trim() || !chatRoomId) return;
     if (hasBadWord(msgVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
-    const msg = {uid:user?.uid, by:user?.name, text:filterBadWords(msgVal.trim()), ts:Date.now(), readBy:[user?.uid]};
+    const msg = {uid:user?.uid, by:user?.name, text:filterBadWords(msgVal.trim()), ts:Date.now(), readBy:[user?.uid], ...(chatReplyTo?{replyTo:chatReplyTo}:{})};
     setMsgs(m => [...m, {...msg, id:Date.now(), me:true}]);
     setMsgVal("");
     // 내 메시지 → 항상 스크롤 다운
@@ -2495,11 +2556,54 @@ export default function App() {
           <div ref={chatContainerRef} onScroll={(e)=>{const el=e.target;const atBot=el.scrollHeight-el.scrollTop-el.clientHeight<60;setChatAtBottom(atBot);if(atBot)setNewMsgAlert(false);}}
             style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10,position:"relative"}}>
             {msgs.map((m,mi) => (
-              <div key={m.id||mi} style={{display:"flex",flexDirection:"column",alignItems:m.me?"flex-end":"flex-start"}}>
+              <div key={m.id||mi} style={{display:"flex",flexDirection:"column",alignItems:m.me?"flex-end":"flex-start",marginBottom:2}}>
+                {/* 답글 대상 표시 */}
+                {m.replyTo && (
+                  <div style={{fontSize:11,color:"#9ca3af",padding:"2px 8px",marginBottom:2,background:"#f9fafb",borderRadius:8,maxWidth:"70%",marginLeft:m.me?0:38,marginRight:m.me?4:0}}>
+                    ↩ {m.replyTo.by}: {m.replyTo.text?.slice(0,30)}{m.replyTo.text?.length>30?"...":""}
+                  </div>
+                )}
                 <div style={{display:"flex",alignItems:m.me?"flex-end":"flex-start",gap:8,maxWidth:"80%"}}>
                   {!m.me && <img onClick={()=>openProfile(chatPet?.owner||chatPet?.name,chatPet?.img)} src={chatPet?.img} alt="" style={{width:30,height:30,borderRadius:"50%",objectFit:"cover",cursor:"pointer",flexShrink:0}} />}
-                  <div style={{maxWidth:"100%",padding:"10px 14px",borderRadius:m.me?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.me?G:"white",color:m.me?"white":"#1f2937",fontSize:14,boxShadow:"0 2px 8px rgba(0,0,0,.07)",lineHeight:1.5}}>
-                    {m.text}
+                  <div style={{position:"relative"}}>
+                    <div onClick={()=>setChatReplyTo(chatReplyTo?.id===(m.id||mi)?null:{id:m.id||mi,text:m.text,by:m.me?user?.name:(chatPet?.name||"상대방")})}
+                      style={{padding:"10px 14px",borderRadius:m.me?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.me?G:"white",color:m.me?"white":"#1f2937",fontSize:14,boxShadow:"0 2px 8px rgba(0,0,0,.07)",lineHeight:1.5,cursor:"pointer"}}>
+                      {m.text}
+                    </div>
+                    {/* 공감 이모지 표시 */}
+                    {m.reactions && Object.keys(m.reactions).length>0 && (
+                      <div style={{display:"flex",gap:2,marginTop:2,flexWrap:"wrap",justifyContent:m.me?"flex-end":"flex-start"}}>
+                        {Object.entries(m.reactions).map(([emoji,users])=>users.length>0&&(
+                          <span key={emoji} onClick={()=>{
+                            const myR=users.includes(user?.name);
+                            const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                            const newReactions={...m.reactions,[emoji]:newU};
+                            const newMsgs=[...msgs];newMsgs[mi]={...m,reactions:newReactions};
+                            setChatMsgs?.(newMsgs);
+                          }} style={{background:users.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"1px solid "+( users.includes(user?.name)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
+                            {emoji} {users.length>1?users.length:""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* 공감/답글 버튼 (클릭 시 나타남) */}
+                    {chatReplyTo?.id===(m.id||mi) && (
+                      <div style={{display:"flex",gap:4,marginTop:4,justifyContent:m.me?"flex-end":"flex-start",flexWrap:"wrap"}}>
+                        {["❤️","😂","👍","😮","😢","🔥"].map(emoji=>(
+                          <button key={emoji} onClick={(e)=>{
+                            e.stopPropagation();
+                            const reactions=m.reactions||{};
+                            const users=reactions[emoji]||[];
+                            const myR=users.includes(user?.name);
+                            const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                            const newReactions={...reactions,[emoji]:newU};
+                            const newMsgs=[...msgs];newMsgs[mi]={...m,reactions:newReactions};
+                            setChatMsgs?.(newMsgs);
+                          }} style={{background:"white",border:"1px solid #e5e7eb",borderRadius:16,padding:"3px 8px",fontSize:14,cursor:"pointer"}}>{emoji}</button>
+                        ))}
+                        <button onClick={(e)=>{e.stopPropagation();}} style={{background:G,color:"white",border:"none",borderRadius:16,padding:"3px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>↩ 답글</button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {m.me && <span style={{fontSize:10,color:(m.readBy||[]).length>=2?"#3b82f6":"#d1d5db",marginTop:2,marginRight:4,fontWeight:600}}>{(m.readBy||[]).length>=2?"읽음":"전송됨"}</span>}
@@ -2515,11 +2619,19 @@ export default function App() {
               </button>
             </div>
           )}
-          <div style={{padding:"12px 14px",background:"white",borderTop:"1px solid #f3f4f6",display:"flex",gap:10}}>
-            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&sendMsg()} placeholder="메시지를 입력하세요..."
+          <div style={{background:"white",borderTop:"1px solid #f3f4f6"}}>
+            {chatReplyTo && (
+              <div style={{padding:"8px 14px",background:"#f9fafb",display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:12,color:"#6b7280",flex:1}}>↩ {chatReplyTo.by}: {chatReplyTo.text?.slice(0,30)}</span>
+                <button onClick={()=>setChatReplyTo(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#9ca3af"}}>✕</button>
+              </div>
+            )}
+            <div style={{padding:"12px 14px",display:"flex",gap:10}}>
+            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&sendMsg()} placeholder={chatReplyTo?"답글을 입력하세요...":"메시지를 입력하세요..."}
               style={{flex:1,padding:"10px 16px",border:"2px solid #f3f4f6",borderRadius:24,fontSize:14,outline:"none"}} />
             <button onClick={sendMsg} disabled={!msgVal.trim()}
               style={{width:44,height:44,background:G,border:"none",borderRadius:"50%",cursor:"pointer",color:"white",fontSize:18,opacity:msgVal.trim()?1:.4,display:"flex",alignItems:"center",justifyContent:"center"}}>➤</button>
+            </div>
           </div>
         </div>
       )}
@@ -3495,25 +3607,15 @@ export default function App() {
                       {mBoardDetail.likes.includes(user?.name)?"❤️":"🤍"} {mBoardDetail.likes.length}
                     </button>
                   </div>
-                  {mBoardDetail.comments.map((c,i)=>(
-                    <div key={i} style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:8,boxShadow:"0 2px 4px rgba(0,0,0,.03)"}}>
-                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
-                        <div style={{width:28,height:28,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"white",fontWeight:700,overflow:"hidden"}}>
-                          {(c.by===user?.name && profilePhotos[profileRepIdx]) ? <img src={profilePhotos[profileRepIdx]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : MEMBER_AVATARS[c.by] ? <img src={MEMBER_AVATARS[c.by]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : c.by[0]}
-                        </div>
-                        <span style={{fontWeight:700,fontSize:13}}>{c.by}</span>
-                        <span style={{fontSize:11,color:"#9ca3af"}}>{c.time}</span>
-                      </div>
-                      <p style={{margin:"0 0 0 36px",fontSize:13,color:"#1f2937"}}>{c.text}</p>
-                    </div>
-                  ))}
+                  <MeetingComments comments={mBoardDetail.comments} replyTarget={mBoardReplyTarget} setReplyTarget={setMBoardReplyTarget} replyVal={mBoardReplyVal} setReplyVal={setMBoardReplyVal}
+                    onUpdate={(updated)=>{const u={...mBoardDetail,comments:updated};updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?u:p)}));setMBoardDetail(u);}} />
                   <div style={{display:"flex",gap:8,marginTop:12}}>
                     <input value={mBoardCommentVal} onChange={e=>setMBoardCommentVal(e.target.value)}
                       placeholder="댓글 달기..." style={{flex:1,padding:"10px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
                     <button onClick={()=>{
                       if(!mBoardCommentVal.trim()) return;
                       if(hasBadWord(mBoardCommentVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
-                      const newC={by:user?.name,text:mBoardCommentVal.trim(),time:timeNow()};
+                      const newC={by:user?.name,text:mBoardCommentVal.trim(),time:timeNow(),likes:[],replies:[]};
                       const updated={...mBoardDetail,comments:[...mBoardDetail.comments,newC]};
                       updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
                       setMBoardDetail(updated); setMBoardCommentVal("");
@@ -3553,13 +3655,8 @@ export default function App() {
                             {(mPhotoDetail.likes||[]).includes(user?.name)?"❤️":"🤍"} {(mPhotoDetail.likes||[]).length}
                           </button>
                         </div>
-                        {(mPhotoDetail.comments||[]).map((c,i)=>(
-                          <div key={i} style={{display:"flex",gap:8,padding:"8px 0",borderBottom:"1px solid #f3f4f6"}}>
-                            <span style={{fontWeight:700,fontSize:12,flexShrink:0}}>{c.by}</span>
-                            <p style={{margin:0,fontSize:13,flex:1}}>{c.text}</p>
-                            <span style={{fontSize:10,color:"#9ca3af",flexShrink:0}}>{c.time}</span>
-                          </div>
-                        ))}
+                        <MeetingComments comments={mPhotoDetail.comments||[]} replyTarget={mPhotoReplyTarget} setReplyTarget={setMPhotoReplyTarget} replyVal={mPhotoReplyVal} setReplyVal={setMPhotoReplyVal}
+                          onUpdate={(updated)=>{const u={...mPhotoDetail,comments:updated};updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?u:p)}));setMPhotoDetail(u);}} />
                         {isMember && (
                           <div style={{display:"flex",gap:8,marginTop:10}}>
                             <input value={mPhotoComment} onChange={e=>setMPhotoComment(e.target.value)} placeholder="댓글 달기..."
@@ -3567,7 +3664,7 @@ export default function App() {
                             <button onClick={()=>{
                               if(!mPhotoComment.trim()) return;
                               if(hasBadWord(mPhotoComment)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
-                              const newC={by:user?.name,text:mPhotoComment.trim(),time:timeNow()};
+                              const newC={by:user?.name,text:mPhotoComment.trim(),time:timeNow(),likes:[],replies:[]};
                               const updated={...mPhotoDetail,comments:[...(mPhotoDetail.comments||[]),newC]};
                               updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?updated:p)}));
                               setMPhotoDetail(updated);setMPhotoComment("");
@@ -3648,8 +3745,33 @@ export default function App() {
                             </div>
                           );
                         })}
-                        {isOwner && !v.closed && <button onClick={()=>updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,closed:true}:vt)}))}
-                          style={{marginTop:4,background:"#f3f4f6",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:10,fontSize:12,fontWeight:600,color:"#6b7280"}}>투표 종료</button>}
+                        <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
+                          {isOwner && !v.closed && <button onClick={()=>updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,closed:true}:vt)}))}
+                            style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:10,fontSize:12,fontWeight:600,color:"#6b7280"}}>투표 종료</button>}
+                          <button onClick={()=>setMVoteDetail(mVoteDetail?.id===v.id?null:v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9ca3af",fontWeight:600}}>
+                            💬 댓글 {(v.comments||[]).length||""}
+                          </button>
+                        </div>
+                        {mVoteDetail?.id===v.id && (
+                          <div style={{marginTop:10,borderTop:"1px solid #f3f4f6",paddingTop:10}}>
+                            <MeetingComments comments={v.comments||[]} replyTarget={mVoteReplyTarget} setReplyTarget={setMVoteReplyTarget} replyVal={mVoteReplyVal} setReplyVal={setMVoteReplyVal}
+                              onUpdate={(updated)=>{updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,comments:updated}:vt)}));setMVoteDetail({...v,comments:updated});}} />
+                            {isMember && (
+                              <div style={{display:"flex",gap:6,marginTop:6}}>
+                                <input value={mVoteCommentVal} onChange={e=>setMVoteCommentVal(e.target.value)} placeholder="댓글 달기..."
+                                  style={{flex:1,padding:"8px 12px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}/>
+                                <button onClick={()=>{
+                                  if(!mVoteCommentVal.trim())return;
+                                  if(hasBadWord(mVoteCommentVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
+                                  const newC={by:user?.name,text:mVoteCommentVal.trim(),time:timeNow(),likes:[],replies:[]};
+                                  const updated=[...(v.comments||[]),newC];
+                                  updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,comments:updated}:vt)}));
+                                  setMVoteDetail({...v,comments:updated});setMVoteCommentVal("");
+                                }} style={{background:G,color:"white",border:"none",padding:"0 12px",borderRadius:10,fontWeight:700,fontSize:12,cursor:"pointer"}}>등록</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -3668,11 +3790,46 @@ export default function App() {
                           {!isMe && <div style={{width:30,height:30,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"white",fontWeight:700,flexShrink:0,overflow:"hidden"}}>
                             {MEMBER_AVATARS[c.by] ? <img src={MEMBER_AVATARS[c.by]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : c.by[0]}
                           </div>}
-                          <div>
+                          <div style={{maxWidth:220}}>
                             {!isMe && <p style={{margin:"0 0 3px",fontSize:11,color:"#9ca3af",paddingLeft:2}}>{c.by}</p>}
-                            <div style={{background:isMe?"linear-gradient(135deg,#ec4899,#a855f7)":"white",color:isMe?"white":"#1f2937",borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"10px 14px",fontSize:14,maxWidth:220,boxShadow:"0 2px 6px rgba(0,0,0,.06)",lineHeight:1.5}}>
+                            {c.replyTo && (
+                              <div style={{fontSize:10,color:"#9ca3af",padding:"2px 8px",background:"#f3f4f6",borderRadius:8,marginBottom:2}}>
+                                ↩ {c.replyTo.by}: {c.replyTo.text?.slice(0,20)}
+                              </div>
+                            )}
+                            <div onClick={()=>setMChatReplyTo(mChatReplyTo?.idx===i?null:{idx:i,text:c.text,by:c.by})}
+                              style={{background:isMe?"linear-gradient(135deg,#ec4899,#a855f7)":"white",color:isMe?"white":"#1f2937",borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"10px 14px",fontSize:14,boxShadow:"0 2px 6px rgba(0,0,0,.06)",lineHeight:1.5,cursor:"pointer"}}>
                               {c.text}
                             </div>
+                            {/* 공감 */}
+                            {c.reactions && Object.keys(c.reactions).length>0 && (
+                              <div style={{display:"flex",gap:2,marginTop:2,flexWrap:"wrap",justifyContent:isMe?"flex-end":"flex-start"}}>
+                                {Object.entries(c.reactions).map(([emoji,users])=>users.length>0&&(
+                                  <span key={emoji} onClick={()=>{
+                                    const myR=users.includes(user?.name);
+                                    const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                                    const newR={...c.reactions,[emoji]:newU};
+                                    updMeeting(x=>({...x,chats:x.chats.map((ch,ci)=>ci===i?{...ch,reactions:newR}:ch)}));
+                                  }} style={{background:users.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.name)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 5px",fontSize:11,cursor:"pointer"}}>
+                                    {emoji}{users.length>1?users.length:""}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {mChatReplyTo?.idx===i && (
+                              <div style={{display:"flex",gap:3,marginTop:3,flexWrap:"wrap"}}>
+                                {["❤️","😂","👍","😮","😢","🔥"].map(emoji=>(
+                                  <button key={emoji} onClick={()=>{
+                                    const reactions=c.reactions||{};
+                                    const users=reactions[emoji]||[];
+                                    const myR=users.includes(user?.name);
+                                    const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                                    const newR={...reactions,[emoji]:newU};
+                                    updMeeting(x=>({...x,chats:x.chats.map((ch,ci)=>ci===i?{...ch,reactions:newR}:ch)}));
+                                  }} style={{background:"white",border:"1px solid #e5e7eb",borderRadius:14,padding:"2px 6px",fontSize:12,cursor:"pointer"}}>{emoji}</button>
+                                ))}
+                              </div>
+                            )}
                             <p style={{margin:"3px 0 0",fontSize:10,color:"#9ca3af",textAlign:isMe?"right":"left"}}>{c.time}</p>
                           </div>
                         </div>
@@ -3748,10 +3905,16 @@ export default function App() {
                 {!isMember
                   ? <p style={{margin:0,flex:1,textAlign:"center",fontSize:13,color:"#9ca3af",padding:"10px 0"}}>가입 후 채팅에 참여할 수 있어요</p>
                   : <>
+                    {mChatReplyTo && (
+                      <div style={{padding:"6px 12px",background:"#f9fafb",display:"flex",alignItems:"center",gap:6,borderBottom:"1px solid #e5e7eb"}}>
+                        <span style={{fontSize:11,color:"#6b7280",flex:1}}>↩ {mChatReplyTo.by}: {mChatReplyTo.text?.slice(0,25)}</span>
+                        <button onClick={()=>setMChatReplyTo(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9ca3af"}}>✕</button>
+                      </div>
+                    )}
                     <input value={mChatVal} onChange={e=>setMChatVal(e.target.value)} onKeyDown={e=>{
                       if(e.key==="Enter"&&mChatVal.trim()){
                         if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
-                        updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow()}]}));
+                        updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}]}));
                         setMChatVal("");
                         setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
                       }
@@ -3760,8 +3923,8 @@ export default function App() {
                     <button onClick={()=>{
                       if(!mChatVal.trim()) return;
                       if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
-                      updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow()}]}));
-                      setMChatVal("");
+                      updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}]}));
+                      setMChatVal("");setMChatReplyTo(null);
                       setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
                     }} style={{background:mChatVal.trim()?G:"#e5e7eb",color:mChatVal.trim()?"white":"#9ca3af",border:"none",cursor:"pointer",borderRadius:"50%",width:40,height:40,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
                   </>}
