@@ -48,7 +48,19 @@ const LOCATION_AREAS = [
 ];
 const INIT_POSTS = [];
 
-const WRITE_COST = 30;
+const WRITE_COST = 0;
+
+// ── 욕설 필터 ──
+const BAD_WORDS = ["시발","씨발","시bal","씨bal","ㅅㅂ","ㅆㅂ","시바","씨바","개새끼","개세끼","새끼","ㅅㄲ","병신","ㅂㅅ","지랄","ㅈㄹ","미친놈","미친년","꺼져","닥쳐","죽어","뒤져","존나","ㅈㄴ","좆","ㅈ같","썅","니미","니엄","느금마","엠창","쓰레기","찐따","ㅂㄹ","fuck","shit","bitch","damn","asshole"];
+const filterBadWords = (text) => {
+  let filtered = text;
+  BAD_WORDS.forEach(w => {
+    const regex = new RegExp(w, "gi");
+    if(regex.test(filtered)) filtered = filtered.replace(regex, "🐾".repeat(Math.min(w.length, 3)));
+  });
+  return filtered;
+};
+const hasBadWord = (text) => BAD_WORDS.some(w => text.toLowerCase().includes(w.toLowerCase()));
 
 const INIT_MEETINGS = [];
 
@@ -115,6 +127,8 @@ export default function App() {
   // 신고/차단
   const [reportModal, setReportModal] = useState(null);
   const [reportReason, setReportReason] = useState("");
+  const [postReportModal, setPostReportModal] = useState(null); // {postId, postFid, by, uid}
+  const [myReportedPosts, setMyReportedPosts] = useState(new Set()); // 내가 신고한 게시글 ID
   const [blockedUsers, setBlockedUsers] = useState(new Set());
   // 일일 스와이프 제한
   const [dailySwipes, setDailySwipes] = useState(0);
@@ -323,79 +337,16 @@ export default function App() {
   const [chatOpened, setChatOpened] = useState(new Set()); // 대화 개설 추적
 
   const BUY_PACKAGES = [
-    { id:"point_500",  icon:"🌱", label:"스타터",   amount:500,  priceNum:500,  price:"500원",   popular:false },
-    { id:"point_1200", icon:"🌿", label:"베이직",   amount:1200, priceNum:1000, price:"1,000원", popular:false },
-    { id:"point_3000", icon:"🌳", label:"스탠다드", amount:3000, priceNum:2000, price:"2,000원", popular:true },
-    { id:"point_8000", icon:"🏆", label:"프리미엄", amount:8000, priceNum:5000, price:"5,000원", popular:false },
+    { icon:"💬", label:"대화팩",     amount:50,   price:"₩1,100",  popular:false, desc:"대화 1~2회" },
+    { icon:"💎", label:"인기팩",     amount:150,  price:"₩2,200",  popular:true,  desc:"슈퍼좋아요 3회" },
+    { icon:"🔥", label:"활동팩",     amount:500,  price:"₩5,500",  popular:false, desc:"2주 활동량" },
+    { icon:"👑", label:"프리미엄팩", amount:1200, price:"₩11,000", popular:false, desc:"한 달 넉넉" },
   ];
   const [alarms, setAlarms] = useState([
     { id:1, icon:"🐾", text:"펫플에 오신 것을 환영해요! 🎉", time:"방금 전", unread:true, nav:null },
   ]);
 
   const pet = nearbyPets.length > 0 ? nearbyPets[idx % nearbyPets.length] : null;
-
-  // ── 포트원 결제 요청 ──
-  const IMP_CODE = "imp00000000"; // ⚠️ 포트원 가맹점코드 - 실제 코드로 교체 필요
-  const [payLoading, setPayLoading] = useState(false);
-
-  const requestPayment = (pkg) => {
-    const IMP = window.IMP;
-    if(!IMP) { alert("결제 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요."); return; }
-    IMP.init(IMP_CODE);
-    setPayLoading(true);
-
-    const merchantUid = "petple_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
-
-    IMP.request_pay({
-      pg: "tosspayments",
-      pay_method: "card",
-      merchant_uid: merchantUid,
-      name: "펫플 발자국 " + pkg.amount + "p (" + pkg.label + ")",
-      amount: pkg.priceNum,
-      buyer_name: user?.name || "펫플유저",
-      buyer_email: user?.email || "",
-    }, async function(res) {
-      setPayLoading(false);
-      if(res.success) {
-        // 결제 성공 → 서버 검증
-        try {
-          const verifyRes = await fetch("https://us-central1-petpleclaude.cloudfunctions.net/verifyPayment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              imp_uid: res.imp_uid,
-              merchant_uid: merchantUid,
-              item_id: pkg.id,
-              expected_amount: pkg.priceNum,
-              uid: user?.uid,
-            }),
-          });
-          const result = await verifyRes.json();
-          if(result.success) {
-            // 포인트 지급
-            setPoints(p => p + pkg.amount);
-            setPointLog(l => [{icon:"💳",label:pkg.label+" 충전",pt:pkg.amount,type:"earn",date:"방금 전"},...l]);
-            // Firestore에도 포인트 반영
-            if(user?.uid) updateDoc(doc(db,"users",user.uid),{points:(points+pkg.amount)}).catch(()=>{});
-            alert("✅ 결제 완료!\n\n" + pkg.amount.toLocaleString() + "p가 충전되었어요 🐾");
-            setPayModal(null);
-          } else {
-            alert("⚠️ 결제 검증 실패: " + (result.message || "서버 오류") + "\n고객센터로 문의해주세요.\n주문번호: " + merchantUid);
-          }
-        } catch(e) {
-          // 검증 서버 오류 시에도 결제는 됐을 수 있으므로 안내
-          console.error("Payment verify error:", e);
-          alert("⚠️ 결제 확인 중 오류가 발생했어요.\n잠시 후 포인트가 반영될 수 있어요.\n\n문제가 계속되면 고객센터로 문의해주세요.\n주문번호: " + merchantUid);
-        }
-      } else {
-        // 결제 실패/취소
-        if(res.error_msg && !res.error_msg.includes("사용자가 결제를 취소")) {
-          alert("결제 실패: " + res.error_msg);
-        }
-        // 사용자 취소는 조용히 닫기
-      }
-    });
-  };
 
   // ── 이미지 압축 (Firestore 1MB 제한 대응) ──
   const compressImage = (dataUrl, maxSize=400) => new Promise(resolve => {
@@ -946,9 +897,9 @@ export default function App() {
       setIdx(i => i + 1);
       if (dir === "U") {
         // 슈퍼좋아요: -30p 사용 + 매칭 100% 보장
-        setPoints(p => p - 30);
+        setPoints(p => p - 50);
         setPointLog(l => [
-          {icon:"💎",label:"슈퍼좋아요 ("+cur.name+")",pt:-30,type:"use",date:"방금 전"},
+          {icon:"💎",label:"슈퍼좋아요 ("+cur.name+")",pt:-50,type:"use",date:"방금 전"},
           ...l
         ]);
         setMatches(m => [...m, cur]);
@@ -991,12 +942,12 @@ export default function App() {
   // 채팅
   function openChat(p) {
     if (!chatOpened.has(p.id)) {
-      if (points < 10) {
-        alert("새 대화를 시작하려면 🐾 10p가 필요해요!\n현재 보유: " + points + "p");
+      if (points < 30) {
+        alert("새 대화를 시작하려면 🐾 30p가 필요해요!\n현재 보유: " + points + "p");
         return;
       }
-      setPoints(pt => pt - 10);
-      setPointLog(l => [{icon:"💌",label:"대화방 개설 ("+p.name+")",pt:-10,type:"use",date:"방금 전"},...l]);
+      setPoints(pt => pt - 30);
+      setPointLog(l => [{icon:"💌",label:"대화방 개설 ("+p.name+")",pt:-30,type:"use",date:"방금 전"},...l]);
       setChatOpened(s => new Set([...s, p.id]));
     }
     // 상대방 온라인 상태 확인
@@ -1097,7 +1048,8 @@ export default function App() {
 
   function sendMsg() {
     if (!msgVal.trim() || !chatRoomId) return;
-    const msg = {uid:user?.uid, by:user?.name, text:msgVal.trim(), ts:Date.now(), readBy:[user?.uid]};
+    if (hasBadWord(msgVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
+    const msg = {uid:user?.uid, by:user?.name, text:filterBadWords(msgVal.trim()), ts:Date.now(), readBy:[user?.uid]};
     setMsgs(m => [...m, {...msg, id:Date.now(), me:true}]);
     setMsgVal("");
     // 내 메시지 → 항상 스크롤 다운
@@ -1123,8 +1075,8 @@ export default function App() {
     }
     if (!firstChatDone) {
       setFirstChatDone(true);
-      setPoints(p=>p+10);
-      setPointLog(l=>[{icon:"💬",label:"첫 대화 시작",pt:10,type:"earn",date:"방금 전"},...l]);
+      setPoints(p=>p+5);
+      setPointLog(l=>[{icon:"💬",label:"첫 대화 시작",pt:5,type:"earn",date:"방금 전"},...l]);
     }
   }
 
@@ -1466,9 +1418,9 @@ export default function App() {
               <div style={{position:"absolute",bottom:-30,right:20,width:140,height:140,background:"rgba(255,255,255,.05)",borderRadius:"50%"}} />
               <p style={{margin:"0 0 4px",fontSize:12,opacity:.8}}>보유 포인트</p>
               <p style={{margin:"0 0 12px",fontSize:36,fontWeight:900,letterSpacing:-1}}>{points.toLocaleString()}<span style={{fontSize:16,fontWeight:600,marginLeft:4}}>p</span></p>
-              <button onClick={() => { if(!checkedIn){ setPoints(p=>p+5); setCheckedIn(true); setEarnDone(d=>({...d,checkin:true})); setPointLog(l=>[{icon:"✅",label:"출석 체크",pt:5,type:"earn",date:"방금 전"},...l]); } }}
+              <button onClick={() => { if(!checkedIn){ setPoints(p=>p+3); setCheckedIn(true); setEarnDone(d=>({...d,checkin:true})); setPointLog(l=>[{icon:"✅",label:"출석 체크",pt:3,type:"earn",date:"방금 전"},...l]); } }}
                 style={{background:checkedIn?"rgba(255,255,255,.2)":"white",border:"none",padding:"8px 18px",borderRadius:20,fontSize:13,fontWeight:700,cursor:checkedIn?"not-allowed":"pointer",color:checkedIn?"rgba(255,255,255,.6)":"#ec4899"}}>
-                {checkedIn ? "✓ 출석 완료" : "출석 체크 +5p"}
+                {checkedIn ? "✓ 출석 완료" : "출석 체크 +3p"}
               </button>
             </div>
 
@@ -1508,13 +1460,13 @@ export default function App() {
                   <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>활동하면 자동으로 포인트가 적립돼요!</p>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                     {[
-                      {key:"checkin", icon:"✅",label:"출석 체크",pt:5,desc:"매일 1회",color:"#dcfce7",tcolor:"#16a34a", action:"checkin"},
-                      {key:"lounge",  icon:"📝",label:"라운지 글쓰기",pt:5,desc:"1일 1회",color:"#fce7f3",tcolor:"#be185d", action:"auto"},
-                      {key:"chat",    icon:"💬",label:"첫 대화",pt:10,desc:"1회 보너스",color:"#eff6ff",tcolor:"#1d4ed8", action:"auto"},
-                      {key:"story",   icon:"📸",label:"스토리 업로드",pt:5,desc:"1일 1회",color:"#fef9c3",tcolor:"#92400e", action:"auto"},
-                      {key:"review",  icon:"⭐",label:"리뷰 작성",pt:10,desc:"만남 후",color:"#fff7ed",tcolor:"#c2410c", action:"auto"},
-                      {key:"meeting", icon:"🏃",label:"모임 가입",pt:10,desc:"가입 시",color:"#ecfdf5",tcolor:"#065f46", action:"auto"},
-                      {key:"invite",  icon:"👥",label:"친구 초대",pt:100,desc:"가입 확인 시",color:"#fdf2f8",tcolor:"#9d174d", action:"invite"},
+                      {key:"checkin", icon:"✅",label:"출석 체크",pt:3,desc:"매일 1회",color:"#dcfce7",tcolor:"#16a34a", action:"checkin"},
+                      {key:"lounge",  icon:"📝",label:"라운지 글쓰기",pt:3,desc:"1일 1회",color:"#fce7f3",tcolor:"#be185d", action:"auto"},
+                      {key:"chat",    icon:"💬",label:"첫 대화",pt:5,desc:"1회 보너스",color:"#eff6ff",tcolor:"#1d4ed8", action:"auto"},
+                      {key:"story",   icon:"📸",label:"스토리 업로드",pt:3,desc:"1일 1회",color:"#fef9c3",tcolor:"#92400e", action:"auto"},
+                      {key:"review",  icon:"⭐",label:"리뷰 작성",pt:5,desc:"만남 후",color:"#fff7ed",tcolor:"#c2410c", action:"auto"},
+                      {key:"meeting", icon:"🏃",label:"모임 가입",pt:5,desc:"가입 시",color:"#ecfdf5",tcolor:"#065f46", action:"auto"},
+                      {key:"invite",  icon:"👥",label:"친구 초대",pt:30,desc:"가입 확인 시",color:"#fdf2f8",tcolor:"#9d174d", action:"invite"},
                     ].map((item)=>{
                       const done = item.action==="checkin" && checkedIn;
                       return (
@@ -1546,10 +1498,11 @@ export default function App() {
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>🔥 포인트 사용처</p>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {[
-                        {icon:"💎",label:"슈퍼좋아요",cost:30,desc:"100% 매칭 보장"},
-                        {icon:"💌",label:"대화 시작",cost:10,desc:"새 대화 개설"},
-                        {icon:"📝",label:"라운지 글쓰기",cost:30,desc:"글 등록"},
-                        {icon:"✏️",label:"닉네임 변경",cost:150,desc:"1회"},
+                        {icon:"💎",label:"슈퍼좋아요",cost:50,desc:"100% 매칭 보장"},
+                        {icon:"💌",label:"대화 시작",cost:30,desc:"새 대화 개설"},
+                        {icon:"📌",label:"글 상단 고정",cost:30,desc:"24시간"},
+                        {icon:"👀",label:"좋아한 사람 보기",cost:200,desc:"해금"},
+                        {icon:"✏️",label:"닉네임 변경",cost:200,desc:"1회"},
                       ].map((s,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,.7)",borderRadius:10,padding:"8px 12px"}}>
                           <span style={{fontSize:18}}>{s.icon}</span>
@@ -1579,10 +1532,10 @@ export default function App() {
                       </button>
                     ) : (
                       <button onClick={()=>{
-                        if(points<100){alert("🐾 100p가 필요해요!\n현재 보유: "+points+"p");return;}
-                        if(!confirm("🐾 100p를 사용해서 나를 좋아한 사람을 확인하시겠어요?")) return;
-                        setPoints(p=>p-100);
-                        setPointLog(l=>[{icon:"👀",label:"좋아한 사람 보기 해금",pt:-100,type:"use",date:"방금 전"},...l]);
+                        if(points<200){alert("🐾 200p가 필요해요!\n현재 보유: "+points+"p");return;}
+                        if(!confirm("🐾 200p를 사용해서 나를 좋아한 사람을 확인하시겠어요?")) return;
+                        setPoints(p=>p-200);
+                        setPointLog(l=>[{icon:"👀",label:"좋아한 사람 보기 해금",pt:-200,type:"use",date:"방금 전"},...l]);
                         setSecretLikesUnlocked(true);
                         setShowSecretLikes(true);
                       }}
@@ -1598,8 +1551,8 @@ export default function App() {
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>🔓 프리미엄 기능 (출시 예정)</p>
                     <div style={{display:"flex",flexDirection:"column",gap:8,opacity:.6}}>
                       {[
-                        {icon:"🔥",label:"프로필 부스트 (3일간)",cost:50},
-                        {icon:"♾️",label:"무제한 스와이프 (1주)",cost:500},
+                        {icon:"🔥",label:"프로필 부스트 (3일간)",cost:150},
+                        {icon:"♾️",label:"무제한 스와이프 (1주)",cost:300},
                         {icon:"🎨",label:"프로필 테마 꾸미기",cost:100},
                       ].map((s,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"white",borderRadius:10,padding:"8px 12px"}}>
@@ -1610,7 +1563,7 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                    <p style={{margin:"10px 0 0",fontSize:11,color:"#9ca3af",textAlign:"center"}}>💡 매일 꾸준히 활동하면 약 30~40p를 모을 수 있어요</p>
+                    <p style={{margin:"10px 0 0",fontSize:11,color:"#9ca3af",textAlign:"center"}}>💡 매일 꾸준히 활동하면 약 10~15p를 모을 수 있어요</p>
                   </div>
 
                   <div style={{background:"#f9fafb",borderRadius:16,padding:16}}>
@@ -1635,69 +1588,55 @@ export default function App() {
               {/* 구매 */}
               {pointsTab==="buy" && (
                 <div>
-                  {/* 안내 배너 */}
-                  <div style={{background:"linear-gradient(135deg,#dcfce7,#ecfdf5)",borderRadius:16,padding:"16px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
-                    <span style={{fontSize:28}}>💳</span>
+                  {/* 서비스 준비 중 배너 */}
+                  <div style={{background:"linear-gradient(135deg,#fef3c7,#fef9c3)",borderRadius:16,padding:"16px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:28}}>🚀</span>
                     <div>
-                      <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14,color:"#065f46"}}>포인트를 충전해보세요!</p>
-                      <p style={{margin:0,fontSize:12,color:"#047857"}}>카드, 카카오페이 등으로 간편 결제</p>
+                      <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14,color:"#92400e"}}>Google Play 인앱결제 준비 중!</p>
+                      <p style={{margin:0,fontSize:12,color:"#a16207"}}>플레이스토어 앱에서 포인트 충전이 가능해져요</p>
                     </div>
                   </div>
 
-                  <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>원하는 포인트 상품을 선택하세요</p>
-                  <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20}}>
+                  <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>출시 예정 상품을 미리 확인해보세요</p>
+                  <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20,opacity:.55,pointerEvents:"none"}}>
                     {BUY_PACKAGES.map((pkg,i)=>(
-                      <button key={i} onClick={()=>requestPayment(pkg)} disabled={payLoading}
-                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#ec4899":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(236,72,153,.2)":"none",cursor:payLoading?"wait":"pointer",opacity:payLoading?.7:1,transition:"all .15s"}}>
+                      <div key={i}
+                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#ec4899":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(236,72,153,.2)":"none"}}>
                         {pkg.popular && <div style={{position:"absolute",top:-1,right:14,background:G,color:"white",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:"0 0 10px 10px"}}>BEST</div>}
                         <span style={{fontSize:28}}>{pkg.icon}</span>
                         <div style={{flex:1}}>
                           <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15,color:"#1f2937"}}>{pkg.label}</p>
                           <p style={{margin:0,fontSize:13,fontWeight:800,color:"#ec4899"}}>{pkg.amount.toLocaleString()}p</p>
                         </div>
-                        <div style={{background:pkg.popular?G:"#f3f4f6",color:pkg.popular?"white":"#374151",padding:"8px 16px",borderRadius:20,fontSize:14,fontWeight:700,whiteSpace:"nowrap"}}>{pkg.price}</div>
-                      </button>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{background:pkg.popular?G:"#f3f4f6",color:pkg.popular?"white":"#374151",padding:"8px 16px",borderRadius:20,fontSize:14,fontWeight:700,whiteSpace:"nowrap"}}>{pkg.price}</div>
+                          {pkg.desc && <p style={{margin:"4px 4px 0 0",fontSize:10,color:"#9ca3af"}}>{pkg.desc}</p>}
+                        </div>
+                      </div>
                     ))}
                   </div>
 
-                  {/* 펫플 플러스 구독 (비활성) */}
-                  <div style={{background:"linear-gradient(135deg,#fef9c3,#fef3c7)",borderRadius:18,padding:18,position:"relative",overflow:"hidden"}}>
-                    <div style={{position:"absolute",top:10,right:12,background:"#92400e",color:"white",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10}}>출시 예정</div>
-                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                      <span style={{fontSize:28}}>👑</span>
-                      <div style={{flex:1}}>
-                        <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15}}>펫플 플러스</p>
-                        <p style={{margin:0,fontSize:12,color:"#92400e"}}>프리미엄 혜택을 누려보세요!</p>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+                  {/* 포인트 가치 안내 */}
+                  <div style={{background:"linear-gradient(135deg,#fdf2f8,#ede9fe)",borderRadius:18,padding:18}}>
+                    <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>💡 이런 분에게 추천해요</p>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {[
-                        "매달 3,000p 자동 적립",
-                        "슈퍼 좋아요 무제한",
-                        "프로필 부스트 (3일마다)",
-                        "광고 제거",
-                        "읽음 확인 기능",
-                      ].map((b,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontSize:12,color:"#ec4899"}}>✓</span>
-                          <span style={{fontSize:13,color:"#374151"}}>{b}</span>
+                        {who:"매칭을 빠르게 하고 싶다면",rec:"인기팩 💎 → 슈퍼좋아요 3회"},
+                        {who:"매일 새 친구와 대화하고 싶다면",rec:"활동팩 🔥 → 대화 16회분"},
+                        {who:"한 달 부족함 없이 쓰고 싶다면",rec:"프리미엄팩 👑 → 대화 40회분"},
+                      ].map((tip,i)=>(
+                        <div key={i} style={{background:"rgba(255,255,255,.7)",borderRadius:10,padding:"10px 12px"}}>
+                          <p style={{margin:"0 0 2px",fontSize:12,fontWeight:600,color:"#6b7280"}}>{tip.who}</p>
+                          <p style={{margin:0,fontSize:13,fontWeight:700,color:"#be185d"}}>{tip.rec}</p>
                         </div>
                       ))}
                     </div>
-                    <button disabled style={{width:"100%",background:"#e5e7eb",color:"#9ca3af",border:"none",padding:"11px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"not-allowed"}}>
-                      서비스 준비 중
-                    </button>
                   </div>
 
                   {/* 결제 안내 */}
-                  <div style={{marginTop:16,background:"#f9fafb",borderRadius:14,padding:"14px 16px"}}>
-                    <p style={{margin:"0 0 6px",fontSize:13,fontWeight:600,color:"#374151"}}>💡 결제 안내</p>
-                    <p style={{margin:0,fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
-                      · 결제 후 즉시 포인트가 충전됩니다<br/>
-                      · 충전된 포인트는 환불이 어렵습니다<br/>
-                      · 결제 문의: 0502-1927-8252
-                    </p>
-                    <p style={{margin:"8px 0 0",fontSize:9,color:"#c0c0c0",lineHeight:1.5}}>
+                  <div style={{marginTop:16,background:"#f9fafb",borderRadius:14,padding:"14px 16px",textAlign:"center"}}>
+                    <p style={{margin:"0 0 8px",fontSize:13,color:"#6b7280"}}>Google Play 스토어 앱에서 결제가 가능해요!</p>
+                    <p style={{margin:0,fontSize:9,color:"#c0c0c0",lineHeight:1.5}}>
                       상호: 펫플 | 대표: 김영웅 | 사업자번호: 743-09-03086<br/>
                       주소: 인천광역시 계양구 장제로 762 | 전화: 0502-1927-8252
                     </p>
@@ -2126,7 +2065,13 @@ export default function App() {
                 loungeCat==="hot" ? p.likes.length>=2 :
                 loungeCat==="feed" ? p.by===user?.name :
                 p.cat===loungeCat
-              ).sort((a,b)=>b.ts-a.ts);
+              ).sort((a,b)=>{
+                // 상단 고정 글이 위로
+                const aPinned = a.pinnedUntil && a.pinnedUntil > Date.now() ? 1 : 0;
+                const bPinned = b.pinnedUntil && b.pinnedUntil > Date.now() ? 1 : 0;
+                if(aPinned !== bPinned) return bPinned - aPinned;
+                return b.ts - a.ts;
+              });
 
               if (filtered.length===0) return (
                 <div style={{textAlign:"center",padding:"60px 20px"}}>
@@ -2155,6 +2100,9 @@ export default function App() {
                         <p onClick={openAuthorProfile} style={{margin:0,fontWeight:700,fontSize:13,cursor:"pointer",display:"inline-block"}}>{p.by}</p>
                         <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{p.ago}</p>
                       </div>
+                      {p.pinnedUntil && p.pinnedUntil > Date.now() && (
+                        <span style={{background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:20,display:"flex",alignItems:"center",gap:2}}>📌 TOP</span>
+                      )}
                       <span style={{background:"#f3f4f6",color:"#6b7280",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20}}>{catInfo.icon} {catInfo.label}</span>
                     </div>
                     <p style={{margin:"0 0 10px",fontSize:14,color:"#1f2937",lineHeight:1.6,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{p.content}</p>
@@ -2168,6 +2116,28 @@ export default function App() {
                         {isLiked?"❤️":"🤍"} {p.likes.length}
                       </span>
                       <span style={{fontSize:13,color:"#9ca3af"}}>💬 {p.comments.length}</span>
+                      {p.by!==user?.name && (
+                        <button onClick={(e)=>{
+                          e.stopPropagation();
+                          if(myReportedPosts.has(p.id)){alert("이미 신고한 게시물이에요.");return;}
+                          setPostReportModal({postId:p.id,postFid:p._fid,by:p.by,uid:p.uid});
+                        }} style={{background:"none",border:"none",color:"#d1d5db",fontSize:16,cursor:"pointer",padding:2,marginLeft:"auto"}}>⚠️</button>
+                      )}
+                      {p.by===user?.name && !(p.pinnedUntil && p.pinnedUntil>Date.now()) && (
+                        <button onClick={(e)=>{
+                          e.stopPropagation();
+                          if(points<30){alert("🐾 상단 고정에 30p가 필요해요!\n현재 보유: "+points+"p");return;}
+                          if(!confirm("🐾 30p를 사용해서 이 글을 24시간 상단에 고정할까요?"))return;
+                          setPoints(pt=>pt-30);
+                          setPointLog(l=>[{icon:"📌",label:"글 상단 고정",pt:-30,type:"use",date:"방금 전"},...l]);
+                          const pinUntil=Date.now()+24*60*60*1000;
+                          setPosts(ps=>ps.map(x=>x.id===p.id?{...x,pinnedUntil:pinUntil}:x));
+                          if(p._fid) updateDoc(doc(db,"communityPosts",p._fid),{pinnedUntil:pinUntil}).catch(()=>{});
+                          alert("📌 24시간 동안 상단에 고정됩니다!");
+                        }} style={{background:"none",border:"1px solid #f59e0b",color:"#f59e0b",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,cursor:"pointer",marginLeft:"auto"}}>
+                          📌 상단고정 30p
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -2207,6 +2177,7 @@ export default function App() {
 
         const addComment = () => {
           if (!commentVal.trim()) return;
+          if (hasBadWord(commentVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
           const newC = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:commentVal.trim(),time:"방금 전",likes:[],replies:[]};
           const updatedComments = [...post.comments, newC];
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
@@ -2222,6 +2193,7 @@ export default function App() {
 
         const addReply = (commentId) => {
           if (!replyVal.trim()) return;
+          if (hasBadWord(replyVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
           const newR = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:"방금 전"};
           const updateComments = cs => cs.map(c => c.id===commentId ? {...c,replies:[...c.replies,newR]} : c);
           const updatedComments = updateComments(post.comments);
@@ -2969,6 +2941,7 @@ export default function App() {
             <div style={{padding:"12px 18px 28px",borderTop:"1px solid #f3f4f6",flexShrink:0}}>
               <button onClick={()=>{
                 if(myPets.length===0||storyPetSel===null) return;
+                if(storyContent && hasBadWord(storyContent)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                 const pet=myPets[storyPetSel];
                 const newStory = {id:Date.now(),petName:pet.name,petIcon:"🐾",img:storyImg,content:storyContent,by:user?.name,byImg:profilePhotos[profileRepIdx]||null,uid:user?.uid,time:"방금 전",isMine:true,ts:Date.now(),likes:[],comments:[]};
                 setMyStories(ss=>[...ss,newStory]);
@@ -3815,6 +3788,7 @@ export default function App() {
               {points < WRITE_COST && <p style={{margin:"0 0 8px",fontSize:12,color:"#ef4444",textAlign:"center",fontWeight:600}}>포인트가 부족해요 (보유 {points}p / 필요 {WRITE_COST}p)</p>}
               <button onClick={()=>{
                 if (!postForm.content.trim() || points < WRITE_COST) return;
+                if (hasBadWord(postForm.content)) { alert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
                 const catInfo = LOUNGE_CATS.find(c=>c.key===postForm.cat);
                 const newPost = {
                   id: Date.now(), cat:postForm.cat, by:user?.name, byImg:(profilePhotos[profileRepIdx]&&profilePhotos[profileRepIdx]!=="[img]")?profilePhotos[profileRepIdx]:null, uid:user?.uid, ago:"방금 전", ts:Date.now(),
@@ -4446,7 +4420,64 @@ export default function App() {
         </div>
       )}
 
-      {/* 신고 모달 */}
+      {/* 게시글 신고 모달 */}
+      {postReportModal && (
+        <div style={{position:"fixed",inset:0,zIndex:120,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={()=>setPostReportModal(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
+          <div style={{position:"relative",background:"white",borderRadius:24,padding:"28px 24px",maxWidth:340,width:"90%"}}>
+            <h3 style={{margin:"0 0 16px",fontSize:18,fontWeight:800,textAlign:"center"}}>⚠️ 게시글 신고</h3>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+              {["부적절한 내용","욕설/비하 발언","스팸/광고","허위 정보","성적 불쾌감","기타"].map(r=>(
+                <button key={r} onClick={()=>setReportReason(r)}
+                  style={{padding:"10px 14px",borderRadius:10,border:reportReason===r?"2px solid #ef4444":"2px solid #e5e7eb",
+                    background:reportReason===r?"#fef2f2":"white",color:reportReason===r?"#ef4444":"#374151",
+                    fontSize:13,fontWeight:600,cursor:"pointer",textAlign:"left"}}>{r}</button>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setPostReportModal(null);setReportReason("");}}
+                style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>
+              <button onClick={()=>{
+                if(!reportReason){alert("신고 사유를 선택해주세요.");return;}
+                // Firestore에 신고 저장
+                const pid = postReportModal.postId;
+                addDoc(collection(db,"postReports"),{
+                  postId:pid, postFid:postReportModal.postFid||null,
+                  reporterUid:user?.uid, reporterName:user?.name,
+                  targetUid:postReportModal.uid||null, targetName:postReportModal.by,
+                  reason:reportReason, ts:Date.now()
+                }).catch(()=>{});
+                // 내 신고 기록
+                setMyReportedPosts(s=>new Set([...s, pid]));
+                // 로컬에서 신고 카운트 증가
+                setPosts(ps=>ps.map(p=>{
+                  if(p.id===pid){
+                    const cnt = (p.reportCount||0)+1;
+                    if(cnt>=10){
+                      // 10개 신고 → 자동 삭제 + 작성자에게 알림
+                      if(p._fid) deleteDoc(doc(db,"communityPosts",p._fid)).catch(()=>{});
+                      if(p.uid) addDoc(collection(db,"notifications"),{
+                        to:p.uid, type:"post_deleted", from:"운영팀",
+                        text:"회원님의 게시물이 다수의 신고로 삭제되었습니다.",
+                        time:new Date().toISOString(), read:false
+                      }).catch(()=>{});
+                      setAlarms(a=>[{id:Date.now(),icon:"🚨",text:p.by+"님의 게시물이 신고 누적으로 삭제되었어요",time:"방금 전",unread:true,nav:null},...a]);
+                      return null; // 삭제 마킹
+                    }
+                    if(p._fid) updateDoc(doc(db,"communityPosts",p._fid),{reportCount:cnt}).catch(()=>{});
+                    return {...p, reportCount:cnt};
+                  }
+                  return p;
+                }).filter(Boolean));
+                alert("신고가 접수되었어요. 검토 후 조치하겠습니다.");
+                setPostReportModal(null);setReportReason("");
+              }} style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신고하기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 유저 신고 모달 */}
       {reportModal && (
         <div style={{position:"fixed",inset:0,zIndex:120,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div onClick={()=>setReportModal(null)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
@@ -4498,7 +4529,7 @@ export default function App() {
             <p style={{fontSize:60,margin:"0 0 8px"}}>🎉</p>
             <h2 style={{margin:"0 0 8px",fontSize:26,fontWeight:800,background:G,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>매칭 성공!</h2>
             <p style={{margin:"0 0 6px",color:"#374151",fontSize:16,fontWeight:600}}>{popup.name}와 친구가 됐어요!</p>
-            <div style={{display:"inline-block",background:"#dcfce7",color:"#16a34a",padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:700,marginBottom:6}}>🐾 +15p 획득!</div>
+            <div style={{display:"inline-block",background:"#dcfce7",color:"#16a34a",padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:700,marginBottom:6}}>🐾 +5p 획득!</div>
             <p style={{margin:0,color:"#9ca3af",fontSize:13}}>멍냥톡에서 대화를 시작해보세요 🐾</p>
           </div>
         </div>
