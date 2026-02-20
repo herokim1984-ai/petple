@@ -336,7 +336,7 @@ export default function App() {
   const [mVoteReplyTarget, setMVoteReplyTarget] = useState(null);
   const [mVoteReplyVal, setMVoteReplyVal] = useState("");
   const [chatReplyTo, setChatReplyTo] = useState(null); // 1:1 채팅 답글 {id,text,by}
-  const [chatReactions, setChatReactions] = useState({}); // {msgIdx: {emoji: [users]}}
+  // 공감은 Firestore에 직접 저장
   const [mChatReplyTo, setMChatReplyTo] = useState(null); // 모임 채팅 답글
   const [mBoardForm,     setMBoardForm]     = useState({title:"",content:"",imgs:[]});
   const mBoardImgRef = useRef(null);
@@ -769,6 +769,18 @@ export default function App() {
             if (data.alarmSettings) setAlarmSettings(data.alarmSettings);
             if (data.receivedLikes) setReceivedLikes(data.receivedLikes);
             if (data.recoSettings) setRecoSettings(data.recoSettings);
+            // 일일/영구 추적 데이터 복원
+            if (data.blockedUsers) setBlockedUsers(new Set(data.blockedUsers));
+            if (data.myReportedPosts) setMyReportedPosts(new Set(data.myReportedPosts));
+            if (data.firstChatDone) setFirstChatDone(true);
+            if (data.chatOpened) setChatOpened(new Set(data.chatOpened));
+            // 일일 데이터: 오늘 날짜와 비교하여 복원
+            const today = new Date().toDateString();
+            if (data.dailyData?.date === today) {
+              setCheckedIn(data.dailyData.checkedIn || false);
+              setEarnDone(data.dailyData.earnDone || {});
+              setDailySwipes(data.dailyData.dailySwipes || 0);
+            }
             setLoggedIn(true);
           } else {
             // 구글 로그인으로 처음 들어온 경우 프로필 생성
@@ -915,6 +927,36 @@ export default function App() {
     }, 2000); // 2초 디바운스
     return () => clearTimeout(timer);
   }, [points, pointLog, user?.uid, loggedIn]);
+
+  // ── Firestore에 추적 데이터 동기화 (영구) ──
+  useEffect(() => {
+    if (!user?.uid || !loggedIn) return;
+    const timer = setTimeout(() => {
+      updateDoc(doc(db, "users", user.uid), {
+        blockedUsers: [...blockedUsers],
+        myReportedPosts: [...myReportedPosts],
+        firstChatDone,
+        chatOpened: [...chatOpened],
+      }).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [blockedUsers, myReportedPosts, firstChatDone, chatOpened, user?.uid, loggedIn]);
+
+  // ── Firestore에 일일 데이터 동기화 ──
+  useEffect(() => {
+    if (!user?.uid || !loggedIn) return;
+    const timer = setTimeout(() => {
+      updateDoc(doc(db, "users", user.uid), {
+        dailyData: {
+          date: new Date().toDateString(),
+          checkedIn,
+          earnDone,
+          dailySwipes,
+        }
+      }).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [checkedIn, earnDone, dailySwipes, user?.uid, loggedIn]);
 
   // 로그인/회원가입
   async function submit() {
@@ -2590,30 +2632,36 @@ export default function App() {
                       {m.text}
                     </div>
                     {/* 공감 이모지 표시 */}
-                    {(() => { const rxn = {...(m.reactions||{}), ...(chatReactions[mi]||{})}; return Object.keys(rxn).some(k=>(rxn[k]||[]).length>0) ? (
+                    {m.reactions && Object.keys(m.reactions).some(k=>(m.reactions[k]||[]).length>0) && (
                       <div style={{display:"flex",gap:2,marginTop:2,flexWrap:"wrap",justifyContent:m.me?"flex-end":"flex-start"}}>
-                        {Object.entries(rxn).map(([emoji,users])=>(users||[]).length>0&&(
+                        {Object.entries(m.reactions).map(([emoji,users])=>(users||[]).length>0&&(
                           <span key={emoji} onClick={()=>{
+                            if(!m.id||!chatRoomId) return;
                             const myR=users.includes(user?.name);
                             const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
-                            setChatReactions(prev=>({...prev,[mi]:{...(prev[mi]||{}),[emoji]:newU}}));
+                            const newR={...m.reactions,[emoji]:newU};
+                            setMsgs(prev=>prev.map((x,xi)=>xi===mi?{...x,reactions:newR}:x));
+                            updateDoc(doc(db,"chatRooms",chatRoomId,"messages",m.id),{reactions:newR}).catch(()=>{});
                           }} style={{background:users.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.name)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
                             {emoji} {users.length>1?users.length:""}
                           </span>
                         ))}
                       </div>
-                    ) : null; })()}
+                    )}
                     {/* 공감/답글 버튼 (클릭 시 나타남) */}
                     {chatReplyTo?.id===(m.id||mi) && (
                       <div style={{display:"flex",gap:4,marginTop:4,justifyContent:m.me?"flex-end":"flex-start",flexWrap:"wrap"}}>
                         {["❤️","😂","👍","😮","😢","🔥"].map(emoji=>(
                           <button key={emoji} onClick={(e)=>{
                             e.stopPropagation();
-                            const prev=chatReactions[mi]||{};
-                            const users=prev[emoji]||[];
+                            if(!m.id||!chatRoomId) return;
+                            const reactions=m.reactions||{};
+                            const users=reactions[emoji]||[];
                             const myR=users.includes(user?.name);
                             const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
-                            setChatReactions(r=>({...r,[mi]:{...(r[mi]||{}),[emoji]:newU}}));
+                            const newR={...reactions,[emoji]:newU};
+                            setMsgs(prev=>prev.map((x,xi)=>xi===mi?{...x,reactions:newR}:x));
+                            updateDoc(doc(db,"chatRooms",chatRoomId,"messages",m.id),{reactions:newR}).catch(()=>{});
                             setChatReplyTo(null);
                           }} style={{background:"white",border:"1px solid #e5e7eb",borderRadius:16,padding:"3px 8px",fontSize:14,cursor:"pointer"}}>{emoji}</button>
                         ))}
