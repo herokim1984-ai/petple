@@ -1064,7 +1064,7 @@ export default function App() {
       setAnim(null);
       setIdx(i => i + 1);
       if (dir === "U") {
-        // 슈퍼좋아요: -30p 사용 + 매칭 100% 보장
+        // 슈퍼좋아요: -50p 사용 + 매칭 100% 보장
         setPoints(p => p - 50);
         setPointLog(l => [
           {icon:"💎",label:"슈퍼좋아요 ("+cur.name+")",pt:-50,type:"use",date:dateNow()},
@@ -3660,7 +3660,7 @@ export default function App() {
                     <p style={{margin:"0 0 12px",fontSize:14,color:"#1f2937",lineHeight:1.7}}>{mBoardDetail.content}</p>
                     {mBoardDetail.imgs&&mBoardDetail.imgs.length>0 && (
                       <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto"}}>
-                        {mBoardDetail.imgs.map((img,i)=><img key={i} src={img} alt="" onClick={()=>setPhotoViewer(mBoardDetail.imgs)} style={{width:100,height:100,borderRadius:12,objectFit:"cover",flexShrink:0,cursor:"pointer"}}/>)}
+                        {mBoardDetail.imgs.map((img,i)=><img key={i} src={img} alt="" onClick={()=>setPhotoViewer({photos:mBoardDetail.imgs,idx:i})} style={{width:100,height:100,borderRadius:12,objectFit:"cover",flexShrink:0,cursor:"pointer"}}/>)}
                       </div>
                     )}
                     <button onClick={()=>{
@@ -4016,7 +4016,7 @@ export default function App() {
                       if(e.key==="Enter"&&mChatVal.trim()){
                         if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                         updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}]}));
-                        setMChatVal("");
+                        setMChatVal("");setMChatReplyTo(null);
                         setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
                       }
                     }} placeholder="메시지를 입력하세요..."
@@ -4177,7 +4177,7 @@ export default function App() {
                       if (ph) {
                         // 사진 있으면 삭제
                         setProfilePhotos(arr => { const n=[...arr]; n[i]=null; return n; });
-                        if (profileRepIdx === i) setProfileRepIdx(profilePhotos.findIndex((p,j)=>j!==i&&p) ?? 0);
+                        if (profileRepIdx === i) { const newIdx = profilePhotos.findIndex((p,j)=>j!==i&&p); setProfileRepIdx(newIdx === -1 ? 0 : newIdx); }
                       } else {
                         // 없으면 파일 선택
                         setActiveProfileSlot(i);
