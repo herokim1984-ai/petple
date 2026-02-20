@@ -80,15 +80,23 @@ const INIT_MEETINGS = [];
 const G = "linear-gradient(135deg,#ec4899,#a855f7)";
 
 const REGIONS = {
+  "전국":{icon:"🇰🇷",districts:["전체"]},
+  "서울":{icon:"🗼",districts:["전체","강남구","서초구","송파구","마포구","용산구","성동구","광진구","동대문구","중랑구","강동구","강서구","양천구","영등포구","구로구","관악구","동작구","노원구","도봉구","강북구","성북구","종로구","중구","은평구","서대문구"]},
+  "경기":{icon:"🌳",districts:["전체","수원시","성남시","부천시","안양시","광명시","시흥시","안산시","고양시","의정부시","용인시","화성시","평택시","김포시","파주시","남양주시","기타"]},
+  "부산":{icon:"🌊",districts:["전체","해운대구","수영구","남구","동래구","부산진구","사하구","기장군","금정구","연제구","사상구","북구","기타"]},
   "인천":{icon:"🏙",districts:["전체","연수구","남동구","미추홀구","부평구","계양구","서구","중구","동구","강화군","옹진군"]},
-  "서울":{icon:"🗼",districts:["전체","강남구","서초구","송파구","마포구","용산구","성동구","광진구","동대문구","중랑구","강동구","기타"]},
-  "경기":{icon:"🌳",districts:["전체","수원시","성남시","부천시","안양시","광명시","시흥시","안산시","고양시","의정부시","용인시","기타"]},
-  "부산":{icon:"🌊",districts:["전체","해운대구","수영구","남구","동래구","부산진구","사하구","기장군","기타"]},
-  "대구":{icon:"🏔",districts:["전체","중구","동구","서구","남구","북구","수성구","달서구","기타"]},
+  "대구":{icon:"🏔",districts:["전체","중구","동구","서구","남구","북구","수성구","달서구","달성군","기타"]},
   "대전":{icon:"🔬",districts:["전체","유성구","서구","중구","동구","대덕구"]},
   "광주":{icon:"🎨",districts:["전체","동구","서구","남구","북구","광산구"]},
   "울산":{icon:"🏭",districts:["전체","중구","남구","동구","북구","울주군"]},
   "세종":{icon:"🏛",districts:["전체"]},
+  "충북":{icon:"🌾",districts:["전체","청주시","충주시","제천시","기타"]},
+  "충남":{icon:"🌅",districts:["전체","천안시","아산시","서산시","당진시","기타"]},
+  "전북":{icon:"🌻",districts:["전체","전주시","익산시","군산시","기타"]},
+  "전남":{icon:"🌿",districts:["전체","여수시","순천시","목포시","기타"]},
+  "경북":{icon:"🏯",districts:["전체","포항시","구미시","경주시","기타"]},
+  "경남":{icon:"⛰️",districts:["전체","창원시","김해시","진주시","양산시","기타"]},
+  "강원":{icon:"🏔",districts:["전체","춘천시","원주시","강릉시","속초시","기타"]},
   "제주":{icon:"🍊",districts:["전체","제주시","서귀포시"]},
 };
 
@@ -328,17 +336,19 @@ export default function App() {
   const [mVoteReplyTarget, setMVoteReplyTarget] = useState(null);
   const [mVoteReplyVal, setMVoteReplyVal] = useState("");
   const [chatReplyTo, setChatReplyTo] = useState(null); // 1:1 채팅 답글 {id,text,by}
+  const [chatReactions, setChatReactions] = useState({}); // {msgIdx: {emoji: [users]}}
   const [mChatReplyTo, setMChatReplyTo] = useState(null); // 모임 채팅 답글
   const [mBoardForm,     setMBoardForm]     = useState({title:"",content:"",imgs:[]});
   const mBoardImgRef = useRef(null);
   const [mBoardDetail,   setMBoardDetail]   = useState(null);
   const [mBoardCommentVal,setMBoardCommentVal]=useState("");
-  const [mVoteForm,      setMVoteForm]      = useState({title:"",options:["",""]});
+  const [mVoteForm,      setMVoteForm]      = useState({title:"",options:[{text:"",img:null},{text:"",img:null}],anonymous:false,endTime:""});
+  const mVoteImgRefs = useRef([]);
   const [isAddVote,      setIsAddVote]      = useState(false);
   const [mGreetVal,      setMGreetVal]      = useState("");
   const [mPhotoFile,     setMPhotoFile]     = useState(null);
   const [isCreateMeeting, setIsCreateMeeting] = useState(false);
-  const [newMeetForm, setNewMeetForm] = useState({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10,coverImg:null});
+  const [newMeetForm, setNewMeetForm] = useState({title:"",city:"서울",district:"강남구",animal:"강아지",desc:"",max:10,coverImg:null});
   const mPhotoRef = useRef(null);
   const chatEndRef = useRef(null);
   const [showAlarm, setShowAlarm] = useState(false);
@@ -2571,37 +2581,34 @@ export default function App() {
                       {m.text}
                     </div>
                     {/* 공감 이모지 표시 */}
-                    {m.reactions && Object.keys(m.reactions).length>0 && (
+                    {(() => { const rxn = {...(m.reactions||{}), ...(chatReactions[mi]||{})}; return Object.keys(rxn).some(k=>(rxn[k]||[]).length>0) ? (
                       <div style={{display:"flex",gap:2,marginTop:2,flexWrap:"wrap",justifyContent:m.me?"flex-end":"flex-start"}}>
-                        {Object.entries(m.reactions).map(([emoji,users])=>users.length>0&&(
+                        {Object.entries(rxn).map(([emoji,users])=>(users||[]).length>0&&(
                           <span key={emoji} onClick={()=>{
                             const myR=users.includes(user?.name);
                             const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
-                            const newReactions={...m.reactions,[emoji]:newU};
-                            const newMsgs=[...msgs];newMsgs[mi]={...m,reactions:newReactions};
-                            setChatMsgs?.(newMsgs);
-                          }} style={{background:users.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"1px solid "+( users.includes(user?.name)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
+                            setChatReactions(prev=>({...prev,[mi]:{...(prev[mi]||{}),[emoji]:newU}}));
+                          }} style={{background:users.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.name)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
                             {emoji} {users.length>1?users.length:""}
                           </span>
                         ))}
                       </div>
-                    )}
+                    ) : null; })()}
                     {/* 공감/답글 버튼 (클릭 시 나타남) */}
                     {chatReplyTo?.id===(m.id||mi) && (
                       <div style={{display:"flex",gap:4,marginTop:4,justifyContent:m.me?"flex-end":"flex-start",flexWrap:"wrap"}}>
                         {["❤️","😂","👍","😮","😢","🔥"].map(emoji=>(
                           <button key={emoji} onClick={(e)=>{
                             e.stopPropagation();
-                            const reactions=m.reactions||{};
-                            const users=reactions[emoji]||[];
+                            const prev=chatReactions[mi]||{};
+                            const users=prev[emoji]||[];
                             const myR=users.includes(user?.name);
                             const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
-                            const newReactions={...reactions,[emoji]:newU};
-                            const newMsgs=[...msgs];newMsgs[mi]={...m,reactions:newReactions};
-                            setChatMsgs?.(newMsgs);
+                            setChatReactions(r=>({...r,[mi]:{...(r[mi]||{}),[emoji]:newU}}));
+                            setChatReplyTo(null);
                           }} style={{background:"white",border:"1px solid #e5e7eb",borderRadius:16,padding:"3px 8px",fontSize:14,cursor:"pointer"}}>{emoji}</button>
                         ))}
-                        <button onClick={(e)=>{e.stopPropagation();}} style={{background:G,color:"white",border:"none",borderRadius:16,padding:"3px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>↩ 답글</button>
+                        <button onClick={(e)=>{e.stopPropagation();setChatReplyTo({id:m.id||mi,text:m.text,by:m.me?user?.name:(chatPet?.name||"상대방")});}} style={{background:G,color:"white",border:"none",borderRadius:16,padding:"3px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>↩ 답글</button>
                       </div>
                     )}
                   </div>
@@ -3338,7 +3345,7 @@ export default function App() {
                   setMeetings(ms=>ms.map(x=>x.id===nm.id?{...x,_fid:ref.id}:x));
                 }).catch(()=>{});
                 setIsCreateMeeting(false);
-                setNewMeetForm({title:"",city:"인천",district:"연수구",animal:"강아지",desc:"",max:10,coverImg:null});
+                setNewMeetForm({title:"",city:"서울",district:"강남구",animal:"강아지",desc:"",max:10,coverImg:null});
               }} disabled={!newMeetForm.title.trim()||!newMeetForm.desc.trim()}
                 style={{background:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"#e5e7eb":G,color:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"#9ca3af":"white",border:"none",padding:"13px 0",borderRadius:14,fontWeight:700,fontSize:15,cursor:(!newMeetForm.title.trim()||!newMeetForm.desc.trim())?"default":"pointer",marginTop:4}}>
                 모임 만들기
@@ -3357,9 +3364,9 @@ export default function App() {
           {key:"home",   label:"홈",icon:"🏠"},
           {key:"members",label:"멤버",icon:"👥"},
           {key:"greet",  label:"가입인사",icon:"👋"},
-          {key:"board",  label:"게시판",icon:"📋",memberOnly:true},
-          {key:"photos", label:"사진첩",icon:"📸",memberOnly:true},
-          {key:"vote",   label:"투표",icon:"🗳️",memberOnly:true},
+          {key:"board",  label:"게시판",icon:"📋",memberOnly:false},
+          {key:"photos", label:"사진첩",icon:"📸",memberOnly:false},
+          {key:"vote",   label:"투표",icon:"🗳️",memberOnly:false},
           {key:"chat",   label:"채팅",icon:"💬",memberOnly:true},
           {key:"manage", label:"가입관리",icon:"⚙️"},
         ];
@@ -3437,11 +3444,11 @@ export default function App() {
               )}
 
               {/* 비회원 접근 차단 가드 */}
-              {!isMember && ["board","photos","vote","chat"].includes(meetingTab) && (
+              {!isMember && meetingTab==="chat" && (
                 <div style={{textAlign:"center",padding:"60px 20px"}}>
                   <p style={{fontSize:48,margin:"0 0 12px"}}>🔒</p>
                   <p style={{fontSize:15,fontWeight:700,color:"#374151",margin:"0 0 6px"}}>가입 후 이용할 수 있어요</p>
-                  <p style={{fontSize:13,color:"#9ca3af"}}>모임에 가입 신청 후 승인을 받으면<br/>게시판, 사진첩, 투표, 채팅을 이용할 수 있어요</p>
+                  <p style={{fontSize:13,color:"#9ca3af"}}>모임에 가입 신청 후 승인을 받으면<br/>채팅을 이용할 수 있어요</p>
                 </div>
               )}
 
@@ -3517,7 +3524,7 @@ export default function App() {
                     </div>
                   ))}
                   {m.greetings.length===0 && <div style={{textAlign:"center",padding:"40px 0"}}><p style={{fontSize:36,margin:"0 0 8px"}}>👋</p><p style={{color:"#9ca3af",fontSize:13}}>아직 가입인사가 없어요</p></div>}
-                  {isMember && !m.greetings.some(g=>g.by===user?.name) && (
+                  {(isMember || m.pending.some(p=>p.name===user?.name)) && !m.greetings.some(g=>g.by===user?.name) && (
                     <div style={{marginTop:16,background:"#f9fafb",borderRadius:14,padding:14}}>
                       <p style={{margin:"0 0 8px",fontWeight:700,fontSize:13}}>가입 인사 남기기 👋</p>
                       <textarea value={mGreetVal} onChange={e=>setMGreetVal(e.target.value)} placeholder="반갑습니다! 저는..." rows={3}
@@ -3566,7 +3573,7 @@ export default function App() {
                     </div>
                   )}
                   {m.board.map(post=>(
-                    <div key={post.id} onClick={()=>setMBoardDetail(post)}
+                    <div key={post.id} onClick={()=>{if(!isMember){alert("모임에 가입하면 상세 내용을 볼 수 있어요!");return;}setMBoardDetail(post);}}
                       style={{background:"white",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 2px 6px rgba(0,0,0,.04)",cursor:"pointer"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                         <h4 style={{margin:0,fontSize:14,fontWeight:700}}>{post.title}</h4>
@@ -3675,7 +3682,7 @@ export default function App() {
                     ) : (
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
                         {m.photos.map((ph,i)=>(
-                          <div key={i} onClick={()=>setMPhotoDetail(ph)} style={{aspectRatio:"1",borderRadius:12,overflow:"hidden",position:"relative",cursor:"pointer"}}>
+                          <div key={i} onClick={()=>{if(!isMember){alert("모임에 가입하면 사진을 크게 볼 수 있어요!");return;}setMPhotoDetail(ph);}} style={{aspectRatio:"1",borderRadius:12,overflow:"hidden",position:"relative",cursor:"pointer"}}>
                             <img src={ph.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                             <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.5)",padding:"3px 6px",display:"flex",justifyContent:"space-between"}}>
                               <p style={{margin:0,fontSize:9,color:"white"}}>{ph.by}</p>
@@ -3702,32 +3709,63 @@ export default function App() {
                       <p style={{margin:"0 0 8px",fontWeight:700,fontSize:14}}>새 투표</p>
                       <input value={mVoteForm.title} onChange={e=>setMVoteForm(f=>({...f,title:e.target.value}))} placeholder="투표 주제" style={{width:"100%",padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
                       {mVoteForm.options.map((opt,i)=>(
-                        <input key={i} value={opt} onChange={e=>{const o=[...mVoteForm.options];o[i]=e.target.value;setMVoteForm(f=>({...f,options:o}));}}
-                          placeholder={`선택지 ${i+1}`} style={{width:"100%",padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+                        <div key={i} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+                          <input value={opt.text} onChange={e=>{const o=[...mVoteForm.options];o[i]={...o[i],text:e.target.value};setMVoteForm(f=>({...f,options:o}));}}
+                            placeholder={`선택지 ${i+1}`} style={{flex:1,padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                          <input ref={el=>mVoteImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                            const file=e.target.files[0];if(!file)return;
+                            const r=new FileReader();r.onload=ev=>{const o=[...mVoteForm.options];o[i]={...o[i],img:ev.target.result};setMVoteForm(f=>({...f,options:o}));};r.readAsDataURL(file);e.target.value="";
+                          }}/>
+                          <button onClick={()=>mVoteImgRefs.current[i]?.click()} style={{background:opt.img?"#dcfce7":"#f3f4f6",border:"none",cursor:"pointer",borderRadius:8,width:32,height:32,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>{opt.img?"✅":"📷"}</button>
+                          {mVoteForm.options.length>2 && <button onClick={()=>setMVoteForm(f=>({...f,options:f.options.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#ef4444",fontSize:16}}>×</button>}
+                        </div>
                       ))}
-                      <div style={{display:"flex",gap:8,marginTop:4}}>
-                        <button onClick={()=>setMVoteForm(f=>({...f,options:[...f.options,""]}))} style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 14px",borderRadius:10,fontSize:12,fontWeight:700}}>+ 선택지 추가</button>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4,marginBottom:8}}>
+                        <button onClick={()=>setMVoteForm(f=>({...f,options:[...f.options,{text:"",img:null}]}))} style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 14px",borderRadius:10,fontSize:12,fontWeight:700}}>+ 선택지 추가</button>
+                        <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer"}}>
+                          <input type="checkbox" checked={mVoteForm.anonymous} onChange={e=>setMVoteForm(f=>({...f,anonymous:e.target.checked}))}/>
+                          🔒 익명 투표
+                        </label>
+                      </div>
+                      <div style={{marginBottom:8}}>
+                        <label style={{fontSize:12,fontWeight:600,color:"#6b7280"}}>종료 시각 (선택)</label>
+                        <input type="datetime-local" value={mVoteForm.endTime} onChange={e=>setMVoteForm(f=>({...f,endTime:e.target.value}))}
+                          style={{width:"100%",padding:"8px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",boxSizing:"border-box",marginTop:4}}/>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>{setIsAddVote(false);setMVoteForm({title:"",options:[{text:"",img:null},{text:"",img:null}],anonymous:false,endTime:""});}} style={{flex:1,background:"#f3f4f6",border:"none",cursor:"pointer",padding:"9px 0",borderRadius:10,fontSize:13,fontWeight:700,color:"#6b7280"}}>취소</button>
                         <button onClick={()=>{
                           if(!mVoteForm.title.trim()) return;
-                          const votes={};mVoteForm.options.forEach((_,i)=>{votes[i]=[];});
-                          updMeeting(x=>({...x,votes:[...x.votes,{id:Date.now(),title:mVoteForm.title,options:mVoteForm.options.filter(o=>o.trim()),votes,closed:false}]}));
-                          setIsAddVote(false);setMVoteForm({title:"",options:["",""]});
-                        }} style={{background:G,color:"white",border:"none",cursor:"pointer",padding:"7px 18px",borderRadius:10,fontSize:13,fontWeight:700}}>등록</button>
+                          const validOpts=mVoteForm.options.filter(o=>o.text.trim());
+                          if(validOpts.length<2){alert("선택지를 2개 이상 입력해주세요.");return;}
+                          const votes={};validOpts.forEach((_,i)=>{votes[i]=[];});
+                          const endTs=mVoteForm.endTime?new Date(mVoteForm.endTime).getTime():null;
+                          updMeeting(x=>({...x,votes:[...x.votes,{id:Date.now(),title:mVoteForm.title,options:validOpts.map(o=>o.text.trim()),optionImgs:validOpts.map(o=>o.img),votes,closed:false,anonymous:mVoteForm.anonymous,endTime:endTs,comments:[]}]}));
+                          setIsAddVote(false);setMVoteForm({title:"",options:[{text:"",img:null},{text:"",img:null}],anonymous:false,endTime:""});
+                        }} style={{flex:1,background:G,color:"white",border:"none",cursor:"pointer",padding:"9px 0",borderRadius:10,fontSize:13,fontWeight:700}}>등록</button>
                       </div>
                     </div>
                   )}
                   {m.votes.map(v=>{
                     const total=Object.values(v.votes).flat().length;
                     const myVote=Object.entries(v.votes).find(([,names])=>names.includes(user?.name))?.[0];
+                    const isExpired=v.endTime&&Date.now()>v.endTime;
+                    const isClosed=v.closed||isExpired;
                     return (
                       <div key={v.id} style={{background:"white",borderRadius:14,padding:16,marginBottom:12,boxShadow:"0 2px 6px rgba(0,0,0,.04)"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                           <h4 style={{margin:0,fontSize:14,fontWeight:700}}>{v.title}</h4>
-                          {v.closed && <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:8}}>종료</span>}
+                          <div style={{display:"flex",gap:4}}>
+                            {v.anonymous && <span style={{background:"#ede9fe",color:"#7c3aed",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:8}}>🔒 익명</span>}
+                            {isClosed && <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:8}}>종료</span>}
+                          </div>
                         </div>
+                        {v.endTime && !isClosed && <p style={{margin:"0 0 8px",fontSize:11,color:"#f59e0b"}}>⏰ {new Date(v.endTime).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} 마감</p>}
+                        <p style={{margin:"0 0 8px",fontSize:12,color:"#9ca3af"}}>{v.anonymous?"익명":"기명"} · {total}명 참여</p>
                         {v.options.map((opt,i)=>{
                           const cnt=v.votes[i]?.length||0;
                           const pct=total>0?Math.round(cnt/total*100):0;
+                          const voters=v.votes[i]||[];
                           const voted=myVote===String(i);
                           return (
                             <div key={i} onClick={()=>{
@@ -3742,6 +3780,9 @@ export default function App() {
                               <div style={{height:6,background:"#f3f4f6",borderRadius:6,overflow:"hidden"}}>
                                 <div style={{height:"100%",width:`${pct}%`,background:voted?"linear-gradient(135deg,#ec4899,#a855f7)":"#d1d5db",borderRadius:6,transition:"width .4s"}}/>
                               </div>
+                              {!v.anonymous && voters.length>0 && (myVote||isClosed) && (
+                                <p style={{margin:"2px 0 0",fontSize:10,color:"#9ca3af"}}>{voters.join(", ")}</p>
+                              )}
                             </div>
                           );
                         })}
