@@ -2359,6 +2359,7 @@ export default function App() {
                       style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:12,color:"#6b7280"}}>수정</button>
                     <button onClick={()=>{
                       if(!confirm("이 글을 삭제하시겠어요?")) return;
+                      if(post._fid) deleteDoc(doc(db,"communityPosts",post._fid)).catch(()=>{});
                       setPosts(ps=>ps.filter(p=>p.id!==post.id));
                       setSelectedPost(null);
                     }}
