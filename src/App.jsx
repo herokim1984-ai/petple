@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { auth, db, googleProvider } from "./firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp, onSnapshot } from "firebase/firestore";
@@ -449,7 +449,11 @@ export default function App() {
   };
 
   // ── 모임 댓글+대댓글+좋아요 공통 렌더러 ──
-  const MeetingComments = ({comments, onUpdate, replyTarget, setReplyTarget, replyVal, setReplyVal}) => (
+  // 주의: 내부 state로 대댓글 입력 관리 (리렌더 시 입력 유지)
+  const MeetingComments = React.memo(({comments, onUpdate}) => {
+    const [rt, setRt] = useState(null);
+    const [rv, setRv] = useState("");
+    return (
     <div>
       {(comments||[]).map((c,ci)=>(
         <div key={ci} style={{background:"white",borderRadius:14,padding:"10px 14px",marginBottom:6,boxShadow:"0 1px 4px rgba(0,0,0,.03)"}}>
@@ -468,7 +472,6 @@ export default function App() {
             </button>
           </div>
           <p style={{margin:"4px 0 4px 34px",fontSize:13,color:"#1f2937"}}>{c.text}</p>
-          {/* 대댓글 목록 */}
           {(c.replies||[]).map((r,ri)=>(
             <div key={ri} style={{marginLeft:34,padding:"6px 10px",background:"#f9fafb",borderRadius:10,marginBottom:4}}>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -478,26 +481,32 @@ export default function App() {
               <p style={{margin:"2px 0 0",fontSize:12,color:"#374151"}}>{r.text}</p>
             </div>
           ))}
-          <button onClick={()=>setReplyTarget(replyTarget===ci?null:ci)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#9ca3af",marginLeft:34,padding:"2px 0"}}>
-            {replyTarget===ci?"취소":"↩ 답글"}
+          <button onClick={()=>{setRt(rt===ci?null:ci);setRv("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#9ca3af",marginLeft:34,padding:"2px 0"}}>
+            {rt===ci?"취소":"↩ 답글"}
           </button>
-          {replyTarget===ci && (
+          {rt===ci && (
             <div style={{display:"flex",gap:6,marginLeft:34,marginTop:4}}>
-              <input value={replyVal} onChange={e=>setReplyVal(e.target.value)} placeholder="답글..." style={{flex:1,padding:"7px 10px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}/>
+              <input value={rv} onChange={e=>setRv(e.target.value)} placeholder="답글..." style={{flex:1,padding:"7px 10px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}
+                onKeyDown={e=>{if(e.key==="Enter"&&rv.trim()){
+                  if(hasBadWord(rv)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
+                  const updated=[...comments];
+                  updated[ci]={...c,replies:[...(c.replies||[]),{by:user?.name,text:rv.trim(),time:timeNow()}]};
+                  onUpdate(updated);setRt(null);setRv("");
+                }}}/>
               <button onClick={()=>{
-                if(!replyVal.trim())return;
-                if(hasBadWord(replyVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
+                if(!rv.trim())return;
+                if(hasBadWord(rv)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                 const updated=[...comments];
-                updated[ci]={...c,replies:[...(c.replies||[]),{by:user?.name,text:replyVal.trim(),time:timeNow()}]};
-                onUpdate(updated);
-                setReplyTarget(null);setReplyVal("");
+                updated[ci]={...c,replies:[...(c.replies||[]),{by:user?.name,text:rv.trim(),time:timeNow()}]};
+                onUpdate(updated);setRt(null);setRv("");
               }} style={{background:G,color:"white",border:"none",padding:"0 12px",borderRadius:10,fontWeight:700,fontSize:11,cursor:"pointer"}}>등록</button>
             </div>
           )}
         </div>
       ))}
     </div>
-  );
+    );
+  });
 
   // ── 펫친 추천 시간 로직 (9시, 12시, 15시, 18시 KST / 5명씩) ──
   const [recoRefreshCount, setRecoRefreshCount] = useState(0);
@@ -2987,7 +2996,8 @@ export default function App() {
                   <button onClick={e=>{
                     e.stopPropagation();
                     if(!confirm("이 스토리를 삭제하시겠어요?")) return;
-                    setMyStories(ss=>ss.filter((_,idx)=>idx!==i));
+                    if(s._fid) deleteDoc(doc(db,"communityStories",s._fid)).catch(()=>{});
+                    setMyStories(ss=>ss.filter(x=>x.id!==s.id));
                   }} style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,.5)",color:"white",border:"none",cursor:"pointer",width:24,height:24,borderRadius:"50%",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                 </>)}
               </div>
@@ -3614,8 +3624,7 @@ export default function App() {
                       {mBoardDetail.likes.includes(user?.name)?"❤️":"🤍"} {mBoardDetail.likes.length}
                     </button>
                   </div>
-                  <MeetingComments comments={mBoardDetail.comments} replyTarget={mBoardReplyTarget} setReplyTarget={setMBoardReplyTarget} replyVal={mBoardReplyVal} setReplyVal={setMBoardReplyVal}
-                    onUpdate={(updated)=>{const u={...mBoardDetail,comments:updated};updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?u:p)}));setMBoardDetail(u);}} />
+                  <MeetingComments comments={mBoardDetail.comments}                     onUpdate={(updated)=>{const u={...mBoardDetail,comments:updated};updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?u:p)}));setMBoardDetail(u);}} />
                   <div style={{display:"flex",gap:8,marginTop:12}}>
                     <input value={mBoardCommentVal} onChange={e=>setMBoardCommentVal(e.target.value)}
                       placeholder="댓글 달기..." style={{flex:1,padding:"10px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
@@ -3662,8 +3671,7 @@ export default function App() {
                             {(mPhotoDetail.likes||[]).includes(user?.name)?"❤️":"🤍"} {(mPhotoDetail.likes||[]).length}
                           </button>
                         </div>
-                        <MeetingComments comments={mPhotoDetail.comments||[]} replyTarget={mPhotoReplyTarget} setReplyTarget={setMPhotoReplyTarget} replyVal={mPhotoReplyVal} setReplyVal={setMPhotoReplyVal}
-                          onUpdate={(updated)=>{const u={...mPhotoDetail,comments:updated};updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?u:p)}));setMPhotoDetail(u);}} />
+                        <MeetingComments comments={mPhotoDetail.comments||[]}                           onUpdate={(updated)=>{const u={...mPhotoDetail,comments:updated};updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?u:p)}));setMPhotoDetail(u);}} />
                         {isMember && (
                           <div style={{display:"flex",gap:8,marginTop:10}}>
                             <input value={mPhotoComment} onChange={e=>setMPhotoComment(e.target.value)} placeholder="댓글 달기..."
@@ -3740,7 +3748,7 @@ export default function App() {
                           if(validOpts.length<2){alert("선택지를 2개 이상 입력해주세요.");return;}
                           const votes={};validOpts.forEach((_,i)=>{votes[i]=[];});
                           const endTs=mVoteForm.endTime?new Date(mVoteForm.endTime).getTime():null;
-                          updMeeting(x=>({...x,votes:[...x.votes,{id:Date.now(),title:mVoteForm.title,options:validOpts.map(o=>o.text.trim()),optionImgs:validOpts.map(o=>o.img),votes,closed:false,anonymous:mVoteForm.anonymous,endTime:endTs,comments:[]}]}));
+                          updMeeting(x=>({...x,votes:[...x.votes,{id:Date.now(),title:mVoteForm.title,options:validOpts.map(o=>o.text.trim()),optionImgs:validOpts.map(o=>o.img),votes,closed:false,anonymous:mVoteForm.anonymous,endTime:endTs,createdAt:Date.now(),comments:[]}]}));
                           setIsAddVote(false);setMVoteForm({title:"",options:[{text:"",img:null},{text:"",img:null}],anonymous:false,endTime:""});
                         }} style={{flex:1,background:G,color:"white",border:"none",cursor:"pointer",padding:"9px 0",borderRadius:10,fontSize:13,fontWeight:700}}>등록</button>
                       </div>
@@ -3760,8 +3768,12 @@ export default function App() {
                             {isClosed && <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:8}}>종료</span>}
                           </div>
                         </div>
-                        {v.endTime && !isClosed && <p style={{margin:"0 0 8px",fontSize:11,color:"#f59e0b"}}>⏰ {new Date(v.endTime).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} 마감</p>}
-                        <p style={{margin:"0 0 8px",fontSize:12,color:"#9ca3af"}}>{v.anonymous?"익명":"기명"} · {total}명 참여</p>
+                        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+                          {v.createdAt && <span style={{fontSize:11,color:"#9ca3af"}}>📅 {new Date(v.createdAt).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} 생성</span>}
+                          {v.endTime && !isClosed && <span style={{fontSize:11,color:"#f59e0b"}}>⏰ {new Date(v.endTime).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})} 마감</span>}
+                          {isClosed && v.endTime && <span style={{fontSize:11,color:"#9ca3af"}}>⏰ 마감됨</span>}
+                        </div>
+                        <p style={{margin:"0 0 8px",fontSize:12,color:"#9ca3af"}}>{v.anonymous?"🔒 익명":"📝 기명"} · {total}명 참여</p>
                         {v.options.map((opt,i)=>{
                           const cnt=v.votes[i]?.length||0;
                           const pct=total>0?Math.round(cnt/total*100):0;
@@ -3795,8 +3807,7 @@ export default function App() {
                         </div>
                         {mVoteDetail?.id===v.id && (
                           <div style={{marginTop:10,borderTop:"1px solid #f3f4f6",paddingTop:10}}>
-                            <MeetingComments comments={v.comments||[]} replyTarget={mVoteReplyTarget} setReplyTarget={setMVoteReplyTarget} replyVal={mVoteReplyVal} setReplyVal={setMVoteReplyVal}
-                              onUpdate={(updated)=>{updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,comments:updated}:vt)}));setMVoteDetail({...v,comments:updated});}} />
+                            <MeetingComments comments={v.comments||[]}                               onUpdate={(updated)=>{updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,comments:updated}:vt)}));setMVoteDetail({...v,comments:updated});}} />
                             {isMember && (
                               <div style={{display:"flex",gap:6,marginTop:6}}>
                                 <input value={mVoteCommentVal} onChange={e=>setMVoteCommentVal(e.target.value)} placeholder="댓글 달기..."
