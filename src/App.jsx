@@ -100,6 +100,8 @@ const REGIONS = {
   "제주":{icon:"🍊",districts:["전체","제주시","서귀포시"]},
 };
 
+const ADMIN_EMAILS = ["heroggu@naver.com"]; // 관리자 이메일 목록
+
 const MEMBER_AVATARS = {};
 
 function Input({ label, type, placeholder, value, onChange, hint, onEnter }) {
@@ -370,6 +372,14 @@ export default function App() {
   ]);
   const [nickAvail, setNickAvail] = useState(null); // signup: null|"ok"|"dup"|"checking"
   const [deleteAccModal, setDeleteAccModal] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminTab, setAdminTab] = useState("dashboard"); // dashboard, reports, users, refunds, posts
+  const [adminReports, setAdminReports] = useState([]);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminRefunds, setAdminRefunds] = useState([]);
+  const [adminPosts, setAdminPosts] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const isAdmin = ADMIN_EMAILS.includes(user?.email);
   const [chatOpened, setChatOpened] = useState(new Set()); // 대화 개설 추적
 
   const BUY_PACKAGES = [
@@ -507,6 +517,31 @@ export default function App() {
     </div>
     );
   });
+
+  // ── 관리자 데이터 로드 ──
+  const loadAdminData = async (tab) => {
+    if (!isAdmin) return;
+    setAdminLoading(true);
+    try {
+      if (tab === "reports" || tab === "dashboard") {
+        const snap = await getDocs(query(collection(db,"reports"),orderBy("ts","desc"),fbLimit(50)));
+        setAdminReports(snap.docs.map(d=>({_fid:d.id,...d.data()})));
+      }
+      if (tab === "users" || tab === "dashboard") {
+        const snap = await getDocs(query(collection(db,"users"),fbLimit(100)));
+        setAdminUsers(snap.docs.map(d=>({_fid:d.id,...d.data()})));
+      }
+      if (tab === "refunds") {
+        const snap = await getDocs(query(collection(db,"refundRequests"),orderBy("ts","desc"),fbLimit(50)));
+        setAdminRefunds(snap.docs.map(d=>({_fid:d.id,...d.data()})));
+      }
+      if (tab === "posts") {
+        const snap = await getDocs(query(collection(db,"communityPosts"),orderBy("ts","desc"),fbLimit(50)));
+        setAdminPosts(snap.docs.map(d=>({_fid:d.id,...d.data()})));
+      }
+    } catch(e) { console.error("Admin load error:",e); }
+    setAdminLoading(false);
+  };
 
   // ── 펫친 추천 시간 로직 (9시, 12시, 15시, 18시 KST / 5명씩) ──
   const [recoRefreshCount, setRecoRefreshCount] = useState(0);
@@ -2866,13 +2901,29 @@ export default function App() {
                 {icon:"📄",label:"이용약관",action:()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")},
                 {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1927-8252")},
                 {icon:"🏢",label:"사업자정보",action:()=>alert("상호명: 펫플\n대표자명: 김영웅\n사업자등록번호: 743-09-03086\n사업장주소: 인천광역시 계양구 장제로 762\n전화번호: 0502-1927-8252\n이메일: support@petple.app")},
-                {icon:"💬",label:"고객센터",action:()=>alert("📮 support@petple.app\n운영시간: 평일 10:00 ~ 18:00")},
+                {icon:"💬",label:"고객센터 / 환불 요청",action:()=>{
+                  const choice=prompt("1 = 문의하기\n2 = 환불 요청\n\n번호를 입력해주세요:");
+                  if(choice==="1") alert("📮 support@petple.app\n운영시간: 평일 10:00 ~ 18:00");
+                  else if(choice==="2"){
+                    const reason=prompt("환불 사유를 입력해주세요:\n(구매한 포인트 중 미사용분에 대해 요청 가능)");
+                    if(reason&&reason.trim()){
+                      addDoc(collection(db,"refundRequests"),{
+                        uid:user?.uid,name:user?.name,email:user?.email,
+                        reason:reason.trim(),points,
+                        ts:Date.now(),time:new Date().toISOString(),
+                        status:"pending"
+                      }).catch(()=>{});
+                      alert("환불 요청이 접수되었어요!\n검토 후 영업일 3일 이내 연락드리겠습니다.");
+                    }
+                  }
+                }},
                 {icon:"🚪",label:"회원탈퇴",action:()=>setDeleteAccModal(true),danger:true},
+                ...(isAdmin?[{icon:"🛡️",label:"관리자 패널",action:()=>{setShowAdmin(true);setAdminTab("dashboard");loadAdminData("dashboard");},admin:true}]:[]),
               ].map((item,i)=>(
                 <button key={i} onClick={item.action}
                   style={{display:"flex",alignItems:"center",gap:12,padding:"13px 4px",background:"none",border:"none",cursor:"pointer",textAlign:"left",borderBottom:i<4?"1px solid #f3f4f6":"none"}}>
                   <span style={{fontSize:16,width:24,textAlign:"center"}}>{item.icon}</span>
-                  <span style={{fontSize:14,color:item.danger?"#ef4444":"#374151",fontWeight:item.danger?600:500}}>{item.label}</span>
+                  <span style={{fontSize:14,color:item.danger?"#ef4444":item.admin?"#1e293b":"#374151",fontWeight:(item.danger||item.admin)?700:500}}>{item.label}</span>
                   <span style={{marginLeft:"auto",fontSize:14,color:"#d1d5db"}}>›</span>
                 </button>
               ))}
@@ -4597,6 +4648,210 @@ export default function App() {
                 style={{background:"rgba(255,255,255,.15)",border:"none",color:"white",width:44,height:44,borderRadius:"50%",cursor:"pointer",fontSize:18}}>▶</button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 관리자 패널 */}
+      {showAdmin && isAdmin && (
+        <div style={{position:"fixed",inset:0,zIndex:80,background:"#f9fafb",display:"flex",flexDirection:"column"}}>
+          {/* 헤더 */}
+          <div style={{background:"linear-gradient(135deg,#1e293b,#334155)",padding:"16px 20px",display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={()=>setShowAdmin(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"white"}}>←</button>
+            <h2 style={{margin:0,fontSize:18,fontWeight:800,color:"white"}}>🛡️ 관리자 패널</h2>
+          </div>
+          {/* 탭 */}
+          <div style={{display:"flex",borderBottom:"2px solid #e5e7eb",background:"white",overflowX:"auto"}}>
+            {[{key:"dashboard",label:"📊 대시보드"},{key:"reports",label:"🚨 신고"},{key:"users",label:"👤 유저"},{key:"refunds",label:"💰 환불"},{key:"posts",label:"📝 게시글"}].map(t=>(
+              <button key={t.key} onClick={()=>{setAdminTab(t.key);loadAdminData(t.key);}}
+                style={{flex:1,padding:"12px 8px",border:"none",borderBottom:adminTab===t.key?"3px solid #1e293b":"3px solid transparent",background:"white",fontSize:12,fontWeight:adminTab===t.key?800:500,cursor:"pointer",color:adminTab===t.key?"#1e293b":"#9ca3af",whiteSpace:"nowrap"}}>{t.label}</button>
+            ))}
+          </div>
+          {/* 콘텐츠 */}
+          <div style={{flex:1,overflowY:"auto",padding:16}}>
+            {adminLoading && <div style={{textAlign:"center",padding:40}}><p style={{fontSize:32}}>⏳</p><p style={{color:"#9ca3af"}}>로딩 중...</p></div>}
+
+            {/* 대시보드 */}
+            {!adminLoading && adminTab==="dashboard" && (
+              <div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                  {[
+                    {label:"총 유저",value:adminUsers.length,icon:"👤",bg:"#dbeafe"},
+                    {label:"미처리 신고",value:adminReports.filter(r=>r.status==="pending").length,icon:"🚨",bg:"#fef2f2"},
+                    {label:"환불 요청",value:adminRefunds.filter(r=>r.status==="pending").length,icon:"💰",bg:"#fef9c3"},
+                    {label:"오늘 가입",value:adminUsers.filter(u=>{const d=u.createdAt||u.ts;return d&&(Date.now()-d)<86400000;}).length,icon:"🆕",bg:"#dcfce7"},
+                  ].map((s,i)=>(
+                    <div key={i} style={{background:s.bg,borderRadius:16,padding:16,textAlign:"center"}}>
+                      <p style={{margin:0,fontSize:28}}>{s.icon}</p>
+                      <p style={{margin:"4px 0 0",fontSize:24,fontWeight:800,color:"#1e293b"}}>{s.value}</p>
+                      <p style={{margin:"2px 0 0",fontSize:12,color:"#6b7280"}}>{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <h4 style={{margin:"0 0 10px",fontSize:14,fontWeight:700}}>최근 신고 (5건)</h4>
+                {adminReports.slice(0,5).map((r,i)=>(
+                  <div key={i} style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:13,fontWeight:600}}>{r.targetName||"알 수 없음"}</span>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,
+                        background:r.status==="pending"?"#fef2f2":r.status==="resolved"?"#dcfce7":"#f3f4f6",
+                        color:r.status==="pending"?"#ef4444":r.status==="resolved"?"#16a34a":"#6b7280"
+                      }}>{r.status==="pending"?"대기":"처리됨"}</span>
+                    </div>
+                    <p style={{margin:"4px 0 0",fontSize:12,color:"#6b7280"}}>{r.reason} · {r.reporterName}이 신고</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 신고 관리 */}
+            {!adminLoading && adminTab==="reports" && (
+              <div>
+                {adminReports.length===0 && <div style={{textAlign:"center",padding:40}}><p style={{fontSize:36}}>✅</p><p style={{color:"#9ca3af"}}>신고 내역이 없어요</p></div>}
+                {adminReports.map((r,i)=>(
+                  <div key={i} style={{background:"white",borderRadius:14,padding:14,marginBottom:10,boxShadow:"0 2px 6px rgba(0,0,0,.04)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                      <div>
+                        <p style={{margin:0,fontSize:14,fontWeight:700}}>🎯 {r.targetName}</p>
+                        <p style={{margin:"2px 0 0",fontSize:11,color:"#9ca3af"}}>신고자: {r.reporterName} · {r.time?.slice(0,10)}</p>
+                      </div>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,height:"fit-content",
+                        background:r.status==="pending"?"#fef2f2":"#dcfce7",
+                        color:r.status==="pending"?"#ef4444":"#16a34a"
+                      }}>{r.status==="pending"?"대기":"처리됨"}</span>
+                    </div>
+                    <p style={{margin:"0 0 8px",fontSize:13,color:"#374151",background:"#f9fafb",borderRadius:8,padding:"6px 10px"}}>
+                      {r.type==="post"?"[게시글] ":""}{r.reason}{r.content?" - "+r.content.slice(0,50):""}
+                    </p>
+                    {r.status==="pending" && (
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={async()=>{
+                          await updateDoc(doc(db,"reports",r._fid),{status:"resolved",resolvedAt:Date.now()});
+                          setAdminReports(prev=>prev.map(x=>x._fid===r._fid?{...x,status:"resolved"}:x));
+                        }} style={{flex:1,background:"#dcfce7",border:"none",padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",color:"#16a34a"}}>✅ 처리 완료</button>
+                        <button onClick={async()=>{
+                          if(!confirm(r.targetName+"님을 정지시키겠어요?")) return;
+                          if(r.targetUid) await updateDoc(doc(db,"users",r.targetUid),{suspended:true,suspendedAt:Date.now()});
+                          await updateDoc(doc(db,"reports",r._fid),{status:"suspended",resolvedAt:Date.now()});
+                          setAdminReports(prev=>prev.map(x=>x._fid===r._fid?{...x,status:"suspended"}:x));
+                          alert(r.targetName+"님이 정지되었습니다.");
+                        }} style={{flex:1,background:"#fef2f2",border:"none",padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",color:"#ef4444"}}>🚫 계정 정지</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 유저 관리 */}
+            {!adminLoading && adminTab==="users" && (
+              <div>
+                <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>총 {adminUsers.length}명</p>
+                {adminUsers.map((u,i)=>(
+                  <div key={i} style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,.04)",display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#ec4899,#a855f7)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white",fontWeight:700}}>
+                      {u.nick?.[0]||"?"}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <p style={{margin:0,fontSize:13,fontWeight:700}}>{u.nick||"이름없음"}</p>
+                        {u.suspended && <span style={{fontSize:9,background:"#ef4444",color:"white",padding:"1px 6px",borderRadius:6,fontWeight:700}}>정지</span>}
+                      </div>
+                      <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{u.email} · {u.points||0}p</p>
+                    </div>
+                    <div style={{display:"flex",gap:4}}>
+                      {!u.suspended ? (
+                        <button onClick={async()=>{
+                          if(!confirm(u.nick+"님을 정지시키겠어요?")) return;
+                          await updateDoc(doc(db,"users",u._fid),{suspended:true,suspendedAt:Date.now()});
+                          setAdminUsers(prev=>prev.map(x=>x._fid===u._fid?{...x,suspended:true}:x));
+                        }} style={{background:"#fef2f2",border:"none",padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",color:"#ef4444"}}>정지</button>
+                      ) : (
+                        <button onClick={async()=>{
+                          await updateDoc(doc(db,"users",u._fid),{suspended:false});
+                          setAdminUsers(prev=>prev.map(x=>x._fid===u._fid?{...x,suspended:false}:x));
+                        }} style={{background:"#dcfce7",border:"none",padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",color:"#16a34a"}}>해제</button>
+                      )}
+                      <button onClick={()=>{
+                        const pts=prompt(u.nick+"에게 지급할 포인트:");
+                        if(!pts||isNaN(pts))return;
+                        const newPts=(u.points||0)+parseInt(pts);
+                        updateDoc(doc(db,"users",u._fid),{points:newPts}).catch(()=>{});
+                        setAdminUsers(prev=>prev.map(x=>x._fid===u._fid?{...x,points:newPts}:x));
+                        alert(u.nick+"에게 "+pts+"p 지급 완료 (현재:"+newPts+"p)");
+                      }} style={{background:"#f3f4f6",border:"none",padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>포인트</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 환불 관리 */}
+            {!adminLoading && adminTab==="refunds" && (
+              <div>
+                {adminRefunds.length===0 && <div style={{textAlign:"center",padding:40}}><p style={{fontSize:36}}>💰</p><p style={{color:"#9ca3af"}}>환불 요청이 없어요</p></div>}
+                {adminRefunds.map((r,i)=>(
+                  <div key={i} style={{background:"white",borderRadius:14,padding:14,marginBottom:10,boxShadow:"0 2px 6px rgba(0,0,0,.04)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                      <div>
+                        <p style={{margin:0,fontSize:14,fontWeight:700}}>{r.name}</p>
+                        <p style={{margin:"2px 0",fontSize:11,color:"#9ca3af"}}>{r.email} · 보유 {r.points||0}p · {r.time?.slice(0,10)}</p>
+                      </div>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:700,height:"fit-content",
+                        background:r.status==="pending"?"#fef9c3":r.status==="approved"?"#dcfce7":"#fef2f2",
+                        color:r.status==="pending"?"#ca8a04":r.status==="approved"?"#16a34a":"#ef4444"
+                      }}>{r.status==="pending"?"대기":r.status==="approved"?"승인":"거절"}</span>
+                    </div>
+                    <p style={{margin:"0 0 8px",fontSize:13,color:"#374151",background:"#f9fafb",borderRadius:8,padding:"6px 10px"}}>{r.reason}</p>
+                    {r.status==="pending" && (
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={async()=>{
+                          const refundPts=prompt("환불할 포인트 수 (보유: "+r.points+"p):");
+                          if(!refundPts||isNaN(refundPts))return;
+                          const pts=parseInt(refundPts);
+                          if(r.uid) await updateDoc(doc(db,"users",r.uid),{points:Math.max(0,(r.points||0)-pts)});
+                          await updateDoc(doc(db,"refundRequests",r._fid),{status:"approved",refundedPts:pts,resolvedAt:Date.now()});
+                          setAdminRefunds(prev=>prev.map(x=>x._fid===r._fid?{...x,status:"approved",refundedPts:pts}:x));
+                          alert(r.name+"에게 "+pts+"p 환불 처리 완료.\n앱스토어에서 실제 환불을 진행해주세요.");
+                        }} style={{flex:1,background:"#dcfce7",border:"none",padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",color:"#16a34a"}}>✅ 환불 승인</button>
+                        <button onClick={async()=>{
+                          const reason=prompt("거절 사유:");
+                          if(!reason)return;
+                          await updateDoc(doc(db,"refundRequests",r._fid),{status:"rejected",rejectReason:reason,resolvedAt:Date.now()});
+                          setAdminRefunds(prev=>prev.map(x=>x._fid===r._fid?{...x,status:"rejected"}:x));
+                        }} style={{flex:1,background:"#fef2f2",border:"none",padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",color:"#ef4444"}}>❌ 거절</button>
+                      </div>
+                    )}
+                    {r.status==="approved" && <p style={{margin:"6px 0 0",fontSize:11,color:"#16a34a",fontWeight:600}}>✅ {r.refundedPts}p 환불 완료</p>}
+                    {r.status==="rejected" && <p style={{margin:"6px 0 0",fontSize:11,color:"#ef4444",fontWeight:600}}>❌ 거절: {r.rejectReason}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 게시글 관리 */}
+            {!adminLoading && adminTab==="posts" && (
+              <div>
+                {adminPosts.map((p,i)=>(
+                  <div key={i} style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                      <span style={{fontSize:13,fontWeight:600}}>{p.by||"알 수 없음"}</span>
+                      <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                        {(p.reportCount||0)>0 && <span style={{fontSize:10,background:"#fef2f2",color:"#ef4444",padding:"1px 6px",borderRadius:6,fontWeight:700}}>🚨 {p.reportCount}건</span>}
+                        <span style={{fontSize:10,color:"#9ca3af"}}>{p.ts?new Date(p.ts).toLocaleDateString("ko-KR"):""}</span>
+                      </div>
+                    </div>
+                    <p style={{margin:"0 0 6px",fontSize:12,color:"#374151"}}>{(p.content||"").slice(0,100)}</p>
+                    <button onClick={async()=>{
+                      if(!confirm("이 게시글을 삭제하시겠어요?"))return;
+                      await deleteDoc(doc(db,"communityPosts",p._fid));
+                      setAdminPosts(prev=>prev.filter(x=>x._fid!==p._fid));
+                      setPosts(prev=>prev.filter(x=>x._fid!==p._fid));
+                    }} style={{background:"#fef2f2",border:"none",padding:"6px 14px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",color:"#ef4444"}}>🗑️ 삭제</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
