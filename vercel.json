@@ -1,11 +1,10 @@
 {
   "rewrites": [
-    { "source": "/.well-known/assetlinks.json", "destination": "/public/.well-known/assetlinks.json" },
-    { "source": "/privacy.html", "destination": "/public/privacy.html" }
+    { "source": "/.well-known/assetlinks.json", "destination": "/assetlinks.json" }
   ],
   "headers": [
     {
-      "source": "/.well-known/assetlinks.json",
+      "source": "/assetlinks.json",
       "headers": [
         { "key": "Content-Type", "value": "application/json" },
         { "key": "Access-Control-Allow-Origin", "value": "*" }
