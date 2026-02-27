@@ -156,11 +156,8 @@ export default function App() {
   // 일일 스와이프 제한
   const [dailySwipes, setDailySwipes] = useState(0);
   const DAILY_SWIPE_LIMIT = 20;
-  // 프로필 부스트
-  const [isBoosted, setIsBoosted] = useState(false);
   const [showRecoSettings, setShowRecoSettings] = useState(false);
   const [recoSettings, setRecoSettings] = useState({distance:10,petType:"all",ageRange:"all",gender:"all"});
-  const [boostEndTime, setBoostEndTime] = useState(null);
   // 관심 탭 모드
   const [interestMode, setInterestMode] = useState("chat");
   // 관심사 태그 (가입 시 선택)
@@ -329,14 +326,8 @@ export default function App() {
   const [mChatVal,       setMChatVal]       = useState("");
   const [mPhotoDetail,   setMPhotoDetail]   = useState(null); // 사진 크게보기
   const [mPhotoComment,  setMPhotoComment]  = useState("");
-  const [mBoardReplyTarget, setMBoardReplyTarget] = useState(null); // 게시판 대댓글 {commentIdx}
-  const [mBoardReplyVal, setMBoardReplyVal] = useState("");
-  const [mPhotoReplyTarget, setMPhotoReplyTarget] = useState(null);
-  const [mPhotoReplyVal, setMPhotoReplyVal] = useState("");
   const [mVoteDetail, setMVoteDetail] = useState(null); // 투표 댓글 보기
   const [mVoteCommentVal, setMVoteCommentVal] = useState("");
-  const [mVoteReplyTarget, setMVoteReplyTarget] = useState(null);
-  const [mVoteReplyVal, setMVoteReplyVal] = useState("");
   const [chatReplyTo, setChatReplyTo] = useState(null); // 1:1 채팅 답글 {id,text,by}
   // 공감은 Firestore에 직접 저장
   const [mChatReplyTo, setMChatReplyTo] = useState(null); // 모임 채팅 답글
@@ -592,8 +583,9 @@ export default function App() {
         if (pets.length > 0) {
           pets.forEach((pet, pi) => {
             const petPhotos = (pet.photos||[]).filter(x=>x&&x!=="[img]");
-            const petImg = petPhotos[pet.repIdx||0] || petPhotos[0] || (pet.photo && pet.photo !== "[img]" ? pet.photo : null) || petDefaultImg;
-            const allPetImgs = petPhotos.length > 0 ? petPhotos : [petImg];
+            if (petPhotos.length === 0) return; // 사진 없는 동물은 추천에서 제외
+            const petImg = petPhotos[pet.repIdx||0] || petPhotos[0];
+            const allPetImgs = petPhotos;
             otherUsers.push({
               id: d.id + "_" + pi,
               name: pet.name || data.nick + "의 반려동물",
@@ -800,7 +792,6 @@ export default function App() {
             if (data.matches) setMatches(data.matches);
             if (data.liked) setLiked(data.liked);
             if (data.userLocation) setUserLocation(data.userLocation);
-            if (data.isBoosted) setIsBoosted(data.isBoosted);
             if (data.alarmSettings) setAlarmSettings(data.alarmSettings);
             if (data.receivedLikes) setReceivedLikes(data.receivedLikes);
             if (data.recoSettings) setRecoSettings(data.recoSettings);
@@ -948,11 +939,11 @@ export default function App() {
       } catch(e){}
       updateDoc(doc(db, "users", user.uid), {
         matches, liked, receivedLikes,
-        userLocation, isBoosted, alarmSettings, recoSettings,
+        userLocation, alarmSettings, recoSettings,
       }).catch(e => console.error("Firestore sync error:", e));
     }, 3000);
     return () => clearTimeout(timer);
-  }, [myStories, posts, matches, liked, receivedLikes, userLocation, isBoosted, alarmSettings, recoSettings]);
+  }, [myStories, posts, matches, liked, receivedLikes, userLocation, alarmSettings, recoSettings]);
 
   // ── Firestore에 포인트 동기화 ──
   useEffect(() => {
@@ -1487,7 +1478,7 @@ export default function App() {
           {signup && (
             <p style={{margin:"6px 0 0",textAlign:"center",fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
               가입 시 <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")}>이용약관</span> 및{" "}
-              <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1927-8252")}>개인정보 처리방침</span>에 동의하게 됩니다.
+              <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1925-8252")}>개인정보 처리방침</span>에 동의하게 됩니다.
             </p>
           )}
         </div>
@@ -1623,8 +1614,9 @@ export default function App() {
               <p style={{margin:"0 0 4px",fontSize:12,opacity:.8}}>보유 포인트</p>
               <p style={{margin:"0 0 12px",fontSize:36,fontWeight:900,letterSpacing:-1}}>{points.toLocaleString()}<span style={{fontSize:16,fontWeight:600,marginLeft:4}}>p</span></p>
               <button onClick={() => { if(!checkedIn){ setPoints(p=>p+3); setCheckedIn(true); setEarnDone(d=>({...d,checkin:true})); setPointLog(l=>[{icon:"✅",label:"출석 체크",pt:3,type:"earn",date:dateNow()},...l]); } }}
-                style={{background:checkedIn?"rgba(255,255,255,.2)":"white",border:"none",padding:"8px 18px",borderRadius:20,fontSize:13,fontWeight:700,cursor:checkedIn?"not-allowed":"pointer",color:checkedIn?"rgba(255,255,255,.6)":"#ec4899"}}>
-                {checkedIn ? "✓ 출석 완료" : "출석 체크 +3p"}
+                style={{background:checkedIn?"rgba(255,255,255,.15)":"white",border:checkedIn?"2px solid rgba(255,255,255,.3)":"2px solid rgba(236,72,153,.3)",padding:"12px 24px",borderRadius:16,fontSize:14,fontWeight:800,cursor:checkedIn?"default":"pointer",color:checkedIn?"rgba(255,255,255,.8)":"#ec4899",display:"flex",alignItems:"center",gap:8,boxShadow:checkedIn?"none":"0 4px 16px rgba(236,72,153,.15)",transition:"all .3s ease"}}>
+
+                {checkedIn ? (<><span style={{fontSize:18}}>✅</span> 오늘 출석 완료!</>) : (<><span style={{fontSize:18}}>📅</span> 출석체크하고 3P 받기!</>)}
               </button>
             </div>
 
@@ -1668,23 +1660,36 @@ export default function App() {
                       {key:"lounge",  icon:"📝",label:"라운지 글쓰기",pt:3,desc:"1일 1회",color:"#fce7f3",tcolor:"#be185d", action:"auto"},
                       {key:"chat",    icon:"💬",label:"첫 대화",pt:5,desc:"1회 보너스",color:"#eff6ff",tcolor:"#1d4ed8", action:"auto"},
                       {key:"story",   icon:"📸",label:"스토리 업로드",pt:3,desc:"1일 1회",color:"#fef9c3",tcolor:"#92400e", action:"auto"},
-                      {key:"review",  icon:"⭐",label:"리뷰 작성",pt:5,desc:"만남 후",color:"#fff7ed",tcolor:"#c2410c", action:"auto"},
+                      {key:"review",  icon:"⭐",label:"리뷰 작성",pt:5,desc:"앱 평가하기",color:"#fff7ed",tcolor:"#c2410c", action:"review"},
                       {key:"meeting", icon:"🏃",label:"모임 가입",pt:5,desc:"가입 시",color:"#ecfdf5",tcolor:"#065f46", action:"auto"},
                       {key:"invite",  icon:"👥",label:"친구 초대",pt:30,desc:"가입 확인 시",color:"#fdf2f8",tcolor:"#9d174d", action:"invite"},
                     ].map((item)=>{
-                      const done = item.action==="checkin" && checkedIn;
+                      const done = (item.action==="checkin" && checkedIn) || (item.key==="review" && earnDone.review) || (item.key==="invite" && earnDone.invite);
                       return (
                         <div key={item.key} onClick={()=>{
                           if(item.action==="checkin" && !checkedIn){
                             setCheckedIn(true);
                             setPoints(p=>p+item.pt);
                             setPointLog(l=>[{icon:item.icon,label:item.label,pt:item.pt,type:"earn",date:dateNow()},...l]);
+                          } else if(item.action==="review"){
+                            if(!earnDone.review){
+                              const url = "https://play.google.com/store/apps/details?id=app.petple.social";
+                              window.open(url,"_blank");
+                              setEarnDone(d=>({...d,review:true}));
+                              setPoints(p=>p+5);
+                              setPointLog(l=>[{icon:"⭐",label:"리뷰 작성",pt:5,type:"earn",date:dateNow()},...l]);
+                            } else { alert("이미 리뷰 포인트를 받았어요!"); }
                           } else if(item.action==="invite"){
-                            if(navigator.share){navigator.share({title:"펫플 - 반려동물 소셜",text:"우리 아이 친구 만들기! 펫플에서 만나요 🐾",url:"https://petple.app/invite"}).catch(()=>{});}
-                            else{navigator.clipboard?.writeText("https://petple.app/invite");alert("초대 링크가 복사되었어요!");}
+                            if(navigator.share){navigator.share({title:"펫플 - 반려동물 소셜",text:"우리 아이 친구 만들기! 펫플에서 만나요 🐾\nhttps://petple.vercel.app",url:"https://petple.vercel.app"}).catch(()=>{});}
+                            else{navigator.clipboard?.writeText("https://petple.vercel.app");alert("초대 링크가 복사되었어요! 📋\nhttps://petple.vercel.app");}
+                            if(!earnDone.invite){
+                              setEarnDone(d=>({...d,invite:true}));
+                              setPoints(p=>p+30);
+                              setPointLog(l=>[{icon:"👥",label:"친구 초대",pt:30,type:"earn",date:dateNow()},...l]);
+                            }
                           }
                         }}
-                          style={{background:done?"#f3f4f6":item.color,borderRadius:16,padding:"14px 12px",cursor:item.action==="auto"||item.action==="info"?"default":done?"not-allowed":"pointer",opacity:done?.6:1,position:"relative",overflow:"hidden"}}>
+                          style={{background:done?"#f3f4f6":item.color,borderRadius:16,padding:"14px 12px",cursor:item.action==="auto"||item.action==="info"?"default":done?"default":"pointer",opacity:done?.6:1,position:"relative",overflow:"hidden"}}>
                           {done && <div style={{position:"absolute",top:0,right:0,background:"rgba(0,0,0,.06)",fontSize:10,fontWeight:700,color:"#9ca3af",padding:"3px 8px",borderRadius:"0 16px 0 10px"}}>완료</div>}
                           {item.action==="auto" && <div style={{position:"absolute",top:0,right:0,background:"rgba(0,0,0,.04)",fontSize:9,fontWeight:700,color:"#6b7280",padding:"3px 8px",borderRadius:"0 16px 0 10px"}}>자동</div>}
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
@@ -1795,7 +1800,7 @@ export default function App() {
                     <p style={{margin:"0 0 8px",fontSize:13,color:"#6b7280"}}>앱 스토어에서 인앱구매로 결제가 가능해요!</p>
                     <p style={{margin:0,fontSize:9,color:"#c0c0c0",lineHeight:1.5}}>
                       상호: 펫플 | 대표: 김영웅 | 사업자번호: 743-09-03086<br/>
-                      주소: 인천광역시 계양구 장제로 762 | 전화: 0502-1927-8252
+                      주소: 인천광역시 계양구 장제로 762 | 전화: 0502-1925-8252
                     </p>
                   </div>
                 </div>
@@ -2054,7 +2059,6 @@ export default function App() {
               {dailySwipes>=DAILY_SWIPE_LIMIT && <span style={{fontSize:11,color:"#ef4444"}}>내일 초기화돼요</span>}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
-              {isBoosted && <span style={{background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:10}}>🔥 부스트 ON</span>}
               <button onClick={()=>setShowRecoSettings(true)}
                 style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>⚙️</button>
             </div>
@@ -2752,7 +2756,6 @@ export default function App() {
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
                   <h2 style={{margin:0,fontSize:20,fontWeight:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.name}</h2>
                   {isVerified && <span style={{background:"#3b82f6",color:"white",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:6,flexShrink:0}}>✓</span>}
-                  {isBoosted && <span style={{background:"#f59e0b",color:"white",fontSize:9,fontWeight:800,padding:"2px 6px",borderRadius:6,flexShrink:0}}>🔥</span>}
                 </div>
                 <p style={{margin:"0 0 4px",fontSize:12,color:"#6b7280"}}>{user?.gender ? (user.gender==="남"?"남성":"여성")+" · " : ""}{user?.birth ? user.birth+"년생 · " : ""}{user?.region||""}</p>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -2873,23 +2876,6 @@ export default function App() {
 
           {/* 메뉴 섹션 */}
           <div style={{padding:"12px 20px"}}>
-            {/* 부스트 */}
-            {isBoosted ? (
-              <div style={{background:"linear-gradient(135deg,#fef3c7,#fbbf24)",borderRadius:14,padding:"10px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:18}}>🔥</span>
-                <p style={{margin:0,fontSize:13,fontWeight:700,color:"#92400e",flex:1}}>부스트 활성화 중</p>
-              </div>
-            ) : (
-              <button onClick={()=>{
-                if(points<50){alert("🐾 50p가 필요해요! (보유: "+points+"p)");return;}
-                if(!confirm("🔥 50p로 프로필 부스트?\n3일간 우선 노출!")) return;
-                setPoints(p=>p-50);
-                setPointLog(l=>[{icon:"🔥",label:"프로필 부스트",pt:-50,type:"use",date:dateNow()},...l]);
-                setIsBoosted(true);
-              }} style={{width:"100%",background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",border:"none",padding:"11px 0",borderRadius:14,fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8,boxShadow:"0 2px 10px rgba(245,158,11,.2)"}}>
-                🔥 프로필 부스트 (50p · 3일)
-              </button>
-            )}
           </div>
 
           {/* 설정 & 로그아웃 */}
@@ -2899,8 +2885,8 @@ export default function App() {
                 {icon:"📢",label:"공지사항",action:()=>alert("📢 펫플 v1.0 출시!\n\n반려동물 친구 만들기 서비스 펫플이 정식 출시되었습니다. 🐾")},
                 {icon:"💡",label:"자주 묻는 질문",action:()=>alert("Q. 매칭은 어떻게 되나요?\nA. 홈에서 프로필을 스와이프하세요. 오른쪽=좋아요, 왼쪽=패스!\n\nQ. 포인트는 어떻게 모으나요?\nA. 출석체크, 스토리 업로드 등 활동하면 자동 적립돼요.")},
                 {icon:"📄",label:"이용약관",action:()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")},
-                {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1927-8252")},
-                {icon:"🏢",label:"사업자정보",action:()=>alert("상호명: 펫플\n대표자명: 김영웅\n사업자등록번호: 743-09-03086\n사업장주소: 인천광역시 계양구 장제로 762\n전화번호: 0502-1927-8252\n이메일: support@petple.app")},
+                {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1925-8252")},
+                {icon:"🏢",label:"사업자정보",action:()=>alert("상호명: 펫플\n대표자명: 김영웅\n사업자등록번호: 743-09-03086\n사업장주소: 인천광역시 계양구 장제로 762\n전화번호: 0502-1925-8252\n이메일: support@petple.app")},
                 {icon:"💬",label:"고객센터 / 환불 요청",action:()=>{
                   const choice=prompt("1 = 문의하기\n2 = 환불 요청\n\n번호를 입력해주세요:");
                   if(choice==="1") alert("📮 support@petple.app\n운영시간: 평일 10:00 ~ 18:00");
@@ -2935,7 +2921,7 @@ export default function App() {
                 상호명: 펫플 | 대표자명: 김영웅<br/>
                 사업자등록번호: 743-09-03086<br/>
                 사업장주소: 인천광역시 계양구 장제로 762<br/>
-                전화번호: 0502-1927-8252<br/>
+                전화번호: 0502-1925-8252<br/>
                 이메일: support@petple.app
               </p>
             </div>
