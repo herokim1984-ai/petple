@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.petple.social",
+        "sha256_cert_fingerprints": ["5E:5B:5E:C6:BF:31:AE:52:5E:68:31:0A:FF:7B:B3:66:BC:7B:9C:C9:58:01:6C:3F:EE:F6:55:01:C1:87:E5:22"]
+      }
+    }]
