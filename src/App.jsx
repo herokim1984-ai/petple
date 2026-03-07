@@ -179,16 +179,13 @@ export default function App() {
   const [verifyModal, setVerifyModal] = useState(false);
   // 나를 좋아한 사람 보기
   const [showSecretLikes, setShowSecretLikes] = useState(false);
-  const [secretLikesUnlocked, setSecretLikesUnlocked] = useState(false);
   // (산책 데이트 기능 제거됨)
 
   // 로그인 옵션
   const [saveEmail,  setSaveEmail]  = useState(false);
   const [autoLogin,  setAutoLogin]  = useState(false);
-  const [savedEmail, setSavedEmail] = useState(""); // 저장된 이메일
   const [savedPw,    setSavedPw]    = useState(""); // 자동로그인용
   const [savedNick,  setSavedNick]  = useState(""); // 자동로그인용
-  const [autoLoginReady, setAutoLoginReady] = useState(false); // 자동로그인 데이터 존재 여부
 
   // 비밀번호 찾기
   const [findPwOpen,   setFindPwOpen]   = useState(false);
@@ -375,6 +372,46 @@ export default function App() {
   ]);
   const [nickAvail, setNickAvail] = useState(null); // signup: null|"ok"|"dup"|"checking"
   const [deleteAccModal, setDeleteAccModal] = useState(false);
+  // ── 인앱결제 (Digital Goods API + Payment Request API) ──
+  const purchasePoints = async (pkg) => {
+    try {
+      // Digital Goods API 지원 확인 (TWA 환경에서만 작동)
+      if (!("getDigitalGoodsService" in window)) {
+        alert("현재 환경에서는 인앱결제가 지원되지 않아요.\nGoogle Play 앱에서 이용해주세요! 🐾");
+        return;
+      }
+      const service = await window.getDigitalGoodsService("https://play.google.com/billing");
+      const details = await service.getDetails([pkg.productId]);
+      if (!details || details.length === 0) {
+        alert("상품 정보를 불러올 수 없어요.\n잠시 후 다시 시도해주세요.");
+        return;
+      }
+      const detail = details[0];
+      const paymentMethod = [{
+        supportedMethods: "https://play.google.com/billing",
+        data: { sku: pkg.productId }
+      }];
+      const paymentDetails = {
+        total: { label: pkg.label, amount: { currency: "KRW", value: detail.price?.value || pkg.price.replace(/[^0-9]/g,"") } }
+      };
+      const request = new PaymentRequest(paymentMethod, paymentDetails);
+      const response = await request.show();
+      // 결제 성공
+      const { token } = response.details;
+      await response.complete("success");
+      // 포인트 지급
+      setPoints(p => p + pkg.amount);
+      setPointLog(l => [{icon: pkg.icon, label: pkg.label + " 구매", pt: pkg.amount, type: "earn", date: dateNow()}, ...l]);
+      // 구매 확인 (consume)
+      await service.consume(token);
+      alert("✅ " + pkg.label + " 구매 완료!\n" + pkg.amount + "p가 지급되었어요 🎉");
+    } catch (e) {
+      if (e.name === "AbortError") return; // 유저가 취소
+      console.error("Purchase error:", e);
+      alert("결제 중 오류가 발생했어요.\n다시 시도해주세요.");
+    }
+  };
+
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminTab, setAdminTab] = useState("dashboard"); // dashboard, reports, users, refunds, posts
   const [adminReports, setAdminReports] = useState([]);
@@ -386,10 +423,10 @@ export default function App() {
   const [chatOpened, setChatOpened] = useState(new Set()); // 대화 개설 추적
 
   const BUY_PACKAGES = [
-    { icon:"💬", label:"대화팩",     amount:50,   price:"₩1,100",  popular:false, desc:"대화 1~2회" },
-    { icon:"💎", label:"인기팩",     amount:150,  price:"₩2,200",  popular:true,  desc:"슈퍼좋아요 3회" },
-    { icon:"🔥", label:"활동팩",     amount:500,  price:"₩5,500",  popular:false, desc:"2주 활동량" },
-    { icon:"👑", label:"프리미엄팩", amount:1200, price:"₩11,000", popular:false, desc:"한 달 넉넉" },
+    { icon:"💬", label:"대화팩",     amount:50,   price:"₩1,100",  popular:false, desc:"대화 1~2회", productId:"point_50" },
+    { icon:"💎", label:"인기팩",     amount:150,  price:"₩2,200",  popular:true,  desc:"슈퍼좋아요 3회", productId:"point_150" },
+    { icon:"🔥", label:"활동팩",     amount:500,  price:"₩5,500",  popular:false, desc:"2주 활동량", productId:"point_500" },
+    { icon:"👑", label:"프리미엄팩", amount:1200, price:"₩11,000", popular:false, desc:"한 달 넉넉", productId:"point_1200" },
   ];
   const [alarms, setAlarms] = useState([]);
 
@@ -1762,20 +1799,11 @@ export default function App() {
               {/* 구매 */}
               {pointsTab==="buy" && (
                 <div>
-                  {/* 서비스 준비 중 배너 */}
-                  <div style={{background:"linear-gradient(135deg,#fef3c7,#fef9c3)",borderRadius:16,padding:"16px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
-                    <span style={{fontSize:28}}>🚀</span>
-                    <div>
-                      <p style={{margin:"0 0 2px",fontWeight:700,fontSize:14,color:"#92400e"}}>인앱결제 준비 중!</p>
-                      <p style={{margin:0,fontSize:12,color:"#a16207"}}>앱 내에서 포인트 충전이 가능해져요</p>
-                    </div>
-                  </div>
-
-                  <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>출시 예정 상품을 미리 확인해보세요</p>
-                  <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20,opacity:.55,pointerEvents:"none"}}>
+                  <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>포인트를 충전하고 더 많은 활동을 즐겨보세요!</p>
+                  <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20}}>
                     {BUY_PACKAGES.map((pkg,i)=>(
-                      <div key={i}
-                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#ec4899":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(236,72,153,.2)":"none"}}>
+                      <div key={i} onClick={()=>purchasePoints(pkg)}
+                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#ec4899":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(236,72,153,.2)":"none",cursor:"pointer"}}>
                         {pkg.popular && <div style={{position:"absolute",top:-1,right:14,background:G,color:"white",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:"0 0 10px 10px"}}>BEST</div>}
                         <span style={{fontSize:28}}>{pkg.icon}</span>
                         <div style={{flex:1}}>
@@ -1869,13 +1897,10 @@ export default function App() {
           <div onClick={()=>{setPayModal(null);}} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}/>
           <div style={{position:"relative",background:"white",borderRadius:24,padding:"36px 28px",maxWidth:320,width:"90%",textAlign:"center",boxShadow:"0 20px 50px rgba(0,0,0,.2)"}}>
             <div style={{width:64,height:64,background:"linear-gradient(135deg,#fef9c3,#fef3c7)",borderRadius:"50%",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>🚀</div>
-            <h3 style={{margin:"0 0 8px",fontSize:18,fontWeight:800}}>결제 서비스 준비 중</h3>
-            <p style={{margin:"0 0 20px",fontSize:14,color:"#6b7280",lineHeight:1.6}}>곧 결제 기능이 오픈돼요!<br/>조금만 기다려주세요 🐾</p>
-            <button onClick={()=>{
-              setPayModal(null);
-              alert("사전 알림이 등록되었어요! 🔔\n결제 서비스가 시작되면 알려드릴게요.");
-            }} style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
-              🔔 오픈 알림 받기
+            <h3 style={{margin:"0 0 8px",fontSize:18,fontWeight:800}}>포인트 충전 안내</h3>
+            <p style={{margin:"0 0 20px",fontSize:14,color:"#6b7280",lineHeight:1.6}}>Google Play 앱에서 포인트를 충전할 수 있어요!<br/>포인트 탭의 💳 구매 메뉴를 이용해주세요 🐾</p>
+            <button onClick={()=>setPayModal(null)} style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
+              확인
             </button>
             <button onClick={()=>setPayModal(null)}
               style={{width:"100%",background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>
