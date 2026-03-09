@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { auth, db, googleProvider } from "./firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
+import { auth, db } from "./firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp, onSnapshot } from "firebase/firestore";
 
 
@@ -357,7 +357,8 @@ export default function App() {
   const [showAlarmSettings, setShowAlarmSettings] = useState(false);
   const [alarmSettings, setAlarmSettings] = useState({match:true,message:true,community:true,meeting:true,marketing:false});
   const [showPoints, setShowPoints] = useState(false);
-  const [payModal,   setPayModal]   = useState(null); // {type:"point"|"sub", pkg:{...}}
+  const [payModal,   setPayModal]   = useState(null);
+  const [appAlert, setAppAlert] = useState(null); // {msg, onOk?, onCancel?} // {type:"point"|"sub", pkg:{...}}
   const [payMethod,  setPayMethod]  = useState(null);
   const [payStep,    setPayStep]    = useState(0); // 0:선택, 1:진행중, 2:완료
   const [isPlusSub,  setIsPlusSub]  = useState(false); // 펫플 플러스 구독 여부
@@ -372,18 +373,22 @@ export default function App() {
   ]);
   const [nickAvail, setNickAvail] = useState(null); // signup: null|"ok"|"dup"|"checking"
   const [deleteAccModal, setDeleteAccModal] = useState(false);
+  // ── 커스텀 알림 (URL 노출 방지) ──
+  const showAlert = (msg, onOk) => setAppAlert({msg, onOk, type:"alert"});
+  const showConfirm = (msg) => new Promise(resolve => setAppAlert({msg, type:"confirm", onOk:()=>resolve(true), onCancel:()=>resolve(false)}));
+
   // ── 인앱결제 (Digital Goods API + Payment Request API) ──
   const purchasePoints = async (pkg) => {
     try {
       // Digital Goods API 지원 확인 (TWA 환경에서만 작동)
       if (!("getDigitalGoodsService" in window)) {
-        alert("현재 환경에서는 인앱결제가 지원되지 않아요.\nGoogle Play 앱에서 이용해주세요! 🐾");
+        showAlert("현재 환경에서는 인앱결제가 지원되지 않아요.\nGoogle Play 앱에서 이용해주세요! 🐾");
         return;
       }
       const service = await window.getDigitalGoodsService("https://play.google.com/billing");
       const details = await service.getDetails([pkg.productId]);
       if (!details || details.length === 0) {
-        alert("상품 정보를 불러올 수 없어요.\n잠시 후 다시 시도해주세요.");
+        showAlert("상품 정보를 불러올 수 없어요.\n잠시 후 다시 시도해주세요.");
         return;
       }
       const detail = details[0];
@@ -404,11 +409,11 @@ export default function App() {
       setPointLog(l => [{icon: pkg.icon, label: pkg.label + " 구매", pt: pkg.amount, type: "earn", date: dateNow()}, ...l]);
       // 구매 확인 (consume)
       await service.consume(token);
-      alert("✅ " + pkg.label + " 구매 완료!\n" + pkg.amount + "p가 지급되었어요 🎉");
+      showAlert("✅ " + pkg.label + " 구매 완료!\n" + pkg.amount + "p가 지급되었어요 🎉");
     } catch (e) {
       if (e.name === "AbortError") return; // 유저가 취소
       console.error("Purchase error:", e);
-      alert("결제 중 오류가 발생했어요.\n다시 시도해주세요.");
+      showAlert("결제 중 오류가 발생했어요.\n다시 시도해주세요.");
     }
   };
 
@@ -781,7 +786,7 @@ export default function App() {
   // ── 위치 업데이트 (with UI feedback) ──
   const updateMyLocation = () => {
     setLocationUpdating(true);
-    if (!navigator.geolocation) { setLocationUpdating(false); alert("이 기기에서 위치 서비스를 지원하지 않아요."); return; }
+    if (!navigator.geolocation) { setLocationUpdating(false); showAlert("이 기기에서 위치 서비스를 지원하지 않아요."); return; }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const {latitude:lat, longitude:lng} = pos.coords;
@@ -1096,38 +1101,14 @@ export default function App() {
     setSubmitting(false);
   }
 
-  // ── 구글 로그인 ──
-  async function googleLogin() {
-    setErr("");
-    try {
-      await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged가 자동 처리 (프로필 없으면 자동 생성)
-    } catch (e) {
-      const code = e.code || "";
-      const msg = e.message || "";
-      console.error("Google login error:", code, msg);
-      if (code === "auth/popup-closed-by-user") {
-        // 유저가 창 닫은 거라 무시
-      } else if (code === "auth/unauthorized-domain") {
-        setErr("이 도메인에서 구글 로그인이 허용되지 않았어요. Firebase 콘솔 → Authentication → Settings → 승인된 도메인에 현재 주소를 추가해주세요.");
-      } else if (code === "auth/popup-blocked") {
-        setErr("팝업이 차단됐어요. 브라우저에서 팝업을 허용해주세요.");
-      } else if (code === "auth/network-request-failed") {
-        setErr("네트워크 연결을 확인해주세요.");
-      } else if (msg.includes("PERMISSION_DENIED") || msg.includes("permission")) {
-        setErr("데이터 저장 권한 오류 — Firestore 보안 규칙을 확인해주세요.");
-      } else {
-        setErr("구글 로그인 실패: " + (code || msg || "알 수 없는 에러"));
-      }
-    }
-  }
+
 
   // 스와이프
   function swipe(dir) {
     if (nearbyPets.length === 0) return;
     // 일일 스와이프 제한 (슈퍼좋아요는 포인트 소모라 제한 없음)
     if (dir !== "U" && dailySwipes >= DAILY_SWIPE_LIMIT) {
-      alert("오늘의 스와이프 횟수를 모두 사용했어요!\n("+DAILY_SWIPE_LIMIT+"/"+DAILY_SWIPE_LIMIT+")\n\n내일 다시 이용하거나, 슈퍼좋아요(💎)는 계속 사용할 수 있어요!");
+      showAlert("오늘의 스와이프 횟수를 모두 사용했어요!\n("+DAILY_SWIPE_LIMIT+"/"+DAILY_SWIPE_LIMIT+")\n\n내일 다시 이용하거나, 슈퍼좋아요(💎)는 계속 사용할 수 있어요!");
       return;
     }
     if (dir !== "U") setDailySwipes(d => d + 1);
@@ -1509,17 +1490,7 @@ export default function App() {
             {submitting ? "처리 중..." : signup ? "🐾 가입하고 시작하기" : "로그인"}
           </button>
 
-          {/* 구분선 + 구글 로그인 */}
-          <div style={{display:"flex",alignItems:"center",gap:12,margin:"4px 0"}}>
-            <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
-            <span style={{fontSize:12,color:"#9ca3af",whiteSpace:"nowrap"}}>또는</span>
-            <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
-          </div>
-          <button onClick={googleLogin}
-            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,width:"100%",background:"white",border:"2px solid #e5e7eb",padding:"12px 0",borderRadius:14,fontSize:14,fontWeight:600,cursor:"pointer",color:"#374151",transition:"all .15s"}}>
-            <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            Google 계정으로 시작하기
-          </button>
+
 
 
 
@@ -1727,10 +1698,10 @@ export default function App() {
                               setEarnDone(d=>({...d,review:true}));
                               setPoints(p=>p+5);
                               setPointLog(l=>[{icon:"⭐",label:"리뷰 작성",pt:5,type:"earn",date:dateNow()},...l]);
-                            } else { alert("이미 리뷰 포인트를 받았어요!"); }
+                            } else { showAlert("이미 리뷰 포인트를 받았어요!"); }
                           } else if(item.action==="invite"){
                             if(navigator.share){navigator.share({title:"펫플 - 반려동물 소셜",text:"우리 아이 친구 만들기! 펫플에서 만나요 🐾\nhttps://petple.vercel.app",url:"https://petple.vercel.app"}).catch(()=>{});}
-                            else{navigator.clipboard?.writeText("https://petple.vercel.app");alert("초대 링크가 복사되었어요! 📋\nhttps://petple.vercel.app");}
+                            else{navigator.clipboard?.writeText("https://petple.vercel.app");showAlert("초대 링크가 복사되었어요! 📋");}
                             if(!earnDone.invite){
                               setEarnDone(d=>({...d,invite:true}));
                               setPoints(p=>p+30);
@@ -2920,7 +2891,7 @@ export default function App() {
             <div style={{display:"flex",flexDirection:"column",gap:0,marginBottom:12}}>
               {[
                 {icon:"📢",label:"공지사항",action:()=>alert("📢 펫플 v1.0 출시!\n\n반려동물 친구 만들기 서비스 펫플이 정식 출시되었습니다. 🐾")},
-                {icon:"💡",label:"자주 묻는 질문",action:()=>alert("Q. 매칭은 어떻게 되나요?\nA. 홈에서 프로필을 스와이프하세요. 오른쪽=좋아요, 왼쪽=패스!\n\nQ. 포인트는 어떻게 모으나요?\nA. 출석체크, 스토리 업로드 등 활동하면 자동 적립돼요.")},
+                {icon:"💡",label:"자주 묻는 질문",action:()=>showAlert("Q. 매칭은 어떻게 되나요?\nA. 홈에서 프로필을 스와이프하세요. 오른쪽=좋아요, 왼쪽=패스!\n\nQ. 포인트는 어떻게 모으나요?\nA. 출석체크, 스토리 업로드 등 활동하면 자동 적립돼요.")},
                 {icon:"📄",label:"이용약관",action:()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")},
                 {icon:"🔒",label:"개인정보 처리방침",action:()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1925-8252")},
                 {icon:"🏢",label:"사업자정보",action:()=>alert("상호명: 펫플\n대표자명: 김영웅\n사업자등록번호: 743-09-03086\n사업장주소: 인천광역시 계양구 장제로 762\n전화번호: 0502-1925-8252\n이메일: support@petple.app")},
@@ -2936,7 +2907,7 @@ export default function App() {
                         ts:Date.now(),time:new Date().toISOString(),
                         status:"pending"
                       }).catch(()=>{});
-                      alert("환불 요청이 접수되었어요!\n검토 후 영업일 3일 이내 연락드리겠습니다.");
+                      showAlert("환불 요청이 접수되었어요!\n검토 후 영업일 3일 이내 연락드리겠습니다.");
                     }
                   }
                 }},
@@ -4911,7 +4882,7 @@ export default function App() {
                 setLoggedIn(false);setUser(null);setPw("");setNick("");setEmail("");
                 setMatches([]);setLiked([]);setIdx(0);setTab("home");setChatPet(null);
                 setPoints(0);setPointLog([]);setMyPets([]);setMyStories([]);
-                alert("회원 탈퇴가 완료되었습니다.\n그동안 펫플을 이용해주셔서 감사합니다. 🐾");
+                showAlert("회원 탈퇴가 완료되었습니다.\n그동안 펫플을 이용해주셔서 감사합니다. 🐾");
               }}
                 style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
                 탈퇴하기
@@ -4943,7 +4914,7 @@ export default function App() {
                 if(!profileBio){alert("프로필 문구를 먼저 작성해주세요!");return;}
                 setIsVerified(true);setVerifyModal(false);
                 if(user?.uid){updateDoc(doc(db,"users",user.uid),{verified:true}).catch(()=>{});}
-                alert("🎉 프로필 인증이 완료되었어요!\n이제 인증 뱃지가 표시됩니다.");
+                showAlert("🎉 프로필 인증이 완료되었어요!\n이제 인증 뱃지가 표시됩니다.");
               }}
                 style={{flex:1,background:"#3b82f6",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>인증 신청</button>
             </div>
@@ -4985,6 +4956,19 @@ export default function App() {
 
       
       {/* 온보딩 튜토리얼 */}
+      {/* 커스텀 알림 모달 (URL 노출 방지) */}
+      {appAlert && (
+        <div style={{position:"fixed",inset:0,zIndex:250,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}>
+          <div style={{background:"white",borderRadius:24,padding:"28px 24px",maxWidth:320,width:"90%",textAlign:"center",boxShadow:"0 20px 50px rgba(0,0,0,.2)"}}>
+            <p style={{margin:"0 0 20px",fontSize:14,color:"#374151",lineHeight:1.7,whiteSpace:"pre-line"}}>{appAlert.msg}</p>
+            <div style={{display:"flex",gap:8}}>
+              {appAlert.type==="confirm" && <button onClick={()=>{setAppAlert(null);appAlert.onCancel?.();}} style={{flex:1,padding:"12px",borderRadius:12,border:"none",background:"#f3f4f6",fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>}
+              <button onClick={()=>{setAppAlert(null);appAlert.onOk?.();}} style={{flex:2,padding:"12px",borderRadius:12,border:"none",background:G,color:"white",fontSize:14,fontWeight:700,cursor:"pointer"}}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showOnboarding && (
         <div style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(5px)"}}>
           <div style={{background:"white",borderRadius:28,padding:"32px 24px",maxWidth:380,width:"92%",maxHeight:"85vh",overflowY:"auto"}}>
@@ -5008,10 +4992,10 @@ export default function App() {
                         LOCATION_AREAS.forEach(a=>{const d=Math.sqrt((lat-a.lat)**2+(lng-a.lng)**2);if(d<minD){minD=d;nearest=a;}});
                         setUserLocation(nearest.name);
                       },
-                      ()=>alert("위치 권한을 허용해주세요.\n설정 > 앱 > 브라우저 > 위치에서 허용할 수 있어요."),
+                      ()=>showAlert("위치 권한을 허용해주세요.\n설정 > 앱 > 브라우저 > 위치에서 허용할 수 있어요."),
                       {timeout:10000}
                     );
-                  } else alert("이 기기에서 위치 서비스를 지원하지 않아요.");
+                  } else showAlert("이 기기에서 위치 서비스를 지원하지 않아요.");
                 }} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:14,border:permGranted.location?"2px solid #10b981":"2px solid #e5e7eb",background:permGranted.location?"#ecfdf5":"white",cursor:"pointer",textAlign:"left"}}>
                   <span style={{fontSize:28}}>{permGranted.location?"✅":"📍"}</span>
                   <div><p style={{margin:0,fontWeight:700,fontSize:14}}>{permGranted.location?"위치 허용됨":"위치 접근 허용"}</p><p style={{margin:0,fontSize:11,color:"#6b7280"}}>주변 반려동물 친구를 찾기 위해 필요해요</p></div>
@@ -5038,8 +5022,8 @@ export default function App() {
                   <div style={{display:"flex",gap:6}}>
                     <input value={obNick} onChange={e=>setObNick(e.target.value.slice(0,10))} placeholder="닉네임 (2~10자)" maxLength={10} style={{flex:1,padding:"10px 12px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:14,outline:"none"}}/>
                     <button onClick={async()=>{
-                      if(obNick.length<2){alert("2자 이상 입력해주세요");return;}
-                      if(hasBadWord(obNick)){alert("사용할 수 없는 닉네임이에요");setObNickStatus("bad");return;}
+                      if(obNick.length<2){showAlert("2자 이상 입력해주세요");return;}
+                      if(hasBadWord(obNick)){showAlert("사용할 수 없는 닉네임이에요");setObNickStatus("bad");return;}
                       const snap=await getDocs(query(collection(db,"users"),where("nick","==",obNick),fbLimit(1)));
                       setObNickStatus(snap.empty?"ok":"dup");
                     }} style={{padding:"10px 14px",borderRadius:10,border:"none",background:G,color:"white",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>중복확인</button>
@@ -5159,7 +5143,7 @@ export default function App() {
                   setMyPets([petData]);
                   if(obGender) setUser(u=>({...u,gender:obGender}));
                   setShowOnboarding(false);
-                }catch(e){console.error(e);alert("저장 중 오류가 발생했어요. 다시 시도해주세요.");}
+                }catch(e){console.error(e);showAlert("저장 중 오류가 발생했어요. 다시 시도해주세요.");}
               }} style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:G,color:"white",fontSize:16,fontWeight:800,cursor:"pointer"}}>시작하기! 🐾</button>
             </div>)}
 

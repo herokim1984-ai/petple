@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "app.petple.social",
-    "sha256_cert_fingerprints": ["4D:80:D2:99:87:86:66:9B:A2:BA:8F:10:D6:66:14:5F:CC:98:A0:60:2D:42:A7:E9:87:D6:E1:DE:5E:B5:B9:1B"]
+    "sha256_cert_fingerprints": ["CA:DB:23:49:2D:11:A6:6A:30:B8:A8:0A:62:8D:F8:47:5C:BA:8C:2E:A1:4C:9E:E7:09:1C:1C:03:DF:4B:8D:74"]
   }
 }]
