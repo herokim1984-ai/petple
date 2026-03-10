@@ -380,38 +380,58 @@ export default function App() {
   // ── 인앱결제 (Digital Goods API + Payment Request API) ──
   const purchasePoints = async (pkg) => {
     try {
-      // Digital Goods API 지원 확인 (TWA 환경에서만 작동)
-      if (!("getDigitalGoodsService" in window)) {
-        showAlert("현재 환경에서는 인앱결제가 지원되지 않아요.\nGoogle Play 앱에서 이용해주세요! 🐾");
-        return;
+      // 방법 1: Digital Goods API (TWA + Chrome 101+)
+      if ("getDigitalGoodsService" in window) {
+        try {
+          const service = await window.getDigitalGoodsService("https://play.google.com/billing");
+          const details = await service.getDetails([pkg.productId]);
+          if (details && details.length > 0) {
+            const detail = details[0];
+            const request = new PaymentRequest([{
+              supportedMethods: "https://play.google.com/billing",
+              data: { sku: pkg.productId }
+            }], {
+              total: { label: pkg.label, amount: { currency: "KRW", value: detail.price?.value || pkg.price.replace(/[^0-9]/g,"") } }
+            });
+            const response = await request.show();
+            const { token } = response.details;
+            await response.complete("success");
+            setPoints(p => p + pkg.amount);
+            setPointLog(l => [{icon: pkg.icon, label: pkg.label + " 구매", pt: pkg.amount, type: "earn", date: dateNow()}, ...l]);
+            await service.consume(token);
+            showAlert("✅ " + pkg.label + " 구매 완료!\n" + pkg.amount + "p가 지급되었어요 🎉");
+            return;
+          }
+        } catch (dgErr) {
+          console.log("Digital Goods failed, trying PaymentRequest:", dgErr);
+        }
       }
-      const service = await window.getDigitalGoodsService("https://play.google.com/billing");
-      const details = await service.getDetails([pkg.productId]);
-      if (!details || details.length === 0) {
-        showAlert("상품 정보를 불러올 수 없어요.\n잠시 후 다시 시도해주세요.");
-        return;
+      // 방법 2: Payment Request API 직접 시도
+      if (typeof PaymentRequest !== "undefined") {
+        try {
+          const request = new PaymentRequest([{
+            supportedMethods: "https://play.google.com/billing",
+            data: { sku: pkg.productId }
+          }], {
+            total: { label: pkg.label, amount: { currency: "KRW", value: pkg.price.replace(/[^0-9]/g,"") } }
+          });
+          const canMake = await request.canMakePayment();
+          if (canMake) {
+            const response = await request.show();
+            await response.complete("success");
+            setPoints(p => p + pkg.amount);
+            setPointLog(l => [{icon: pkg.icon, label: pkg.label + " 구매", pt: pkg.amount, type: "earn", date: dateNow()}, ...l]);
+            showAlert("✅ " + pkg.label + " 구매 완료!\n" + pkg.amount + "p가 지급되었어요 🎉");
+            return;
+          }
+        } catch (prErr) {
+          console.log("PaymentRequest failed:", prErr);
+        }
       }
-      const detail = details[0];
-      const paymentMethod = [{
-        supportedMethods: "https://play.google.com/billing",
-        data: { sku: pkg.productId }
-      }];
-      const paymentDetails = {
-        total: { label: pkg.label, amount: { currency: "KRW", value: detail.price?.value || pkg.price.replace(/[^0-9]/g,"") } }
-      };
-      const request = new PaymentRequest(paymentMethod, paymentDetails);
-      const response = await request.show();
-      // 결제 성공
-      const { token } = response.details;
-      await response.complete("success");
-      // 포인트 지급
-      setPoints(p => p + pkg.amount);
-      setPointLog(l => [{icon: pkg.icon, label: pkg.label + " 구매", pt: pkg.amount, type: "earn", date: dateNow()}, ...l]);
-      // 구매 확인 (consume)
-      await service.consume(token);
-      showAlert("✅ " + pkg.label + " 구매 완료!\n" + pkg.amount + "p가 지급되었어요 🎉");
+      // 방법 3: 결제 불가 안내
+      showAlert("인앱결제를 사용하려면 Google Play에서\n설치한 앱으로 접속해주세요.\n\n웹 브라우저에서는 결제가 지원되지 않아요.");
     } catch (e) {
-      if (e.name === "AbortError") return; // 유저가 취소
+      if (e.name === "AbortError") return;
       console.error("Purchase error:", e);
       showAlert("결제 중 오류가 발생했어요.\n다시 시도해주세요.");
     }
@@ -1700,8 +1720,8 @@ export default function App() {
                               setPointLog(l=>[{icon:"⭐",label:"리뷰 작성",pt:5,type:"earn",date:dateNow()},...l]);
                             } else { showAlert("이미 리뷰 포인트를 받았어요!"); }
                           } else if(item.action==="invite"){
-                            if(navigator.share){navigator.share({title:"펫플 - 반려동물 소셜",text:"우리 아이 친구 만들기! 펫플에서 만나요 🐾\nhttps://petple.vercel.app",url:"https://petple.vercel.app"}).catch(()=>{});}
-                            else{navigator.clipboard?.writeText("https://petple.vercel.app");showAlert("초대 링크가 복사되었어요! 📋");}
+                            if(navigator.share){navigator.share({title:"펫플 - 반려동물 소셜",text:"우리 아이 친구 만들기! 펫플에서 만나요 🐾",url:"https://play.google.com/store/apps/details?id=app.petple.social"}).catch(()=>{});}
+                            else{navigator.clipboard?.writeText("https://play.google.com/store/apps/details?id=app.petple.social");showAlert("초대 링크가 복사되었어요! 📋");}
                             if(!earnDone.invite){
                               setEarnDone(d=>({...d,invite:true}));
                               setPoints(p=>p+30);
