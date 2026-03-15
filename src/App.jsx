@@ -114,7 +114,7 @@ function Input({ label, type, placeholder, value, onChange, hint, onEnter }) {
       <input
         type={type} placeholder={placeholder} value={value}
         onChange={e => onChange(e.target.value)}
-        onKeyDown={e => e.key === "Enter" && onEnter && onEnter()}
+        onKeyDown={e => e.key === "Enter" && !e.isComposing && onEnter && onEnter()}
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
         style={{width:"100%",padding:"12px 14px",border:`2px solid ${focus?"#ec4899":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}
@@ -562,7 +562,7 @@ export default function App() {
           {rt===ci && (
             <div style={{display:"flex",gap:6,marginLeft:34,marginTop:4}}>
               <input value={rv} onChange={e=>setRv(e.target.value)} placeholder="답글..." style={{flex:1,padding:"7px 10px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}
-                onKeyDown={e=>{if(e.key==="Enter"&&rv.trim()){
+                onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing&&rv.trim()){
                   if(hasBadWord(rv)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                   const updated=[...comments];
                   updated[ci]={...c,replies:[...(c.replies||[]),{by:user?.name,text:rv.trim(),time:timeNow()}]};
@@ -1451,7 +1451,7 @@ export default function App() {
               <div style={{display:"flex",gap:8}}>
                 <input type="text" placeholder="닉네임을 입력하세요" value={nick}
                   onChange={e=>{setNick(e.target.value);setNickAvail(null);}}
-                  onKeyDown={e=>e.key==="Enter"&&submit()}
+                  onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&submit()}
                   style={{flex:1,padding:"12px 14px",border:`2px solid ${nickAvail==="ok"?"#16a34a":nickAvail==="dup"?"#ef4444":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}/>
                 <button onClick={async ()=>{
                   if(!nick.trim()||nick.trim().length<2){setNickAvail(null);return alert("닉네임은 2자 이상 입력해주세요.");}
@@ -2540,7 +2540,7 @@ export default function App() {
                             <input value={replyVal} onChange={e=>setReplyVal(e.target.value)}
                               placeholder={`@${c.by}에게 대댓글 달기`}
                               style={{flex:1,background:"none",border:"none",outline:"none",fontSize:13,color:"#1f2937"}}
-                              onKeyDown={e=>e.key==="Enter"&&addReply(c.id)}
+                              onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&addReply(c.id)}
                               autoFocus />
                             <button onClick={()=>addReply(c.id)}
                               style={{background:G,color:"white",border:"none",cursor:"pointer",borderRadius:10,padding:"4px 12px",fontSize:12,fontWeight:700,flexShrink:0}}>
@@ -2560,7 +2560,7 @@ export default function App() {
               <input value={commentVal} onChange={e=>setCommentVal(e.target.value)}
                 placeholder="댓글을 입력하세요..."
                 style={{flex:1,background:"#f3f4f6",border:"none",outline:"none",borderRadius:22,padding:"10px 16px",fontSize:14,color:"#1f2937"}}
-                onKeyDown={e=>e.key==="Enter"&&addComment()} />
+                onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&addComment()} />
               <button onClick={addComment}
                 style={{flexShrink:0,background:commentVal.trim()?G:"#e5e7eb",color:commentVal.trim()?"white":"#9ca3af",border:"none",cursor:commentVal.trim()?"pointer":"default",borderRadius:"50%",width:40,height:40,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
                 ↑
@@ -2759,7 +2759,7 @@ export default function App() {
               </div>
             )}
             <div style={{padding:"12px 14px",display:"flex",gap:10}}>
-            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&sendMsg()} placeholder={chatReplyTo?"답글을 입력하세요...":"메시지를 입력하세요..."}
+            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&!e.isComposing&&sendMsg()} placeholder={chatReplyTo?"답글을 입력하세요...":"메시지를 입력하세요..."}
               style={{flex:1,padding:"10px 16px",border:"2px solid #f3f4f6",borderRadius:24,fontSize:14,outline:"none"}} />
             <button onClick={sendMsg} disabled={!msgVal.trim()}
               style={{width:44,height:44,background:G,border:"none",borderRadius:"50%",cursor:"pointer",color:"white",fontSize:18,opacity:msgVal.trim()?1:.4,display:"flex",alignItems:"center",justifyContent:"center"}}>➤</button>
@@ -4078,7 +4078,7 @@ export default function App() {
                       </div>
                     )}
                     <input value={mChatVal} onChange={e=>setMChatVal(e.target.value)} onKeyDown={e=>{
-                      if(e.key==="Enter"&&mChatVal.trim()){
+                      if(e.key==="Enter"&&!e.isComposing&&mChatVal.trim()){
                         if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                         updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}]}));
                         setMChatVal("");setMChatReplyTo(null);
