@@ -358,7 +358,7 @@ export default function App() {
   const [alarmSettings, setAlarmSettings] = useState({match:true,message:true,community:true,meeting:true,marketing:false});
   const [showPoints, setShowPoints] = useState(false);
   const [payModal,   setPayModal]   = useState(null);
-  const [appAlert, setAppAlert] = useState(null); // {msg, onOk?, onCancel?} // {type:"point"|"sub", pkg:{...}}
+  const [appAlert, setAppAlert] = useState(null); // {msg, onOk?, onCancel?}
   const [payMethod,  setPayMethod]  = useState(null);
   const [payStep,    setPayStep]    = useState(0); // 0:선택, 1:진행중, 2:완료
   const [isPlusSub,  setIsPlusSub]  = useState(false); // 펫플 플러스 구독 여부
@@ -1890,12 +1890,9 @@ export default function App() {
             <div style={{width:64,height:64,background:"linear-gradient(135deg,#fef9c3,#fef3c7)",borderRadius:"50%",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>🚀</div>
             <h3 style={{margin:"0 0 8px",fontSize:18,fontWeight:800}}>포인트 충전 안내</h3>
             <p style={{margin:"0 0 20px",fontSize:14,color:"#6b7280",lineHeight:1.6}}>Google Play 앱에서 포인트를 충전할 수 있어요!<br/>포인트 탭의 💳 구매 메뉴를 이용해주세요 🐾</p>
-            <button onClick={()=>setPayModal(null)} style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
-              확인
-            </button>
             <button onClick={()=>setPayModal(null)}
-              style={{width:"100%",background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>
-              닫기
+              style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
+              확인
             </button>
           </div>
         </div>
@@ -4975,7 +4972,6 @@ export default function App() {
       )}
 
       
-      {/* 온보딩 튜토리얼 */}
       {/* 커스텀 알림 모달 (URL 노출 방지) */}
       {appAlert && (
         <div style={{position:"fixed",inset:0,zIndex:250,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}>
