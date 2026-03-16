@@ -217,6 +217,7 @@ export default function App() {
   const [replyTarget,  setReplyTarget]  = useState(null);
   const [replyVal,     setReplyVal]     = useState("");
   const writePostRef   = useRef(null);
+  const postReplaceIdx = useRef(-1);
 
   // 상대방 프로필 모달
   const [viewUserProfile, setViewUserProfile] = useState(null);
@@ -248,8 +249,6 @@ export default function App() {
       setTab("messages"); setInterestMode("chat");
     } else if(nav.type==="meeting") {
       setTab("meeting");
-    } else if(nav.type==="story") {
-      setTab("story");
     }
   };
 
@@ -342,6 +341,8 @@ export default function App() {
   const [mChatReplyTo, setMChatReplyTo] = useState(null); // 모임 채팅 답글
   const [mBoardForm,     setMBoardForm]     = useState({title:"",content:"",imgs:[]});
   const mBoardImgRef = useRef(null);
+  const mBoardReplaceIdx = useRef(-1);
+  const [editMBoard, setEditMBoard] = useState(null); // {title, content}
   const [mBoardDetail,   setMBoardDetail]   = useState(null);
   const [mBoardCommentVal,setMBoardCommentVal]=useState("");
   const [mVoteForm,      setMVoteForm]      = useState({title:"",options:[{text:"",img:null},{text:"",img:null}],anonymous:false,endTime:""});
@@ -514,7 +515,7 @@ export default function App() {
           };
         });
         setViewUserProfile({
-          name:d.nick||name, img:photos[0]||fallbackImg,
+          name:d.nick||name, uid:snap.docs[0].id, img:photos[0]||fallbackImg,
           photos, location:d.userLocation||d.region||"",
           bio:d.profileBio||"", pets, gender:d.gender, birth:d.birth,
           interests:d.interests||[], verified:d.verified||false, loading:false,
@@ -561,13 +562,7 @@ export default function App() {
           </button>
           {rt===ci && (
             <div style={{display:"flex",gap:6,marginLeft:34,marginTop:4}}>
-              <input value={rv} onChange={e=>setRv(e.target.value)} placeholder="답글..." style={{flex:1,padding:"7px 10px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}
-                onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing&&rv.trim()){
-                  if(hasBadWord(rv)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
-                  const updated=[...comments];
-                  updated[ci]={...c,replies:[...(c.replies||[]),{by:user?.name,text:rv.trim(),time:timeNow()}]};
-                  onUpdate(updated);setRt(null);setRv("");
-                }}}/>
+              <input value={rv} onChange={e=>setRv(e.target.value)} placeholder="답글..." style={{flex:1,padding:"7px 10px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}} />
               <button onClick={()=>{
                 if(!rv.trim())return;
                 if(hasBadWord(rv)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
@@ -1714,12 +1709,11 @@ export default function App() {
                       {key:"checkin", icon:"✅",label:"출석 체크",pt:3,desc:"매일 1회",color:"#dcfce7",tcolor:"#16a34a", action:"checkin"},
                       {key:"lounge",  icon:"📝",label:"라운지 글쓰기",pt:3,desc:"1일 1회",color:"#fce7f3",tcolor:"#be185d", action:"auto"},
                       {key:"chat",    icon:"💬",label:"첫 대화",pt:5,desc:"1회 보너스",color:"#eff6ff",tcolor:"#1d4ed8", action:"auto"},
-                      {key:"story",   icon:"📸",label:"스토리 업로드",pt:3,desc:"1일 1회",color:"#fef9c3",tcolor:"#92400e", action:"auto"},
                       {key:"review",  icon:"⭐",label:"리뷰 작성",pt:5,desc:"앱 평가하기",color:"#fff7ed",tcolor:"#c2410c", action:"review"},
                       {key:"meeting", icon:"🏃",label:"모임 가입",pt:5,desc:"가입 시",color:"#ecfdf5",tcolor:"#065f46", action:"auto"},
                       {key:"invite",  icon:"👥",label:"친구 초대",pt:30,desc:"가입 확인 시",color:"#fdf2f8",tcolor:"#9d174d", action:"invite"},
                     ].map((item)=>{
-                      const done = (item.action==="checkin" && checkedIn) || (item.key==="review" && earnDone.review) || (item.key==="invite" && earnDone.invite);
+                      const done = (item.action==="checkin" && checkedIn) || (item.key==="lounge" && earnDone.lounge) || (item.key==="review" && earnDone.review) || (item.key==="invite" && earnDone.invite);
                       return (
                         <div key={item.key} onClick={()=>{
                           if(item.action==="checkin" && !checkedIn){
@@ -2300,9 +2294,9 @@ export default function App() {
                       <span style={{background:"#f3f4f6",color:"#6b7280",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20}}>{catInfo.icon} {catInfo.label}</span>
                     </div>
                     <p style={{margin:"0 0 10px",fontSize:14,color:"#1f2937",lineHeight:1.6,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{p.content}</p>
-                    {p.imgs.length>0 && (
+                    {p.imgs.filter(img=>img&&img!=="[img]").length>0 && (
                       <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto"}}>
-                        {p.imgs.map((img,i)=><img key={i} src={img} alt="" style={{width:80,height:80,borderRadius:12,objectFit:"cover",flexShrink:0}} />)}
+                        {p.imgs.filter(img=>img&&img!=="[img]").map((img,i)=><img key={i} src={img} alt="" style={{width:80,height:80,borderRadius:12,objectFit:"cover",flexShrink:0}} />)}
                       </div>
                     )}
                     <div style={{display:"flex",gap:14,alignItems:"center"}}>
@@ -2342,7 +2336,9 @@ export default function App() {
           {/* 글쓰기 버튼 */}
           <button onClick={()=>{
             if(points < WRITE_COST){ alert(`글 작성에는 🐾 ${WRITE_COST}p가 필요해요!\n현재 보유: ${points}p`); return; }
-            setPostForm({cat:"walk",content:"",imgs:[]});
+            const validCats = LOUNGE_CATS.filter(c=>!["all","feed","hot"].includes(c.key)).map(c=>c.key);
+            const autoCat = validCats.includes(loungeCat) ? loungeCat : "walk";
+            setPostForm({cat:autoCat,content:"",imgs:[]});
             setIsWritePost(true);
           }}
             style={{position:"fixed",bottom:80,right:20,width:52,height:52,borderRadius:"50%",background:G,color:"white",border:"none",cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 18px rgba(236,72,153,.45)",zIndex:10}}>
@@ -2430,11 +2426,9 @@ export default function App() {
                   <p style={{margin:0,fontWeight:700,fontSize:14}}>{post.by}</p>
                   <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{post.ago}</p>
                 </div>
-                {/* 내 글: 수정/삭제 */}
+                {/* 내 글: 삭제 */}
                 {post.by===user?.name && (
                   <div style={{display:"flex",gap:6}}>
-                    <button onClick={()=>{setEditingPost(post.id);setEditPostContent(post.content);}}
-                      style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:12,color:"#6b7280"}}>수정</button>
                     <button onClick={()=>{
                       if(!confirm("이 글을 삭제하시겠어요?")) return;
                       if(post._fid) deleteDoc(doc(db,"communityPosts",post._fid)).catch(()=>{});
@@ -2461,9 +2455,9 @@ export default function App() {
                 </div>
               )}
               {editingPost!==post.id && <p style={{margin:"0 0 12px",fontSize:15,color:"#1f2937",lineHeight:1.7}}>{post.content}</p>}
-              {post.imgs.length>0 && (
+              {post.imgs.filter(img=>img&&img!=="[img]").length>0 && (
                 <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto"}}>
-                  {post.imgs.map((img,i)=><img key={i} src={img} alt="" style={{width:140,height:140,borderRadius:14,objectFit:"cover",flexShrink:0}} />)}
+                  {post.imgs.filter(img=>img&&img!=="[img]").map((img,i)=><img key={i} src={img} alt="" style={{width:140,height:140,borderRadius:14,objectFit:"cover",flexShrink:0}} />)}
                 </div>
               )}
               {/* 좋아요 버튼 */}
@@ -2551,7 +2545,6 @@ export default function App() {
                             <input value={replyVal} onChange={e=>setReplyVal(e.target.value)}
                               placeholder={`@${c.by}에게 대댓글 달기`}
                               style={{flex:1,background:"none",border:"none",outline:"none",fontSize:13,color:"#1f2937"}}
-                              onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&addReply(c.id)}
                               autoFocus />
                             <button onClick={()=>addReply(c.id)}
                               style={{background:G,color:"white",border:"none",cursor:"pointer",borderRadius:10,padding:"4px 12px",fontSize:12,fontWeight:700,flexShrink:0}}>
@@ -2571,7 +2564,7 @@ export default function App() {
               <input value={commentVal} onChange={e=>setCommentVal(e.target.value)}
                 placeholder="댓글을 입력하세요..."
                 style={{flex:1,background:"#f3f4f6",border:"none",outline:"none",borderRadius:22,padding:"10px 16px",fontSize:14,color:"#1f2937"}}
-                onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&addComment()} />
+ />
               <button onClick={addComment}
                 style={{flexShrink:0,background:commentVal.trim()?G:"#e5e7eb",color:commentVal.trim()?"white":"#9ca3af",border:"none",cursor:commentVal.trim()?"pointer":"default",borderRadius:"50%",width:40,height:40,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
                 ↑
@@ -3685,15 +3678,21 @@ export default function App() {
                         style={{width:"100%",padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:10,fontSize:13,outline:"none",resize:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
                       {/* 사진 첨부 */}
                       <input ref={mBoardImgRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{
-                        Array.from(e.target.files).slice(0,3).forEach(file=>{
-                          const r=new FileReader();r.onload=ev=>setMBoardForm(f=>({...f,imgs:[...f.imgs,ev.target.result].slice(0,3)}));r.readAsDataURL(file);
-                        });e.target.value="";
+                        if(mBoardReplaceIdx.current>=0){
+                          const file=e.target.files[0];if(!file){e.target.value="";mBoardReplaceIdx.current=-1;return;}
+                          const r=new FileReader();r.onload=ev=>{const idx=mBoardReplaceIdx.current;setMBoardForm(f=>({...f,imgs:f.imgs.map((img,j)=>j===idx?ev.target.result:img)}));mBoardReplaceIdx.current=-1;};r.readAsDataURL(file);
+                        } else {
+                          Array.from(e.target.files).slice(0,3).forEach(file=>{
+                            const r=new FileReader();r.onload=ev=>setMBoardForm(f=>({...f,imgs:[...f.imgs,ev.target.result].slice(0,3)}));r.readAsDataURL(file);
+                          });
+                        }
+                        e.target.value="";
                       }}/>
                       <div style={{display:"flex",gap:6,marginTop:8,alignItems:"center"}}>
                         <button onClick={()=>mBoardImgRef.current.click()} style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"6px 12px",borderRadius:10,fontSize:12,fontWeight:600,color:"#6b7280"}}>📷 사진 ({mBoardForm.imgs.length}/3)</button>
                         {mBoardForm.imgs.map((img,i)=>(
                           <div key={i} style={{position:"relative",width:40,height:40}}>
-                            <img src={img} alt="" style={{width:"100%",height:"100%",borderRadius:8,objectFit:"cover"}}/>
+                            <img src={img} alt="" onClick={()=>{mBoardReplaceIdx.current=i;mBoardImgRef.current.click();}} style={{width:"100%",height:"100%",borderRadius:8,objectFit:"cover",cursor:"pointer"}} title="클릭하여 사진 교체"/>
                             <button onClick={()=>setMBoardForm(f=>({...f,imgs:f.imgs.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:-4,right:-4,width:16,height:16,background:"#ef4444",border:"none",borderRadius:"50%",color:"white",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                           </div>
                         ))}
@@ -3731,9 +3730,36 @@ export default function App() {
                 <div>
                   <button onClick={()=>setMBoardDetail(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#ec4899",fontWeight:700,marginBottom:12,padding:0}}>← 목록으로</button>
                   <div style={{background:"white",borderRadius:14,padding:16,marginBottom:12,boxShadow:"0 2px 6px rgba(0,0,0,.04)"}}>
-                    <h3 style={{margin:"0 0 6px",fontSize:16,fontWeight:800}}>{mBoardDetail.title}</h3>
-                    <p style={{margin:"0 0 12px",fontSize:12,color:"#9ca3af"}}>{mBoardDetail.by} · {mBoardDetail.time}</p>
-                    <p style={{margin:"0 0 12px",fontSize:14,color:"#1f2937",lineHeight:1.7}}>{mBoardDetail.content}</p>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                      <div style={{flex:1}}>
+                        <h3 style={{margin:"0 0 6px",fontSize:16,fontWeight:800}}>{mBoardDetail.title}</h3>
+                        <p style={{margin:0,fontSize:12,color:"#9ca3af"}}>{mBoardDetail.by} · {mBoardDetail.time}</p>
+                      </div>
+                      {mBoardDetail.by===user?.name && !editMBoard && (
+                        <button onClick={()=>setEditMBoard({title:mBoardDetail.title,content:mBoardDetail.content})}
+                          style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:12,color:"#6b7280",flexShrink:0}}>수정</button>
+                      )}
+                    </div>
+                    {editMBoard ? (
+                      <div style={{marginBottom:12}}>
+                        <input value={editMBoard.title} onChange={e=>setEditMBoard(v=>({...v,title:e.target.value}))} placeholder="제목"
+                          style={{width:"100%",padding:"8px 12px",border:"2px solid #ec4899",borderRadius:10,fontSize:14,outline:"none",marginBottom:8,boxSizing:"border-box",fontWeight:700}}/>
+                        <textarea value={editMBoard.content} onChange={e=>setEditMBoard(v=>({...v,content:e.target.value}))}
+                          style={{width:"100%",minHeight:80,border:"2px solid #ec4899",borderRadius:10,padding:10,fontSize:14,outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
+                        <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end"}}>
+                          <button onClick={()=>setEditMBoard(null)} style={{background:"#e5e7eb",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>취소</button>
+                          <button onClick={()=>{
+                            if(!editMBoard.title.trim()||!editMBoard.content.trim()) return;
+                            const updated={...mBoardDetail,title:editMBoard.title.trim(),content:editMBoard.content.trim()};
+                            updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
+                            setMBoardDetail(updated);
+                            setEditMBoard(null);
+                          }} style={{background:G,color:"white",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>수정 완료</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{margin:"12px 0",fontSize:14,color:"#1f2937",lineHeight:1.7}}>{mBoardDetail.content}</p>
+                    )}
                     {mBoardDetail.imgs&&mBoardDetail.imgs.length>0 && (
                       <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto"}}>
                         {mBoardDetail.imgs.map((img,i)=><img key={i} src={img} alt="" onClick={()=>setPhotoViewer({photos:mBoardDetail.imgs,idx:i})} style={{width:100,height:100,borderRadius:12,objectFit:"cover",flexShrink:0,cursor:"pointer"}}/>)}
@@ -4118,12 +4144,21 @@ export default function App() {
         <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",flexDirection:"column"}}>
           <div onClick={()=>setIsWritePost(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.45)",backdropFilter:"blur(2px)"}} />
           <input ref={writePostRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{
-            const files = Array.from(e.target.files).slice(0, 5 - postForm.imgs.length);
-            files.forEach(file=>{
+            if(postReplaceIdx.current >= 0){
+              // 사진 교체 모드
+              const file = e.target.files[0]; if(!file){e.target.value="";postReplaceIdx.current=-1;return;}
               const r = new FileReader();
-              r.onload = ev => setPostForm(f=>f.imgs.length<5 ? {...f,imgs:[...f.imgs,ev.target.result]} : f);
+              r.onload = ev => { const idx=postReplaceIdx.current; setPostForm(f=>({...f,imgs:f.imgs.map((img,j)=>j===idx?ev.target.result:img)})); postReplaceIdx.current=-1; };
               r.readAsDataURL(file);
-            });
+            } else {
+              // 새 사진 추가 모드
+              const files = Array.from(e.target.files).slice(0, 5 - postForm.imgs.length);
+              files.forEach(file=>{
+                const r = new FileReader();
+                r.onload = ev => setPostForm(f=>f.imgs.length<5 ? {...f,imgs:[...f.imgs,ev.target.result]} : f);
+                r.readAsDataURL(file);
+              });
+            }
             e.target.value="";
           }} />
           <div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderRadius:"24px 24px 0 0",height:"80vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -4155,7 +4190,7 @@ export default function App() {
               <div style={{marginBottom:16}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                   <label style={{fontSize:13,fontWeight:700,color:"#374151"}}>내용 <span style={{color:"#ef4444"}}>*</span></label>
-                  <span style={{fontSize:11,color:postForm.content.length>90?"#ef4444":"#9ca3af"}}>{postForm.content.length}/100</span>
+                  <span style={{fontSize:11,color:postForm.content.trim().length<15?"#ef4444":postForm.content.length>90?"#ef4444":"#9ca3af"}}>{postForm.content.trim().length<15?`${postForm.content.trim().length}/15 (최소)`:`${postForm.content.length}/100`}</span>
                 </div>
                 <textarea value={postForm.content} onChange={e=>e.target.value.length<=100&&setPostForm(f=>({...f,content:e.target.value}))}
                   placeholder="이웃 펫친들과 나누고 싶은 이야기를 적어보세요 🐾" rows={5}
@@ -4172,7 +4207,8 @@ export default function App() {
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {postForm.imgs.map((img,i)=>(
                     <div key={i} style={{position:"relative",width:72,height:72}}>
-                      <img src={img} alt="" style={{width:"100%",height:"100%",borderRadius:12,objectFit:"cover"}} />
+                      <img src={img} alt="" onClick={()=>{postReplaceIdx.current=i;writePostRef.current.click();}}
+                        style={{width:"100%",height:"100%",borderRadius:12,objectFit:"cover",cursor:"pointer"}} title="클릭하여 사진 교체" />
                       <button onClick={()=>setPostForm(f=>({...f,imgs:f.imgs.filter((_,j)=>j!==i)}))}
                         style={{position:"absolute",top:-6,right:-6,width:20,height:20,background:"#ef4444",border:"none",borderRadius:"50%",color:"white",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
                     </div>
@@ -4192,6 +4228,7 @@ export default function App() {
               {points < WRITE_COST && <p style={{margin:"0 0 8px",fontSize:12,color:"#ef4444",textAlign:"center",fontWeight:600}}>포인트가 부족해요 (보유 {points}p / 필요 {WRITE_COST}p)</p>}
               <button onClick={()=>{
                 if (!postForm.content.trim() || points < WRITE_COST) return;
+                if (postForm.content.trim().length < 15) { showAlert("최소 15자 이상 입력해야 글을 등록할 수 있어요.\n현재 " + postForm.content.trim().length + "자"); return; }
                 if (hasBadWord(postForm.content)) { alert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
                 const catInfo = LOUNGE_CATS.find(c=>c.key===postForm.cat);
                 const newPost = {
@@ -4200,12 +4237,25 @@ export default function App() {
                   likes:[], comments:[]
                 };
                 setPosts(ps=>[newPost,...ps]);
-                // Firestore 공유 컬렉션에 저장 + _fid 돌려받기
-                addDoc(collection(db,"communityPosts"),{...newPost, imgs:(newPost.imgs||[]).map(img=>img&&img.startsWith?.("data:")?"[img]":img), byImg:(newPost.byImg&&!newPost.byImg.startsWith?.("data:"))?newPost.byImg:null, uid:user?.uid}).then(ref=>{
-                  setPosts(ps=>ps.map(p=>p.id===newPost.id?{...p,_fid:ref.id}:p));
-                }).catch(()=>{});
+                // Firestore 공유 컬렉션에 저장 + _fid 돌려받기 (이미지 압축하여 저장)
+                (async()=>{
+                  const compressedImgs = await Promise.all((newPost.imgs||[]).map(async img=>{
+                    if(!img||!img.startsWith?.("data:")) return img;
+                    try{ const c=await compressImage(img,300); return c.length<800000?c:"[img]"; }catch(e){ return "[img]"; }
+                  }));
+                  const byImg = newPost.byImg&&!newPost.byImg.startsWith?.("data:")?newPost.byImg:null;
+                  addDoc(collection(db,"communityPosts"),{...newPost, imgs:compressedImgs, byImg, uid:user?.uid}).then(ref=>{
+                    setPosts(ps=>ps.map(p=>p.id===newPost.id?{...p,_fid:ref.id}:p));
+                  }).catch(()=>{});
+                })();
                 setPoints(p=>p-WRITE_COST);
-                setPointLog(l=>[{icon:catInfo?.icon||"📝",label:`${catInfo?.label||"글"} 등록`,pt:-WRITE_COST,type:"use",date:dateNow()},...l]);
+                if(WRITE_COST > 0) setPointLog(l=>[{icon:catInfo?.icon||"📝",label:`${catInfo?.label||"글"} 등록`,pt:-WRITE_COST,type:"use",date:dateNow()},...l]);
+                // 1일 1회 글쓰기 보상 (+3p)
+                if(!earnDone.lounge){
+                  setEarnDone(d=>({...d,lounge:true}));
+                  setPoints(p=>p+3);
+                  setPointLog(l=>[{icon:"📝",label:"라운지 글쓰기 보상",pt:3,type:"earn",date:dateNow()},...l]);
+                }
                 setIsWritePost(false);
                 setLoungeCat("all");
               }}
@@ -4541,7 +4591,7 @@ export default function App() {
       {/* 하단 탭바 */}
       {tab!=="chat" && (
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
-          {[["home","🏠","홈"],["community","🧡","라운지"],["story","📸","스토리"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
+          {[["home","🏠","홈"],["community","🧡","라운지"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
             <button key={id} onClick={() => { setTab(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
               <span style={{fontSize:10,fontWeight:700,color:tab===id?"#ec4899":"#9ca3af"}}>{label}</span>
@@ -4584,7 +4634,7 @@ export default function App() {
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                   {viewUserProfile.location && <span style={{fontSize:12,color:"#6b7280"}}>📍 {viewUserProfile.location}</span>}
                   {viewUserProfile.gender && <span style={{fontSize:12,color:"#6b7280"}}>{viewUserProfile.gender==="남"?"🙋‍♂️ 남성":"🙋‍♀️ 여성"}</span>}
-                  {viewUserProfile.birth && <span style={{fontSize:12,color:"#6b7280"}}>{viewUserProfile.birth}년생</span>}
+                  {viewUserProfile.birth && <span style={{fontSize:12,color:"#6b7280"}}>{String(viewUserProfile.birth).slice(0,4)}년생</span>}
                 </div>
                 {viewUserProfile.bio
                   ? <p style={{margin:0,fontSize:14,color:"#374151",lineHeight:1.6,background:"#f9fafb",borderRadius:12,padding:"10px 14px"}}>{viewUserProfile.bio}</p>
@@ -4643,16 +4693,39 @@ export default function App() {
                   <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>등록된 반려동물이 없어요</p>
                 </div>
               )}
-              {/* 대화하기 버튼 (매칭된 경우에만) */}
-              {matches.some(m=>m.name===viewUserProfile.name) && (
-                <button onClick={()=>{
-                  const pet=matches.find(m=>m.name===viewUserProfile.name);
-                  if(pet){openChat(pet);}
-                  setViewUserProfile(null);
-                }} style={{width:"100%",background:G,color:"white",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:"0 4px 16px rgba(236,72,153,.3)"}}>
-                  💬 대화하기
-                </button>
-              )}
+              {/* 대화하기 버튼 */}
+              {viewUserProfile.uid && viewUserProfile.uid !== user?.uid && (() => {
+                const isMatched = matches.some(m=>m.name===viewUserProfile.name||m.uid===viewUserProfile.uid);
+                const alreadyOpened = matches.some(m=>m.uid===viewUserProfile.uid) && chatOpened.has(matches.find(m=>m.uid===viewUserProfile.uid)?.id);
+                return (
+                  <button onClick={()=>{
+                    if(isMatched){
+                      const pet=matches.find(m=>m.name===viewUserProfile.name||m.uid===viewUserProfile.uid);
+                      if(pet){openChat(pet);}
+                    } else {
+                      // 매칭 안 된 유저 → 포인트로 채팅 열기
+                      if(points < 30){
+                        showAlert("채팅을 시작하려면 🐾 30p가 필요해요!\n현재 보유: " + points + "p");
+                        return;
+                      }
+                      if(!confirm("🐾 30p를 사용해서 채팅을 시작할까요?\n현재 보유: " + points + "p → 사용 후: " + (points-30) + "p")) return;
+                      const chatPartner = {
+                        uid:viewUserProfile.uid, name:viewUserProfile.pets?.[0]?.name||viewUserProfile.name,
+                        img:viewUserProfile.img, breed:viewUserProfile.pets?.[0]?.breed||"",
+                        owner:viewUserProfile.name, id:Date.now(),
+                      };
+                      setPoints(pt=>pt-30);
+                      setPointLog(l=>[{icon:"💌",label:"대화방 개설 ("+viewUserProfile.name+")",pt:-30,type:"use",date:dateNow()},...l]);
+                      setMatches(m=>[...m,chatPartner]);
+                      setChatOpened(s=>new Set([...s,chatPartner.id]));
+                      openChat(chatPartner);
+                    }
+                    setViewUserProfile(null);
+                  }} style={{width:"100%",background:G,color:"white",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:"0 4px 16px rgba(236,72,153,.3)"}}>
+                    {isMatched ? "💬 대화하기" : "💬 채팅하기 (30p)"}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
