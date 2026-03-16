@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { auth, db } from "./firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp, onSnapshot } from "firebase/firestore";
 
 
@@ -1077,6 +1077,8 @@ export default function App() {
         if (nickAvail !== "ok")      { setSubmitting(false); return setErr("닉네임 중복 확인을 해주세요."); }
         if (pwConfirm !== pw)        { setSubmitting(false); return setErr("비밀번호가 일치하지 않습니다."); }
 
+        // 자동 로그인 설정에 따라 persistence 변경
+        await setPersistence(auth, autoLogin ? browserLocalPersistence : browserSessionPersistence);
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), pw);
         try {
           await setDoc(doc(db, "users", cred.user.uid), {
@@ -1093,13 +1095,26 @@ export default function App() {
           });
         } catch (fsErr) {
           console.error("Firestore 저장 실패 (가입은 완료):", fsErr);
-          // Auth 가입은 됐으니 onAuthStateChanged에서 처리
         }
-        // onAuthStateChanged가 자동으로 로그인 처리
+        // onAuthStateChanged가 자동으로 로그인 처리 → loggedIn 될 때까지 대기
+        await new Promise((resolve) => {
+          const maxWait = setTimeout(() => resolve(), 10000);
+          const check = setInterval(() => {
+            if (auth.currentUser) { clearInterval(check); clearTimeout(maxWait); resolve(); }
+          }, 100);
+        });
       } else {
         // ── 로그인 ──
+        // 자동 로그인 설정에 따라 persistence 변경
+        await setPersistence(auth, autoLogin ? browserLocalPersistence : browserSessionPersistence);
         await signInWithEmailAndPassword(auth, email.trim(), pw);
-        // onAuthStateChanged가 자동으로 로그인 처리
+        // onAuthStateChanged가 프로필 로드 후 setLoggedIn(true) → 그때까지 대기
+        await new Promise((resolve) => {
+          const maxWait = setTimeout(() => resolve(), 10000);
+          const check = setInterval(() => {
+            if (auth.currentUser) { clearInterval(check); clearTimeout(maxWait); resolve(); }
+          }, 100);
+        });
       }
     } catch (e) {
       const code = e.code || "";
@@ -1326,7 +1341,7 @@ export default function App() {
 
   async function logout() {
     try { await signOut(auth); } catch {}
-    setLoggedIn(false); setUser(null); setPw(""); setPwConfirm(""); setNick(""); setErr(""); setSignup(false);
+    setLoggedIn(false); setUser(null); setPw(""); setPwConfirm(""); setNick(""); setErr(""); setSignup(false); setSubmitting(false);
     setMatches([]); setLiked([]); setReceivedLikes([]); setIdx(0); setTab("home"); setChatPet(null);
     setPoints(0); setPointLog([]);
     setProfileBio(""); setProfilePhotos([null,null,null,null,null]); setProfileRepIdx(0);
