@@ -1331,7 +1331,7 @@ export default function App() {
     setPoints(0); setPointLog([]);
     setProfileBio(""); setProfilePhotos([null,null,null,null,null]); setProfileRepIdx(0);
     setMyPets([]); setMyStories([]); setPosts([]);
-    setIsVerified(false); setIsBoosted(false); setUserLocation("인천 연수구");
+    setIsVerified(false); setUserLocation("인천 연수구");
     setDailySwipes(0); setNearbyPets([]);
   }
 
@@ -1496,7 +1496,7 @@ export default function App() {
                   style={{width:16,height:16,accentColor:"#ec4899",cursor:"pointer"}} />
                 자동 로그인
               </label>
-              <button onClick={()=>{setFindPwOpen(true);setFindPwStep(0);setFindPwEmail(email||"");setFindPwErr("");setFindPwCode("");setFindPwNewPw("");}}
+              <button onClick={()=>{setFindPwOpen(true);setFindPwStep(0);setFindPwEmail(email||"");setFindPwErr("");}}
                 style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#9ca3af",padding:0,textDecoration:"underline"}}>
                 비밀번호 찾기
               </button>
@@ -2055,8 +2055,8 @@ export default function App() {
             <h3 style={{margin:"0 0 6px",fontSize:18,fontWeight:800}}>슈퍼좋아요</h3>
             <p style={{margin:"0 0 4px",fontSize:14,color:"#6b7280"}}>{superLikeConfirm.name}에게 슈퍼좋아요를 보내면<br/><b>100% 매칭</b>이 보장돼요!</p>
             <div style={{background:"#fef9c3",borderRadius:12,padding:"10px 14px",margin:"12px 0 18px"}}>
-              <p style={{margin:0,fontSize:14,fontWeight:700,color:"#92400e"}}>🐾 30p를 사용합니다</p>
-              <p style={{margin:"2px 0 0",fontSize:12,color:"#a16207"}}>현재 보유: {points}p → 사용 후 {points-30}p</p>
+              <p style={{margin:0,fontSize:14,fontWeight:700,color:"#92400e"}}>🐾 50p를 사용합니다</p>
+              <p style={{margin:"2px 0 0",fontSize:12,color:"#a16207"}}>현재 보유: {points}p → 사용 후 {points-50}p</p>
             </div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>setSuperLikeConfirm(null)}
@@ -2160,12 +2160,12 @@ export default function App() {
           <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:20,marginTop:24}}>
             <button onClick={() => swipe("L")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>❌</button>
             <button onClick={() => {
-              if(points<30){alert("슈퍼좋아요에는 🐾 30p가 필요해요!\n현재 보유: "+points+"p");return;}
+              if(points<50){alert("슈퍼좋아요에는 🐾 50p가 필요해요!\n현재 보유: "+points+"p");return;}
               setSuperLikeConfirm(pet);
             }} style={{width:76,height:76,background:"linear-gradient(135deg,#fbbf24,#f59e0b)",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:30,boxShadow:"0 6px 20px rgba(251,191,36,.4)",display:"flex",alignItems:"center",justifyContent:"center"}}>💎</button>
             <button onClick={() => swipe("R")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>🐾</button>
           </div>
-          <p style={{textAlign:"center",fontSize:12,color:"#d1d5db",marginTop:10}}>❌ 패스 &nbsp;|&nbsp; 💎 슈퍼좋아요 <span style={{color:"#f59e0b",fontWeight:700}}>30p</span> &nbsp;|&nbsp; 🐾 좋아요</p>
+          <p style={{textAlign:"center",fontSize:12,color:"#d1d5db",marginTop:10}}>❌ 패스 &nbsp;|&nbsp; 💎 슈퍼좋아요 <span style={{color:"#f59e0b",fontWeight:700}}>50p</span> &nbsp;|&nbsp; 🐾 좋아요</p>
           </>)}
         </div>
       )}
@@ -2258,7 +2258,6 @@ export default function App() {
                   <p style={{fontSize:40,margin:"0 0 10px"}}>📝</p>
                   <p style={{color:"#9ca3af",fontSize:14,marginBottom:8}}>아직 글이 없어요</p>
                   <p style={{color:"#d1d5db",fontSize:12}}>첫 번째 글을 작성해보세요! ✏️</p>
-                  <p style={{color:"#d1d5db",fontSize:12,marginTop:4}}>첫 번째 글을 작성해보세요!</p>
                 </div>
               );
 
