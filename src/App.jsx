@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { auth, db } from "./firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp, onSnapshot } from "firebase/firestore";
 
 
@@ -114,7 +114,7 @@ function Input({ label, type, placeholder, value, onChange, hint, onEnter }) {
       <input
         type={type} placeholder={placeholder} value={value}
         onChange={e => onChange(e.target.value)}
-        onKeyDown={e => e.key === "Enter" && onEnter && onEnter()}
+        onKeyDown={e => e.key === "Enter" && !e.isComposing && onEnter && onEnter()}
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
         style={{width:"100%",padding:"12px 14px",border:`2px solid ${focus?"#ec4899":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}
@@ -358,7 +358,7 @@ export default function App() {
   const [alarmSettings, setAlarmSettings] = useState({match:true,message:true,community:true,meeting:true,marketing:false});
   const [showPoints, setShowPoints] = useState(false);
   const [payModal,   setPayModal]   = useState(null);
-  const [appAlert, setAppAlert] = useState(null); // {msg, onOk?, onCancel?} // {type:"point"|"sub", pkg:{...}}
+  const [appAlert, setAppAlert] = useState(null); // {msg, onOk?, onCancel?}
   const [payMethod,  setPayMethod]  = useState(null);
   const [payStep,    setPayStep]    = useState(0); // 0:선택, 1:진행중, 2:완료
   const [isPlusSub,  setIsPlusSub]  = useState(false); // 펫플 플러스 구독 여부
@@ -562,7 +562,7 @@ export default function App() {
           {rt===ci && (
             <div style={{display:"flex",gap:6,marginLeft:34,marginTop:4}}>
               <input value={rv} onChange={e=>setRv(e.target.value)} placeholder="답글..." style={{flex:1,padding:"7px 10px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}
-                onKeyDown={e=>{if(e.key==="Enter"&&rv.trim()){
+                onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing&&rv.trim()){
                   if(hasBadWord(rv)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                   const updated=[...comments];
                   updated[ci]={...c,replies:[...(c.replies||[]),{by:user?.name,text:rv.trim(),time:timeNow()}]};
@@ -1077,6 +1077,8 @@ export default function App() {
         if (nickAvail !== "ok")      { setSubmitting(false); return setErr("닉네임 중복 확인을 해주세요."); }
         if (pwConfirm !== pw)        { setSubmitting(false); return setErr("비밀번호가 일치하지 않습니다."); }
 
+        // 자동 로그인 설정에 따라 persistence 변경
+        await setPersistence(auth, autoLogin ? browserLocalPersistence : browserSessionPersistence);
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), pw);
         try {
           await setDoc(doc(db, "users", cred.user.uid), {
@@ -1093,13 +1095,26 @@ export default function App() {
           });
         } catch (fsErr) {
           console.error("Firestore 저장 실패 (가입은 완료):", fsErr);
-          // Auth 가입은 됐으니 onAuthStateChanged에서 처리
         }
-        // onAuthStateChanged가 자동으로 로그인 처리
+        // onAuthStateChanged가 자동으로 로그인 처리 → loggedIn 될 때까지 대기
+        await new Promise((resolve) => {
+          const maxWait = setTimeout(() => resolve(), 10000);
+          const check = setInterval(() => {
+            if (auth.currentUser) { clearInterval(check); clearTimeout(maxWait); resolve(); }
+          }, 100);
+        });
       } else {
         // ── 로그인 ──
+        // 자동 로그인 설정에 따라 persistence 변경
+        await setPersistence(auth, autoLogin ? browserLocalPersistence : browserSessionPersistence);
         await signInWithEmailAndPassword(auth, email.trim(), pw);
-        // onAuthStateChanged가 자동으로 로그인 처리
+        // onAuthStateChanged가 프로필 로드 후 setLoggedIn(true) → 그때까지 대기
+        await new Promise((resolve) => {
+          const maxWait = setTimeout(() => resolve(), 10000);
+          const check = setInterval(() => {
+            if (auth.currentUser) { clearInterval(check); clearTimeout(maxWait); resolve(); }
+          }, 100);
+        });
       }
     } catch (e) {
       const code = e.code || "";
@@ -1326,12 +1341,12 @@ export default function App() {
 
   async function logout() {
     try { await signOut(auth); } catch {}
-    setLoggedIn(false); setUser(null); setPw(""); setPwConfirm(""); setNick(""); setErr(""); setSignup(false);
+    setLoggedIn(false); setUser(null); setPw(""); setPwConfirm(""); setNick(""); setErr(""); setSignup(false); setSubmitting(false);
     setMatches([]); setLiked([]); setReceivedLikes([]); setIdx(0); setTab("home"); setChatPet(null);
     setPoints(0); setPointLog([]);
     setProfileBio(""); setProfilePhotos([null,null,null,null,null]); setProfileRepIdx(0);
     setMyPets([]); setMyStories([]); setPosts([]);
-    setIsVerified(false); setIsBoosted(false); setUserLocation("인천 연수구");
+    setIsVerified(false); setUserLocation("인천 연수구");
     setDailySwipes(0); setNearbyPets([]);
   }
 
@@ -1451,7 +1466,7 @@ export default function App() {
               <div style={{display:"flex",gap:8}}>
                 <input type="text" placeholder="닉네임을 입력하세요" value={nick}
                   onChange={e=>{setNick(e.target.value);setNickAvail(null);}}
-                  onKeyDown={e=>e.key==="Enter"&&submit()}
+                  onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&submit()}
                   style={{flex:1,padding:"12px 14px",border:`2px solid ${nickAvail==="ok"?"#16a34a":nickAvail==="dup"?"#ef4444":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}/>
                 <button onClick={async ()=>{
                   if(!nick.trim()||nick.trim().length<2){setNickAvail(null);return alert("닉네임은 2자 이상 입력해주세요.");}
@@ -1496,7 +1511,7 @@ export default function App() {
                   style={{width:16,height:16,accentColor:"#ec4899",cursor:"pointer"}} />
                 자동 로그인
               </label>
-              <button onClick={()=>{setFindPwOpen(true);setFindPwStep(0);setFindPwEmail(email||"");setFindPwErr("");setFindPwCode("");setFindPwNewPw("");}}
+              <button onClick={()=>{setFindPwOpen(true);setFindPwStep(0);setFindPwEmail(email||"");setFindPwErr("");}}
                 style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#9ca3af",padding:0,textDecoration:"underline"}}>
                 비밀번호 찾기
               </button>
@@ -1890,12 +1905,9 @@ export default function App() {
             <div style={{width:64,height:64,background:"linear-gradient(135deg,#fef9c3,#fef3c7)",borderRadius:"50%",margin:"0 auto 16px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30}}>🚀</div>
             <h3 style={{margin:"0 0 8px",fontSize:18,fontWeight:800}}>포인트 충전 안내</h3>
             <p style={{margin:"0 0 20px",fontSize:14,color:"#6b7280",lineHeight:1.6}}>Google Play 앱에서 포인트를 충전할 수 있어요!<br/>포인트 탭의 💳 구매 메뉴를 이용해주세요 🐾</p>
-            <button onClick={()=>setPayModal(null)} style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
-              확인
-            </button>
             <button onClick={()=>setPayModal(null)}
-              style={{width:"100%",background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>
-              닫기
+              style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
+              확인
             </button>
           </div>
         </div>
@@ -2058,8 +2070,8 @@ export default function App() {
             <h3 style={{margin:"0 0 6px",fontSize:18,fontWeight:800}}>슈퍼좋아요</h3>
             <p style={{margin:"0 0 4px",fontSize:14,color:"#6b7280"}}>{superLikeConfirm.name}에게 슈퍼좋아요를 보내면<br/><b>100% 매칭</b>이 보장돼요!</p>
             <div style={{background:"#fef9c3",borderRadius:12,padding:"10px 14px",margin:"12px 0 18px"}}>
-              <p style={{margin:0,fontSize:14,fontWeight:700,color:"#92400e"}}>🐾 30p를 사용합니다</p>
-              <p style={{margin:"2px 0 0",fontSize:12,color:"#a16207"}}>현재 보유: {points}p → 사용 후 {points-30}p</p>
+              <p style={{margin:0,fontSize:14,fontWeight:700,color:"#92400e"}}>🐾 50p를 사용합니다</p>
+              <p style={{margin:"2px 0 0",fontSize:12,color:"#a16207"}}>현재 보유: {points}p → 사용 후 {points-50}p</p>
             </div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>setSuperLikeConfirm(null)}
@@ -2163,12 +2175,12 @@ export default function App() {
           <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:20,marginTop:24}}>
             <button onClick={() => swipe("L")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>❌</button>
             <button onClick={() => {
-              if(points<30){alert("슈퍼좋아요에는 🐾 30p가 필요해요!\n현재 보유: "+points+"p");return;}
+              if(points<50){alert("슈퍼좋아요에는 🐾 50p가 필요해요!\n현재 보유: "+points+"p");return;}
               setSuperLikeConfirm(pet);
             }} style={{width:76,height:76,background:"linear-gradient(135deg,#fbbf24,#f59e0b)",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:30,boxShadow:"0 6px 20px rgba(251,191,36,.4)",display:"flex",alignItems:"center",justifyContent:"center"}}>💎</button>
             <button onClick={() => swipe("R")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>🐾</button>
           </div>
-          <p style={{textAlign:"center",fontSize:12,color:"#d1d5db",marginTop:10}}>❌ 패스 &nbsp;|&nbsp; 💎 슈퍼좋아요 <span style={{color:"#f59e0b",fontWeight:700}}>30p</span> &nbsp;|&nbsp; 🐾 좋아요</p>
+          <p style={{textAlign:"center",fontSize:12,color:"#d1d5db",marginTop:10}}>❌ 패스 &nbsp;|&nbsp; 💎 슈퍼좋아요 <span style={{color:"#f59e0b",fontWeight:700}}>50p</span> &nbsp;|&nbsp; 🐾 좋아요</p>
           </>)}
         </div>
       )}
@@ -2261,7 +2273,6 @@ export default function App() {
                   <p style={{fontSize:40,margin:"0 0 10px"}}>📝</p>
                   <p style={{color:"#9ca3af",fontSize:14,marginBottom:8}}>아직 글이 없어요</p>
                   <p style={{color:"#d1d5db",fontSize:12}}>첫 번째 글을 작성해보세요! ✏️</p>
-                  <p style={{color:"#d1d5db",fontSize:12,marginTop:4}}>첫 번째 글을 작성해보세요!</p>
                 </div>
               );
 
@@ -2540,7 +2551,7 @@ export default function App() {
                             <input value={replyVal} onChange={e=>setReplyVal(e.target.value)}
                               placeholder={`@${c.by}에게 대댓글 달기`}
                               style={{flex:1,background:"none",border:"none",outline:"none",fontSize:13,color:"#1f2937"}}
-                              onKeyDown={e=>e.key==="Enter"&&addReply(c.id)}
+                              onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&addReply(c.id)}
                               autoFocus />
                             <button onClick={()=>addReply(c.id)}
                               style={{background:G,color:"white",border:"none",cursor:"pointer",borderRadius:10,padding:"4px 12px",fontSize:12,fontWeight:700,flexShrink:0}}>
@@ -2560,7 +2571,7 @@ export default function App() {
               <input value={commentVal} onChange={e=>setCommentVal(e.target.value)}
                 placeholder="댓글을 입력하세요..."
                 style={{flex:1,background:"#f3f4f6",border:"none",outline:"none",borderRadius:22,padding:"10px 16px",fontSize:14,color:"#1f2937"}}
-                onKeyDown={e=>e.key==="Enter"&&addComment()} />
+                onKeyDown={e=>e.key==="Enter"&&!e.isComposing&&addComment()} />
               <button onClick={addComment}
                 style={{flexShrink:0,background:commentVal.trim()?G:"#e5e7eb",color:commentVal.trim()?"white":"#9ca3af",border:"none",cursor:commentVal.trim()?"pointer":"default",borderRadius:"50%",width:40,height:40,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
                 ↑
@@ -2759,7 +2770,7 @@ export default function App() {
               </div>
             )}
             <div style={{padding:"12px 14px",display:"flex",gap:10}}>
-            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&sendMsg()} placeholder={chatReplyTo?"답글을 입력하세요...":"메시지를 입력하세요..."}
+            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&!e.isComposing&&sendMsg()} placeholder={chatReplyTo?"답글을 입력하세요...":"메시지를 입력하세요..."}
               style={{flex:1,padding:"10px 16px",border:"2px solid #f3f4f6",borderRadius:24,fontSize:14,outline:"none"}} />
             <button onClick={sendMsg} disabled={!msgVal.trim()}
               style={{width:44,height:44,background:G,border:"none",borderRadius:"50%",cursor:"pointer",color:"white",fontSize:18,opacity:msgVal.trim()?1:.4,display:"flex",alignItems:"center",justifyContent:"center"}}>➤</button>
@@ -4078,7 +4089,7 @@ export default function App() {
                       </div>
                     )}
                     <input value={mChatVal} onChange={e=>setMChatVal(e.target.value)} onKeyDown={e=>{
-                      if(e.key==="Enter"&&mChatVal.trim()){
+                      if(e.key==="Enter"&&!e.isComposing&&mChatVal.trim()){
                         if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                         updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}]}));
                         setMChatVal("");setMChatReplyTo(null);
@@ -4975,7 +4986,6 @@ export default function App() {
       )}
 
       
-      {/* 온보딩 튜토리얼 */}
       {/* 커스텀 알림 모달 (URL 노출 방지) */}
       {appAlert && (
         <div style={{position:"fixed",inset:0,zIndex:250,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.5)",backdropFilter:"blur(3px)"}}>
