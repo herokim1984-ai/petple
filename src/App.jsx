@@ -1628,11 +1628,6 @@ export default function App() {
                   {alarms.filter(a=>a.unread).length}
                 </span>}
               </button>
-              {/* 마이페이지 */}
-              <button onClick={() => setTab("profile")}
-                style={{background:tab==="profile"?"linear-gradient(135deg,#fce7f3,#ede9fe)":"#f3f4f6",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
-                👤
-              </button>
             </div>
           </>
         )}
@@ -4591,7 +4586,7 @@ export default function App() {
       {/* 하단 탭바 */}
       {tab!=="chat" && (
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
-          {[["home","🏠","홈"],["community","🧡","라운지"],["meeting","🏃","모임"],["messages","💬","대화"]].map(([id,icon,label]) => (
+          {[["home","🏠","홈"],["community","🧡","라운지"],["meeting","🏃","모임"],["messages","💬","대화"],["profile","👤","마이"]].map(([id,icon,label]) => (
             <button key={id} onClick={() => { setTab(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
               <span style={{fontSize:10,fontWeight:700,color:tab===id?"#ec4899":"#9ca3af"}}>{label}</span>
