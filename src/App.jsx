@@ -74,6 +74,16 @@ const dateNow = () => {
   const d = new Date();
   return (d.getMonth()+1) + "/" + d.getDate() + " " + timeNow();
 };
+const timeAgo = (ts) => {
+  if(!ts) return "";
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if(diff < 60) return "방금 전";
+  if(diff < 3600) return Math.floor(diff/60)+"분 전";
+  if(diff < 86400) return Math.floor(diff/3600)+"시간 전";
+  if(diff < 604800) return Math.floor(diff/86400)+"일 전";
+  const d = new Date(ts);
+  return (d.getMonth()+1)+"/"+d.getDate();
+};
 
 const INIT_MEETINGS = [];
 
@@ -2281,7 +2291,7 @@ export default function App() {
                       </div>
                       <div style={{flex:1}}>
                         <p onClick={openAuthorProfile} style={{margin:0,fontWeight:700,fontSize:13,cursor:"pointer",display:"inline-block"}}>{p.by}</p>
-                        <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{p.ago}</p>
+                        <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{p.ts ? timeAgo(p.ts) : p.ago}</p>
                       </div>
                       {p.pinnedUntil && p.pinnedUntil > Date.now() && (
                         <span style={{background:"linear-gradient(135deg,#f59e0b,#fbbf24)",color:"white",fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:20,display:"flex",alignItems:"center",gap:2}}>📌 TOP</span>
@@ -2299,13 +2309,6 @@ export default function App() {
                         {isLiked?"❤️":"🤍"} {p.likes.length}
                       </span>
                       <span style={{fontSize:13,color:"#9ca3af"}}>💬 {p.comments.length}</span>
-                      {p.by!==user?.name && (
-                        <button onClick={(e)=>{
-                          e.stopPropagation();
-                          if(myReportedPosts.has(p.id)){alert("이미 신고한 게시물이에요.");return;}
-                          setPostReportModal({postId:p.id,postFid:p._fid,by:p.by,uid:p.uid});
-                        }} style={{background:"none",border:"none",color:"#d1d5db",fontSize:16,cursor:"pointer",padding:2,marginLeft:"auto"}}>⚠️</button>
-                      )}
                       {p.by===user?.name && !(p.pinnedUntil && p.pinnedUntil>Date.now()) && (
                         <button onClick={(e)=>{
                           e.stopPropagation();
@@ -2419,7 +2422,7 @@ export default function App() {
                 </div>
                 <div style={{flex:1,cursor:"pointer"}} onClick={()=>openProfile(post.by, post.byImg)}>
                   <p style={{margin:0,fontWeight:700,fontSize:14}}>{post.by}</p>
-                  <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{post.ago}</p>
+                  <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{post.ts ? timeAgo(post.ts) : post.ago}</p>
                 </div>
                 {/* 내 글: 삭제 */}
                 {post.by===user?.name && (
@@ -2464,6 +2467,14 @@ export default function App() {
                 <button style={{display:"flex",alignItems:"center",gap:6,background:"#f9fafb",border:"none",cursor:"pointer",padding:"8px 16px",borderRadius:20,fontWeight:700,fontSize:13,color:"#9ca3af"}}>
                   💬 댓글 {post.comments.length}
                 </button>
+                {post.by!==user?.name && (
+                  <button onClick={()=>{
+                    if(myReportedPosts.has(post.id)){alert("이미 신고한 게시물이에요.");return;}
+                    setPostReportModal({postId:post.id,postFid:post._fid,by:post.by,uid:post.uid});
+                  }} style={{display:"flex",alignItems:"center",gap:6,background:"#f9fafb",border:"none",cursor:"pointer",padding:"8px 16px",borderRadius:20,fontWeight:700,fontSize:13,color:"#9ca3af",marginLeft:"auto"}}>
+                    ⚠️ 신고
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2596,7 +2607,28 @@ export default function App() {
                 </div>
               ) : matches.map((m,i) => {
                 const petData = nearbyPets.find(p=>p.owner===m.name||p.name===m.name);
-                const buildProfile = () => setViewUserProfile({name:m.name,img:m.img,location:petData?.location||"인천 연수구",bio:petData?.bio||"",pets:petData?[{name:petData.name,type:"강아지",breed:petData.breed,img:petData.img,gender:petData.gender,traits:petData.tags}]:[]});
+                const buildProfile = async () => {
+                  const profile = {name:m.owner||m.name,img:m.img,location:petData?.location||"",bio:petData?.bio||"",
+                    gender:petData?.ownerGender||"",birth:petData?.ownerBirth||"",interests:petData?.ownerInterests||[],
+                    uid:m.uid,loading:false,
+                    pets:petData?[{name:petData.name,type:petData.type||"강아지",breed:petData.breed,img:petData.img,gender:petData.gender,birth:petData.birth,traits:petData.tags,food:petData.food}]:[]};
+                  if(m.uid){
+                    setViewUserProfile({...profile,loading:true});
+                    try{
+                      const uDoc=await getDoc(doc(db,"users",m.uid));
+                      if(uDoc.exists()){
+                        const d=uDoc.data();
+                        const ph=(d.profilePhotos||[]).filter(p=>p&&p!=="[img]");
+                        setViewUserProfile({...profile,loading:false,name:d.nick||profile.name,
+                          gender:d.gender||profile.gender,birth:d.birth||profile.birth,
+                          region:d.region||profile.location,location:d.region||profile.location,
+                          bio:d.profileBio||profile.bio,interests:d.interests||profile.interests,
+                          verified:d.verified||false,img:ph[0]||profile.img,photos:ph,
+                          pets:d.myPets?.length>0?d.myPets:profile.pets});
+                      } else setViewUserProfile({...profile,loading:false});
+                    }catch(e){setViewUserProfile({...profile,loading:false});}
+                  } else setViewUserProfile(profile);
+                };
                 return (
                 <div key={i} onClick={() => openChat(m)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 20px",borderBottom:"1px solid #f9fafb",cursor:"pointer",background:"white"}}>
                   <div onClick={e=>{e.stopPropagation();buildProfile();}} style={{position:"relative",cursor:"pointer"}}>
@@ -2931,7 +2963,7 @@ export default function App() {
                   }
                 }},
                 {icon:"🚪",label:"회원탈퇴",action:()=>setDeleteAccModal(true),danger:true},
-                ...(isAdmin?[{icon:"🛡️",label:"관리자 패널",action:()=>{setShowAdmin(true);setAdminTab("dashboard");loadAdminData("dashboard");},admin:true}]:[]),
+                ...(isAdmin?[{icon:"🛡️",label:"관리자 패널",action:()=>{setShowAdmin(true);setAdminTab("dashboard");setAdminLoading(true);loadAdminData("dashboard");},admin:true}]:[]),
               ].map((item,i)=>(
                 <button key={i} onClick={item.action}
                   style={{display:"flex",alignItems:"center",gap:12,padding:"13px 4px",background:"none",border:"none",cursor:"pointer",textAlign:"left",borderBottom:i<4?"1px solid #f3f4f6":"none"}}>
@@ -4755,7 +4787,7 @@ export default function App() {
           {/* 탭 */}
           <div style={{display:"flex",borderBottom:"2px solid #e5e7eb",background:"white",overflowX:"auto"}}>
             {[{key:"dashboard",label:"📊 대시보드"},{key:"reports",label:"🚨 신고"},{key:"users",label:"👤 유저"},{key:"refunds",label:"💰 환불"},{key:"posts",label:"📝 게시글"}].map(t=>(
-              <button key={t.key} onClick={()=>{setAdminTab(t.key);loadAdminData(t.key);}}
+              <button key={t.key} onClick={()=>{setAdminTab(t.key);setAdminLoading(true);loadAdminData(t.key);}}
                 style={{flex:1,padding:"12px 8px",border:"none",borderBottom:adminTab===t.key?"3px solid #1e293b":"3px solid transparent",background:"white",fontSize:12,fontWeight:adminTab===t.key?800:500,cursor:"pointer",color:adminTab===t.key?"#1e293b":"#9ca3af",whiteSpace:"nowrap"}}>{t.label}</button>
             ))}
           </div>
