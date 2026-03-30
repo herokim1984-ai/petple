@@ -82,7 +82,9 @@ const timeAgo = (ts) => {
   if(diff < 86400) return Math.floor(diff/3600)+"시간 전";
   if(diff < 604800) return Math.floor(diff/86400)+"일 전";
   const d = new Date(ts);
-  return (d.getMonth()+1)+"/"+d.getDate();
+  const h = d.getHours(); const m = d.getMinutes();
+  const ampm = h >= 12 ? "오후" : "오전";
+  return (d.getMonth()+1)+"/"+d.getDate()+" "+ampm+" "+(h%12||12)+":"+String(m).padStart(2,"0");
 };
 
 const INIT_MEETINGS = [];
