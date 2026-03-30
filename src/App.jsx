@@ -551,12 +551,12 @@ export default function App() {
             <span style={{fontSize:10,color:"#9ca3af"}}>{c.time}</span>
             <button onClick={()=>{
               const likes=c.likes||[];
-              const isL=likes.includes(user?.name);
-              const newL=isL?likes.filter(n=>n!==user?.name):[...likes,user?.name];
+              const isL=likes.includes(user?.uid);
+              const newL=isL?likes.filter(n=>n!==user?.uid):[...likes,user?.uid];
               const updated=[...comments];updated[ci]={...c,likes:newL};
               onUpdate(updated);
             }} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,marginLeft:"auto",padding:0}}>
-              {(c.likes||[]).includes(user?.name)?"❤️":"🤍"} {(c.likes||[]).length||""}
+              {(c.likes||[]).includes(user?.uid)?"❤️":"🤍"} {(c.likes||[]).length||""}
             </button>
           </div>
           <p style={{margin:"4px 0 4px 34px",fontSize:13,color:"#1f2937"}}>{c.text}</p>
@@ -2279,7 +2279,7 @@ export default function App() {
 
               return filtered.map(p => {
                 const catInfo = LOUNGE_CATS.find(c=>c.key===p.cat)||{icon:"🐾",label:p.cat};
-                const isLiked = p.likes.includes(user?.name);
+                const isLiked = p.likes.includes(user?.uid);
                 const openAuthorProfile = (e) => {
                   e.stopPropagation();
                   openProfile(p.by, p.byImg);
@@ -2351,10 +2351,10 @@ export default function App() {
       {tab==="community" && selectedPost && (() => {
         const post = posts.find(p=>p.id===selectedPost.id) || selectedPost;
         const catInfo = LOUNGE_CATS.find(c=>c.key===post.cat)||{icon:"🐾",label:post.cat};
-        const isLiked = post.likes.includes(user?.name);
+        const isLiked = post.likes.includes(user?.uid);
 
         const addLike = () => {
-          const newLikes = isLiked ? post.likes.filter(n=>n!==user?.name) : [...post.likes, user?.name];
+          const newLikes = isLiked ? post.likes.filter(n=>n!==user?.uid) : [...post.likes, user?.uid];
           setPosts(ps => ps.map(p => p.id===post.id ? {...p, likes: newLikes} : p));
           setSelectedPost(p => ({...p, likes: newLikes}));
           // Firestore 즉시 동기화
@@ -2399,7 +2399,7 @@ export default function App() {
 
         const likeComment = (commentId) => {
           const updateCs = cs => cs.map(c => c.id===commentId
-            ? {...c, likes: c.likes.includes(user?.name) ? c.likes.filter(n=>n!==user?.name) : [...c.likes,user?.name]}
+            ? {...c, likes: c.likes.includes(user?.uid) ? c.likes.filter(n=>n!==user?.uid) : [...c.likes,user?.uid]}
             : c);
           const updatedComments = updateCs(post.comments);
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
@@ -2498,8 +2498,8 @@ export default function App() {
                         <p style={{margin:"0 0 6px",fontSize:14,color:"#1f2937",lineHeight:1.5}}>{c.text}</p>
                         <div style={{display:"flex",gap:12,alignItems:"center"}}>
                           <button onClick={()=>likeComment(c.id)}
-                            style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:c.likes.includes(user?.name)?"#ec4899":"#9ca3af",padding:0,fontWeight:600}}>
-                            {c.likes.includes(user?.name)?"❤️":"🤍"} {c.likes.length}
+                            style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:c.likes.includes(user?.uid)?"#ec4899":"#9ca3af",padding:0,fontWeight:600}}>
+                            {c.likes.includes(user?.uid)?"❤️":"🤍"} {c.likes.length}
                           </button>
                           <button onClick={()=>setReplyTarget(replyTarget?.commentId===c.id?null:{postId:post.id,commentId:c.id})}
                             style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9ca3af",padding:0,fontWeight:600}}>
@@ -2738,12 +2738,12 @@ export default function App() {
                         {Object.entries(m.reactions).map(([emoji,users])=>(users||[]).length>0&&(
                           <span key={emoji} onClick={()=>{
                             if(!m.id||!chatRoomId) return;
-                            const myR=users.includes(user?.name);
-                            const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                            const myR=users.includes(user?.uid);
+                            const newU=myR?users.filter(n=>n!==user?.uid):[...users,user?.uid];
                             const newR={...m.reactions,[emoji]:newU};
                             setMsgs(prev=>prev.map((x,xi)=>xi===mi?{...x,reactions:newR}:x));
                             updateDoc(doc(db,"chatRooms",chatRoomId,"messages",m.id),{reactions:newR}).catch(()=>{});
-                          }} style={{background:users.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.name)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
+                          }} style={{background:users.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.uid)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
                             {emoji} {users.length>1?users.length:""}
                           </span>
                         ))}
@@ -2758,8 +2758,8 @@ export default function App() {
                             if(!m.id||!chatRoomId) return;
                             const reactions=m.reactions||{};
                             const users=reactions[emoji]||[];
-                            const myR=users.includes(user?.name);
-                            const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                            const myR=users.includes(user?.uid);
+                            const newU=myR?users.filter(n=>n!==user?.uid):[...users,user?.uid];
                             const newR={...reactions,[emoji]:newU};
                             setMsgs(prev=>prev.map((x,xi)=>xi===mi?{...x,reactions:newR}:x));
                             updateDoc(doc(db,"chatRooms",chatRoomId,"messages",m.id),{reactions:newR}).catch(()=>{});
@@ -3233,10 +3233,10 @@ export default function App() {
 
       {/* 스토리 풀스크린 뷰어 */}
       {viewStory && (()=>{
-        const sLiked = (viewStory.likes||[]).includes(user?.name);
+        const sLiked = (viewStory.likes||[]).includes(user?.uid);
         const toggleStoryLike = (e) => {
           e.stopPropagation();
-          const newLikes = sLiked ? viewStory.likes.filter(n=>n!==user?.name) : [...(viewStory.likes||[]),user?.name];
+          const newLikes = sLiked ? viewStory.likes.filter(n=>n!==user?.uid) : [...(viewStory.likes||[]),user?.uid];
           setViewStory(s=>({...s,likes:newLikes}));
           setMyStories(ss=>ss.map(s=>s.id===viewStory.id?{...s,likes:newLikes}:s));
           syncStoryToFirestore(viewStory.id, {likes:newLikes, comments:viewStory.comments||[]});
@@ -3795,13 +3795,13 @@ export default function App() {
                       </div>
                     )}
                     <button onClick={()=>{
-                      const isLiked=mBoardDetail.likes.includes(user?.name);
-                      const newLikes=isLiked?mBoardDetail.likes.filter(n=>n!==user?.name):[...mBoardDetail.likes,user?.name];
+                      const isLiked=mBoardDetail.likes.includes(user?.uid);
+                      const newLikes=isLiked?mBoardDetail.likes.filter(n=>n!==user?.uid):[...mBoardDetail.likes,user?.uid];
                       const updated={...mBoardDetail,likes:newLikes};
                       updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
                       setMBoardDetail(updated);
-                    }} style={{background:mBoardDetail.likes.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 16px",borderRadius:20,fontSize:13,fontWeight:700,color:mBoardDetail.likes.includes(user?.name)?"#ec4899":"#6b7280"}}>
-                      {mBoardDetail.likes.includes(user?.name)?"❤️":"🤍"} {mBoardDetail.likes.length}
+                    }} style={{background:mBoardDetail.likes.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 16px",borderRadius:20,fontSize:13,fontWeight:700,color:mBoardDetail.likes.includes(user?.uid)?"#ec4899":"#6b7280"}}>
+                      {mBoardDetail.likes.includes(user?.uid)?"❤️":"🤍"} {mBoardDetail.likes.length}
                     </button>
                   </div>
                   <MeetingComments comments={mBoardDetail.comments}                     onUpdate={(updated)=>{const u={...mBoardDetail,comments:updated};updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?u:p)}));setMBoardDetail(u);}} />
@@ -3842,13 +3842,13 @@ export default function App() {
                           <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{mPhotoDetail.time}</p>
                           <button onClick={()=>{
                             const likes=mPhotoDetail.likes||[];
-                            const isL=likes.includes(user?.name);
-                            const newL=isL?likes.filter(n=>n!==user?.name):[...likes,user?.name];
+                            const isL=likes.includes(user?.uid);
+                            const newL=isL?likes.filter(n=>n!==user?.uid):[...likes,user?.uid];
                             const updated={...mPhotoDetail,likes:newL};
                             updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?updated:p)}));
                             setMPhotoDetail(updated);
                           }} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,marginLeft:"auto"}}>
-                            {(mPhotoDetail.likes||[]).includes(user?.name)?"❤️":"🤍"} {(mPhotoDetail.likes||[]).length}
+                            {(mPhotoDetail.likes||[]).includes(user?.uid)?"❤️":"🤍"} {(mPhotoDetail.likes||[]).length}
                           </button>
                         </div>
                         <MeetingComments comments={mPhotoDetail.comments||[]}                           onUpdate={(updated)=>{const u={...mPhotoDetail,comments:updated};updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?u:p)}));setMPhotoDetail(u);}} />
@@ -4038,11 +4038,11 @@ export default function App() {
                               <div style={{display:"flex",gap:2,marginTop:2,flexWrap:"wrap",justifyContent:isMe?"flex-end":"flex-start"}}>
                                 {Object.entries(c.reactions).map(([emoji,users])=>users.length>0&&(
                                   <span key={emoji} onClick={()=>{
-                                    const myR=users.includes(user?.name);
-                                    const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                                    const myR=users.includes(user?.uid);
+                                    const newU=myR?users.filter(n=>n!==user?.uid):[...users,user?.uid];
                                     const newR={...c.reactions,[emoji]:newU};
                                     updMeeting(x=>({...x,chats:x.chats.map((ch,ci)=>ci===i?{...ch,reactions:newR}:ch)}));
-                                  }} style={{background:users.includes(user?.name)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.name)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 5px",fontSize:11,cursor:"pointer"}}>
+                                  }} style={{background:users.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.uid)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 5px",fontSize:11,cursor:"pointer"}}>
                                     {emoji}{users.length>1?users.length:""}
                                   </span>
                                 ))}
@@ -4054,8 +4054,8 @@ export default function App() {
                                   <button key={emoji} onClick={()=>{
                                     const reactions=c.reactions||{};
                                     const users=reactions[emoji]||[];
-                                    const myR=users.includes(user?.name);
-                                    const newU=myR?users.filter(n=>n!==user?.name):[...users,user?.name];
+                                    const myR=users.includes(user?.uid);
+                                    const newU=myR?users.filter(n=>n!==user?.uid):[...users,user?.uid];
                                     const newR={...reactions,[emoji]:newU};
                                     updMeeting(x=>({...x,chats:x.chats.map((ch,ci)=>ci===i?{...ch,reactions:newR}:ch)}));
                                   }} style={{background:"white",border:"1px solid #e5e7eb",borderRadius:14,padding:"2px 6px",fontSize:12,cursor:"pointer"}}>{emoji}</button>
