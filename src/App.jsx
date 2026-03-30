@@ -3389,7 +3389,7 @@ export default function App() {
               if(meetSearch.animal && meetSearch.animal!=="전체" && m.animal!==meetSearch.animal && m.animal!=="전체") return false;
               return true;
             }).map(m=>{
-              const isMember = m.myJoined || m.members.some(mb=>mb.name===user?.name);
+              const isMember = m.myJoined || m.members.some(mb=>mb.name===user?.name || mb.uid===user?.uid);
               return (
                 <div key={m.id} onClick={()=>{setSelectedMeeting(m);setMeetingView("detail");setMeetingTab("members");}}
                   style={{background:"white",borderRadius:18,padding:18,marginBottom:12,boxShadow:"0 4px 14px rgba(0,0,0,.06)",cursor:"pointer"}}>
@@ -3420,7 +3420,7 @@ export default function App() {
                         const cardPending = m.pending.some(p=>p.name===user?.name);
                         return cardPending
                           ? <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20}}>⏳ 대기중</span>
-                          : <button onClick={(e)=>{e.stopPropagation();setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,{name:user?.name,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}:x));}}
+                          : <button onClick={(e)=>{e.stopPropagation();setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,{name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}:x));}}
                             style={{background:G,color:"white",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20,border:"none",cursor:"pointer"}}>가입하기</button>;
                       })()}
                   </div>
@@ -3494,7 +3494,7 @@ export default function App() {
                 if(!newMeetForm.title.trim()||!newMeetForm.desc.trim()) return;
                 const nm={id:Date.now(),title:newMeetForm.title.trim(),region:newMeetForm.city+" "+newMeetForm.district,animal:newMeetForm.animal,
                   desc:newMeetForm.desc.trim(),max:newMeetForm.max,tags:[],coverImg:newMeetForm.coverImg||null,homeContent:newMeetForm.desc.trim(),
-                  members:[{name:user?.name,role:"운영자",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
+                  members:[{name:user?.name,uid:user?.uid,role:"운영자",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
                   greetings:[],board:[],photos:[],votes:[],chats:[],pending:[],myJoined:true};
                 setMeetings(ms=>[nm,...ms]);
                 // Firestore 공유 컬렉션에 저장
@@ -3515,8 +3515,8 @@ export default function App() {
       {/* 모임 상세 */}
       {tab==="meeting" && meetingView==="detail" && selectedMeeting && (()=>{
         const m = meetings.find(x=>x.id===selectedMeeting.id)||selectedMeeting;
-        const isMember = m.myJoined || m.members.some(mb=>mb.name===user?.name);
-        const isOwner  = m.members[0]?.name===user?.name;
+        const isMember = m.myJoined || m.members.some(mb=>mb.name===user?.name || mb.uid===user?.uid);
+        const isOwner  = m.members[0]?.name===user?.name || m.members[0]?.uid===user?.uid;
         const MTABS = [
           {key:"home",   label:"홈",icon:"🏠"},
           {key:"members",label:"멤버",icon:"👥"},
@@ -3553,7 +3553,7 @@ export default function App() {
                 const isPending = m.pending.some(p=>p.name===user?.name);
                 return isPending
                   ? <span style={{background:"#f3f4f6",color:"#9ca3af",padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700}}>⏳ 승인 대기중</span>
-                  : <button onClick={(e)=>{e.stopPropagation();updMeeting(x=>({...x,pending:[...x.pending,{name:user?.name,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}));}}
+                  : <button onClick={(e)=>{e.stopPropagation();updMeeting(x=>({...x,pending:[...x.pending,{name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}));}}
                     style={{background:G,color:"white",border:"none",padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer"}}>가입 신청</button>;
               })()}
             </div>
@@ -3656,7 +3656,7 @@ export default function App() {
                   {isMember && !isOwner && (
                     <button onClick={()=>{
                       if(!confirm("이 모임에서 탈퇴하시겠어요?")) return;
-                      updMeeting(x=>({...x,members:x.members.filter(mb=>mb.name!==user?.name),myJoined:false}));
+                      updMeeting(x=>({...x,members:x.members.filter(mb=>mb.name!==user?.name&&mb.uid!==user?.uid),myJoined:false}));
                       setMeetingView("list"); setSelectedMeeting(null);
                       alert("모임에서 탈퇴했습니다.");
                     }} style={{width:"100%",marginTop:12,background:"#f3f4f6",color:"#6b7280",border:"none",padding:"11px 0",borderRadius:14,fontWeight:700,fontSize:13,cursor:"pointer"}}>
@@ -4095,7 +4095,7 @@ export default function App() {
                           <div style={{display:"flex",gap:8}}>
                             <button onClick={()=>{
                               updMeeting(x=>({...x,
-                                members:[...x.members,{name:p.name,role:"멤버",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
+                                members:[...x.members,{name:p.name,uid:p.uid||null,role:"멤버",joined:new Date().toISOString().slice(0,7).replace("-",".")}],
                                 pending:x.pending.filter((_,j)=>j!==i),
                                 greetings:[...x.greetings,{by:p.name,text:p.msg||"안녕하세요! 잘 부탁드려요.",time:timeNow()}]
                               }));
