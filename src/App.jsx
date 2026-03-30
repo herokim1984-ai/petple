@@ -2259,7 +2259,7 @@ export default function App() {
               const filtered = posts.filter(p =>
                 loungeCat==="all" ? true :
                 loungeCat==="hot" ? p.likes.length>=2 :
-                loungeCat==="feed" ? p.by===user?.name :
+                loungeCat==="feed" ? (p.uid===user?.uid || p.by===user?.name) :
                 p.cat===loungeCat
               ).sort((a,b)=>{
                 // 상단 고정 글이 위로
@@ -2368,23 +2368,23 @@ export default function App() {
         const addComment = () => {
           if (!commentVal.trim()) return;
           if (hasBadWord(commentVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
-          const newC = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:commentVal.trim(),time:timeNow(),likes:[],replies:[]};
+          const trimmed = commentVal.trim();
+          const newC = {id:Date.now(),by:user?.name,uid:user?.uid,byImg:profilePhotos[profileRepIdx]||null,text:trimmed,time:timeNow(),likes:[],replies:[]};
           const updatedComments = [...post.comments, newC];
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
           setSelectedPost(p=>({...p,comments:updatedComments}));
-          // Firestore 즉시 동기화
           syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
           setCommentVal("");
-          if (post.by !== user?.name) {
-            setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${commentVal.trim().slice(0,20)}..."`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
-            if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"comment",from:user?.name,postId:post.id,text:commentVal.trim().slice(0,30)+"...",time:new Date().toISOString(),read:false}).catch(()=>{});
+          if (post.by !== user?.name && post.uid !== user?.uid) {
+            setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${trimmed.slice(0,20)}..."`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
+            if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"comment",from:user?.name,postId:post.id,text:trimmed.slice(0,30)+"...",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
         };
 
         const addReply = (commentId) => {
           if (!replyVal.trim()) return;
           if (hasBadWord(replyVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
-          const newR = {id:Date.now(),by:user?.name,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:timeNow()};
+          const newR = {id:Date.now(),by:user?.name,uid:user?.uid,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:timeNow()};
           const updateComments = cs => cs.map(c => c.id===commentId ? {...c,replies:[...c.replies,newR]} : c);
           const updatedComments = updateComments(post.comments);
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
@@ -2427,7 +2427,7 @@ export default function App() {
                   <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{post.ts ? timeAgo(post.ts) : post.ago}</p>
                 </div>
                 {/* 내 글: 삭제 */}
-                {post.by===user?.name && (
+                {(post.by===user?.name || post.uid===user?.uid) && (
                   <div style={{display:"flex",gap:6}}>
                     <button onClick={()=>{
                       if(!confirm("이 글을 삭제하시겠어요?")) return;
@@ -2469,7 +2469,7 @@ export default function App() {
                 <button style={{display:"flex",alignItems:"center",gap:6,background:"#f9fafb",border:"none",cursor:"pointer",padding:"8px 16px",borderRadius:20,fontWeight:700,fontSize:13,color:"#9ca3af"}}>
                   💬 댓글 {post.comments.length}
                 </button>
-                {post.by!==user?.name && (
+                {post.by!==user?.name && post.uid!==user?.uid && (
                   <button onClick={()=>{
                     if(myReportedPosts.has(post.id)){alert("이미 신고한 게시물이에요.");return;}
                     setPostReportModal({postId:post.id,postFid:post._fid,by:post.by,uid:post.uid});
@@ -2505,7 +2505,7 @@ export default function App() {
                             style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9ca3af",padding:0,fontWeight:600}}>
                             ↩️ 대댓글 {c.replies.length>0?c.replies.length:""}
                           </button>
-                          {c.by===user?.name && (
+                          {(c.by===user?.name || c.uid===user?.uid) && (
                             <button onClick={()=>{
                               if(!confirm("댓글을 삭제하시겠어요?")) return;
                               const del=cs=>cs.filter(x=>x.id!==c.id);
@@ -2531,7 +2531,7 @@ export default function App() {
                                     <span style={{fontSize:10,color:"#9ca3af"}}>{r.time}</span>
                                   </div>
                                   <p style={{margin:0,fontSize:13,color:"#374151"}}>{r.text}</p>
-                                  {r.by===user?.name && (
+                                  {(r.by===user?.name || r.uid===user?.uid) && (
                                     <button onClick={()=>{
                                       if(!confirm("대댓글을 삭제하시겠어요?")) return;
                                       const delReply=cs=>cs.map(x=>x.id===c.id?{...x,replies:x.replies.filter(rr=>rr.id!==r.id)}:x);
@@ -3367,7 +3367,7 @@ export default function App() {
           {/* 모임 카드 목록 */}
           <div style={{padding:"12px 16px 80px"}}>
             {meetings.filter(m=>{
-              if(meetingMode==="mine" && !m.myJoined && !m.members.some(mb=>mb.name===user?.name)) return false;
+              if(meetingMode==="mine" && !m.myJoined && !m.members.some(mb=>mb.name===user?.name||mb.uid===user?.uid)) return false;
               if(meetSearch.name && !m.title.includes(meetSearch.name)) return false;
               if(meetSearch.city && !m.region.startsWith(meetSearch.city)) return false;
               if(meetSearch.district && meetSearch.district!=="전체" && !m.region.includes(meetSearch.district)) return false;
@@ -3382,7 +3382,7 @@ export default function App() {
                   style={{background:G,color:"white",border:"none",padding:"10px 20px",borderRadius:20,fontWeight:700,fontSize:13,cursor:"pointer"}}>모임 만들기 🐾</button>
               </div>
             ) : meetings.filter(m=>{
-              if(meetingMode==="mine" && !m.myJoined && !m.members.some(mb=>mb.name===user?.name)) return false;
+              if(meetingMode==="mine" && !m.myJoined && !m.members.some(mb=>mb.name===user?.name||mb.uid===user?.uid)) return false;
               if(meetSearch.name && !m.title.includes(meetSearch.name)) return false;
               if(meetSearch.city && !m.region.startsWith(meetSearch.city)) return false;
               if(meetSearch.district && meetSearch.district!=="전체" && !m.region.includes(meetSearch.district)) return false;
@@ -3589,7 +3589,7 @@ export default function App() {
                   <div style={{background:"#f9fafb",borderRadius:14,padding:"14px 16px",marginBottom:14}}>
                     <p style={{margin:0,fontSize:14,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{m.homeContent||m.desc||"아직 모임 소개가 작성되지 않았어요."}</p>
                   </div>
-                  {(isOwner || m.members.find(x=>x.name===user?.name)?.role==="운영진") && (
+                  {(isOwner || m.members.find(x=>x.name===user?.name||x.uid===user?.uid)?.role==="운영진") && (
                     <button onClick={()=>{
                       const newContent = prompt("모임 소개를 수정하세요:", m.homeContent||m.desc||"");
                       if(newContent!==null) updMeeting(x=>({...x, homeContent:newContent}));
@@ -3613,7 +3613,7 @@ export default function App() {
               {meetingTab==="members" && (
                 <div>
                   {m.members.map((mb,i)=>{
-                    const isMe = mb.name===user?.name;
+                    const isMe = mb.name===user?.name || mb.uid===user?.uid;
                     const isStaff = mb.role==="운영자"||mb.role==="운영진";
                     const roleLabel = mb.role==="운영자"?"모임장":mb.role==="운영진"?"운영진":"멤버";
                     const roleBg = mb.role==="운영자"?"linear-gradient(135deg,#ec4899,#a855f7)":mb.role==="운영진"?"linear-gradient(135deg,#f59e0b,#ef4444)":"#e5e7eb";
@@ -3645,7 +3645,7 @@ export default function App() {
                           </div>
                         )}
                         {/* 운영진도 강퇴 가능 (운영자/운영진 제외) */}
-                        {(!isOwner && m.members.find(x=>x.name===user?.name)?.role==="운영진" && !isMe && !isStaff) && (
+                        {(!isOwner && m.members.find(x=>x.name===user?.name||x.uid===user?.uid)?.role==="운영진" && !isMe && !isStaff) && (
                           <button onClick={()=>{if(confirm("⚠️ "+mb.name+"님을 강제탈퇴 시킬까요?"))updMeeting(x=>({...x,members:x.members.filter((_,j)=>j!==i)}));}}
                             style={{background:"#fef2f2",border:"none",padding:"4px 8px",borderRadius:8,fontSize:10,fontWeight:700,color:"#dc2626",cursor:"pointer"}}>강퇴</button>
                         )}
@@ -3764,7 +3764,7 @@ export default function App() {
                         <h3 style={{margin:"0 0 6px",fontSize:16,fontWeight:800}}>{mBoardDetail.title}</h3>
                         <p style={{margin:0,fontSize:12,color:"#9ca3af"}}>{mBoardDetail.by} · {mBoardDetail.time}</p>
                       </div>
-                      {mBoardDetail.by===user?.name && !editMBoard && (
+                      {(mBoardDetail.by===user?.name || mBoardDetail.uid===user?.uid) && !editMBoard && (
                         <button onClick={()=>setEditMBoard({title:mBoardDetail.title,content:mBoardDetail.content})}
                           style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:12,color:"#6b7280",flexShrink:0}}>수정</button>
                       )}
@@ -4637,7 +4637,7 @@ export default function App() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px 0"}}>
               <div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,flex:1}}/>
               {viewUserProfile.name!==user?.name && (
-                <button onClick={()=>setReportModal({name:viewUserProfile.name})}
+                <button onClick={()=>setReportModal({name:viewUserProfile.name,uid:viewUserProfile.uid})}
                   style={{background:"#f3f4f6",border:"none",cursor:"pointer",padding:"4px 10px",borderRadius:8,fontSize:11,color:"#9ca3af",fontWeight:600,marginLeft:8}}>🚨 신고/차단</button>
               )}
             </div>
@@ -5373,7 +5373,7 @@ export default function App() {
             <div style={{marginTop:12,borderTop:"1px solid #f3f4f6",paddingTop:12}}>
               <button onClick={()=>{
                 if(!confirm(reportModal.name+"님을 차단하시겠어요?\n차단하면 서로의 프로필이 보이지 않아요.")) return;
-                setBlockedUsers(s=>new Set([...s,reportModal.name]));
+                setBlockedUsers(s=>new Set([...s,reportModal.uid||reportModal.name]));
                 setReportModal(null);setReportReason("");
                 alert("차단되었어요. 해당 유저의 프로필이 더 이상 표시되지 않습니다.");
               }} style={{width:"100%",background:"none",border:"1px solid #e5e7eb",padding:"10px 0",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
