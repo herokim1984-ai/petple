@@ -4621,10 +4621,9 @@ export default function App() {
       {tab!=="chat" && (
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"white",borderTop:"1px solid #f3f4f6",display:"flex",zIndex:10}}>
           {[["home","🏠","홈"],["community","🧡","라운지"],["meeting","🏃","모임"],["messages","💬","대화"],["profile","👤","마이"]].map(([id,icon,label]) => (
-            <button key={id} onClick={() => { setTab(id); }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+            <button key={id} onClick={() => { setTab(id); if(id==="community"){setSelectedPost(null);} if(id==="meeting"){setSelectedMeeting(null);setMeetingView("list");} }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
               <span style={{fontSize:10,fontWeight:700,color:tab===id?"#ec4899":"#9ca3af"}}>{label}</span>
-              {id==="messages" && matches.length>0 && <span style={{position:"absolute",width:6,height:6,background:"#ef4444",borderRadius:"50%",marginTop:-14,marginLeft:18}} />}
             </button>
           ))}
         </div>
