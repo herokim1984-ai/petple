@@ -1306,10 +1306,13 @@ export default function App() {
     }, 3000);
   }
 
-  // 채팅 탭 벗어나면 폴링 중지
+  // 채팅 탭 벗어나면 폴링 중지 + online:false
   useEffect(()=>{
-    if(tab!=="chat" && chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}
-    return ()=>{if(chatPollRef.current)clearInterval(chatPollRef.current);};
+    if(tab!=="chat"){
+      if(chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}
+      if(user?.uid) updateDoc(doc(db,"users",user.uid),{online:false,lastSeen:Date.now()}).catch(()=>{});
+    }
+    return ()=>{if(chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}};
   },[tab]);
 
   function sendMsg() {
@@ -2447,9 +2450,10 @@ export default function App() {
                   <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end"}}>
                     <button onClick={()=>setEditingPost(null)} style={{background:"#e5e7eb",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>취소</button>
                     <button onClick={()=>{
-                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,content:editPostContent,ago:"수정됨"}:p));
-                      setSelectedPost(sp=>({...sp,content:editPostContent,ago:"수정됨"}));
+                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,content:editPostContent}:p));
+                      setSelectedPost(sp=>({...sp,content:editPostContent}));
                       setEditingPost(null);
+                      if(post._fid) updateDoc(doc(db,"communityPosts",post._fid),{content:editPostContent}).catch(()=>{});
                     }} style={{background:G,color:"white",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>수정 완료</button>
                   </div>
                 </div>
@@ -2509,8 +2513,10 @@ export default function App() {
                             <button onClick={()=>{
                               if(!confirm("댓글을 삭제하시겠어요?")) return;
                               const del=cs=>cs.filter(x=>x.id!==c.id);
-                              setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:del(p.comments)}:p));
-                              setSelectedPost(sp=>({...sp,comments:del(sp.comments)}));
+                              const updatedComments = del(post.comments);
+                              setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:updatedComments}:p));
+                              setSelectedPost(sp=>({...sp,comments:updatedComments}));
+                              syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
                             }}
                               style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#ef4444",padding:0,fontWeight:600}}>
                               🗑️ 삭제
@@ -2535,8 +2541,10 @@ export default function App() {
                                     <button onClick={()=>{
                                       if(!confirm("대댓글을 삭제하시겠어요?")) return;
                                       const delReply=cs=>cs.map(x=>x.id===c.id?{...x,replies:x.replies.filter(rr=>rr.id!==r.id)}:x);
-                                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:delReply(p.comments)}:p));
-                                      setSelectedPost(sp=>({...sp,comments:delReply(sp.comments)}));
+                                      const updatedComments = delReply(post.comments);
+                                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:updatedComments}:p));
+                                      setSelectedPost(sp=>({...sp,comments:updatedComments}));
+                                      syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
                                     }}
                                       style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#ef4444",padding:"2px 0 0",fontWeight:600}}>
                                       삭제
@@ -2917,7 +2925,7 @@ export default function App() {
                             if(!confirm(pet.name+"을(를) 삭제하시겠어요?")) return;
                             setMyPets(p=>{
                               const updated=p.filter((_,j)=>j!==i);
-                              if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated}).catch(()=>{});
+                              if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated.map(cleanPetForFirestore)}).catch(()=>{});
                               return updated;
                             });
                           }} style={{background:"#fef2f2",border:"none",cursor:"pointer",width:30,height:30,borderRadius:8,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>🗑️</button>
@@ -3420,7 +3428,7 @@ export default function App() {
                         const cardPending = m.pending.some(p=>p.name===user?.name);
                         return cardPending
                           ? <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20}}>⏳ 대기중</span>
-                          : <button onClick={(e)=>{e.stopPropagation();setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,{name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}:x));}}
+                          : <button onClick={(e)=>{e.stopPropagation();const newPending={name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()};setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,newPending]}:x));if(m._fid)updateDoc(doc(db,"communityMeetings",m._fid),{pending:[...m.pending,newPending]}).catch(()=>{});}}
                             style={{background:G,color:"white",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20,border:"none",cursor:"pointer"}}>가입하기</button>;
                       })()}
                   </div>
