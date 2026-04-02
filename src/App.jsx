@@ -1085,6 +1085,42 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [checkedIn, earnDone, dailySwipes, user?.uid, loggedIn]);
 
+  // ── 뒤로가기 (브라우저 백버튼 / 안드로이드 백) ──
+  useEffect(() => {
+    // 초기 history state 설정
+    if (!window.history.state?._petple) {
+      window.history.replaceState({_petple:true, depth:0}, "");
+    }
+    const handlePop = (e) => {
+      // 모달/서브뷰가 열려있으면 닫기
+      if (viewStory) { setViewStory(null); window.history.pushState({_petple:true},""); return; }
+      if (photoViewer) { setPhotoViewer(null); window.history.pushState({_petple:true},""); return; }
+      if (viewUserProfile) { setViewUserProfile(null); window.history.pushState({_petple:true},""); return; }
+      if (deleteAccModal) { setDeleteAccModal(false); window.history.pushState({_petple:true},""); return; }
+      if (isWritePost) { setIsWritePost(false); window.history.pushState({_petple:true},""); return; }
+      if (isAddStory) { setIsAddStory(false); window.history.pushState({_petple:true},""); return; }
+      if (showAdmin) { setShowAdmin(false); window.history.pushState({_petple:true},""); return; }
+      // 채팅방 → 대화 목록
+      if (tab === "chat" && chatPet) { setChatPet(null); setTab("messages"); window.history.pushState({_petple:true},""); return; }
+      // 글 상세 → 라운지
+      if (tab === "community" && selectedPost) { setSelectedPost(null); window.history.pushState({_petple:true},""); return; }
+      // 모임 상세 → 모임 목록
+      if (tab === "meeting" && selectedMeeting) { setSelectedMeeting(null); setMeetingView("list"); window.history.pushState({_petple:true},""); return; }
+      // 메인 화면에서 → 앱 종료 확인
+      window.history.pushState({_petple:true}, "");
+      setAppAlert({msg:"앱을 종료하시겠어요?", type:"confirm", onOk:()=>{ window.history.go(-(window.history.length)); }, onCancel:()=>{}});
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, [tab, chatPet, selectedPost, selectedMeeting, viewStory, photoViewer, viewUserProfile, deleteAccModal, isWritePost, isAddStory, showAdmin]);
+
+  // 서브뷰 진입 시 history push
+  useEffect(() => {
+    if (selectedPost || selectedMeeting || (tab==="chat" && chatPet) || viewStory || isWritePost || isAddStory || viewUserProfile || photoViewer || showAdmin) {
+      window.history.pushState({_petple:true}, "");
+    }
+  }, [selectedPost, selectedMeeting, chatPet, viewStory, isWritePost, isAddStory, viewUserProfile, photoViewer, showAdmin]);
+
   // 로그인/회원가입
   async function submit() {
     setErr("");
