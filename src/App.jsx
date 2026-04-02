@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { auth, db } from "./firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, deleteUser, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit as fbLimit, Timestamp, onSnapshot, arrayUnion, arrayRemove } from "firebase/firestore";
 
 
 const LOUNGE_CATS = [
@@ -324,6 +324,8 @@ export default function App() {
   const [myStories,      setMyStories]      = useState([]);
   const postsRef = useRef([]);
   const storiesRef = useRef([]);
+  const busyRef = useRef({});
+  const guard = (key, fn) => (...args) => { if(busyRef.current[key]) return; busyRef.current[key]=true; try{fn(...args);}finally{setTimeout(()=>{busyRef.current[key]=false;},500);} };
   useEffect(()=>{postsRef.current=posts;},[posts]);
   useEffect(()=>{storiesRef.current=myStories;},[myStories]);
   const [showStoryFilter, setShowStoryFilter] = useState(false);
@@ -495,6 +497,19 @@ export default function App() {
       comments: (data.comments||[]).map(c=>({...c, byImg:null, replies:(c.replies||[]).map(r=>({...r,byImg:null}))})),
     }).catch(e=>console.error("Post sync error:",e));
   };
+  // 좋아요 원자적 동기화 (동시성 안전)
+  const syncPostLikeAtomic = (postId, uid, adding) => {
+    const p = postsRef.current.find(x=>x.id===postId);
+    if(!p?._fid) return;
+    updateDoc(doc(db,"communityPosts",p._fid),{likes: adding ? arrayUnion(uid) : arrayRemove(uid)}).catch(()=>{});
+  };
+  const syncPostComments = (postId, comments) => {
+    const p = postsRef.current.find(x=>x.id===postId);
+    if(!p?._fid) return;
+    updateDoc(doc(db,"communityPosts",p._fid),{
+      comments: (comments||[]).map(c=>({...c, byImg:null, replies:(c.replies||[]).map(r=>({...r,byImg:null}))})),
+    }).catch(()=>{});
+  };
 
   const syncStoryToFirestore = (storyId, data) => {
     const s = storiesRef.current.find(x=>x.id===storyId);
@@ -504,6 +519,11 @@ export default function App() {
       likes: data.likes||[],
       comments: (data.comments||[]).map(c=>({...c,byImg:null})),
     }).catch(e=>console.error("Story sync error:",e));
+  };
+  const syncStoryLikeAtomic = (storyId, uid, adding) => {
+    const s = storiesRef.current.find(x=>x.id===storyId);
+    if(!s?._fid) return;
+    updateDoc(doc(db,"communityStories",s._fid),{likes: adding ? arrayUnion(uid) : arrayRemove(uid)}).catch(()=>{});
   };
 
   // ── 상대방 프로필 Firestore 조회 ──
@@ -1065,6 +1085,42 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [checkedIn, earnDone, dailySwipes, user?.uid, loggedIn]);
 
+  // ── 뒤로가기 (브라우저 백버튼 / 안드로이드 백) ──
+  useEffect(() => {
+    // 초기 history state 설정
+    if (!window.history.state?._petple) {
+      window.history.replaceState({_petple:true, depth:0}, "");
+    }
+    const handlePop = (e) => {
+      // 모달/서브뷰가 열려있으면 닫기
+      if (viewStory) { setViewStory(null); window.history.pushState({_petple:true},""); return; }
+      if (photoViewer) { setPhotoViewer(null); window.history.pushState({_petple:true},""); return; }
+      if (viewUserProfile) { setViewUserProfile(null); window.history.pushState({_petple:true},""); return; }
+      if (deleteAccModal) { setDeleteAccModal(false); window.history.pushState({_petple:true},""); return; }
+      if (isWritePost) { setIsWritePost(false); window.history.pushState({_petple:true},""); return; }
+      if (isAddStory) { setIsAddStory(false); window.history.pushState({_petple:true},""); return; }
+      if (showAdmin) { setShowAdmin(false); window.history.pushState({_petple:true},""); return; }
+      // 채팅방 → 대화 목록
+      if (tab === "chat" && chatPet) { setChatPet(null); setTab("messages"); window.history.pushState({_petple:true},""); return; }
+      // 글 상세 → 라운지
+      if (tab === "community" && selectedPost) { setSelectedPost(null); window.history.pushState({_petple:true},""); return; }
+      // 모임 상세 → 모임 목록
+      if (tab === "meeting" && selectedMeeting) { setSelectedMeeting(null); setMeetingView("list"); window.history.pushState({_petple:true},""); return; }
+      // 메인 화면에서 → 앱 종료 확인
+      window.history.pushState({_petple:true}, "");
+      setAppAlert({msg:"앱을 종료하시겠어요?", type:"confirm", onOk:()=>{ window.history.go(-(window.history.length)); }, onCancel:()=>{}});
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, [tab, chatPet, selectedPost, selectedMeeting, viewStory, photoViewer, viewUserProfile, deleteAccModal, isWritePost, isAddStory, showAdmin]);
+
+  // 서브뷰 진입 시 history push
+  useEffect(() => {
+    if (selectedPost || selectedMeeting || (tab==="chat" && chatPet) || viewStory || isWritePost || isAddStory || viewUserProfile || photoViewer || showAdmin) {
+      window.history.pushState({_petple:true}, "");
+    }
+  }, [selectedPost, selectedMeeting, chatPet, viewStory, isWritePost, isAddStory, viewUserProfile, photoViewer, showAdmin]);
+
   // 로그인/회원가입
   async function submit() {
     setErr("");
@@ -1306,13 +1362,16 @@ export default function App() {
     }, 3000);
   }
 
-  // 채팅 탭 벗어나면 폴링 중지
+  // 채팅 탭 벗어나면 폴링 중지 + online:false
   useEffect(()=>{
-    if(tab!=="chat" && chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}
-    return ()=>{if(chatPollRef.current)clearInterval(chatPollRef.current);};
+    if(tab!=="chat"){
+      if(chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}
+      if(user?.uid) updateDoc(doc(db,"users",user.uid),{online:false,lastSeen:Date.now()}).catch(()=>{});
+    }
+    return ()=>{if(chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}};
   },[tab]);
 
-  function sendMsg() {
+  const sendMsg = guard("sendMsg", function() {
     if (!msgVal.trim() || !chatRoomId) return;
     if (hasBadWord(msgVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
     const msg = {uid:user?.uid, by:user?.name, text:filterBadWords(msgVal.trim()), ts:Date.now(), readBy:[user?.uid], ...(chatReplyTo?{replyTo:chatReplyTo}:{})};
@@ -1344,7 +1403,7 @@ export default function App() {
       setPoints(p=>p+5);
       setPointLog(l=>[{icon:"💬",label:"첫 대화 시작",pt:5,type:"earn",date:dateNow()},...l]);
     }
-  }
+  });
 
   async function logout() {
     try { await signOut(auth); } catch {}
@@ -1612,7 +1671,7 @@ export default function App() {
             <button onClick={() => setTab("messages")} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,lineHeight:1,padding:4}}>←</button>
             <div onClick={()=>openProfile(chatPet?.owner||chatPet?.name, chatPet?.img)}
               style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
-              <img src={chatPet?.img} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover"}}/>
+              {chatPet?.img ? <img src={chatPet.img} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover"}}/> : <div style={{width:36,height:36,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white",fontWeight:700}}>{chatPet?.name?.[0]||"🐾"}</div>}
               <div><p style={{margin:0,fontWeight:700,fontSize:15}}>{chatPet?.name}</p><p style={{margin:0,fontSize:11,color:chatPet?.online?"#10b981":"#9ca3af"}}>{chatPet?.online?"온라인":"오프라인"}</p></div>
             </div>
             <button onClick={()=>setChatMenu(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,padding:4}}>⋮</button>
@@ -1750,7 +1809,7 @@ export default function App() {
                           {item.action==="auto" && <div style={{position:"absolute",top:0,right:0,background:"rgba(0,0,0,.04)",fontSize:9,fontWeight:700,color:"#6b7280",padding:"3px 8px",borderRadius:"0 16px 0 10px"}}>자동</div>}
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
                             <span style={{fontSize:22}}>{item.icon}</span>
-                            <span style={{fontWeight:800,fontSize:14,color:done?"#9ca3af":item.tcolor}}>{item.action==="info"?`-${WRITE_COST}p`:`+${item.pt}p`}</span>
+                            <span style={{fontWeight:800,fontSize:14,color:done?"#9ca3af":item.tcolor}}>{item.action==="info"?(WRITE_COST>0?`-${WRITE_COST}p`:"무료"):`+${item.pt}p`}</span>
                           </div>
                           <p style={{margin:"0 0 2px",fontWeight:700,fontSize:13,color:done?"#9ca3af":"#1f2937"}}>{item.label}</p>
                           <p style={{margin:0,fontSize:11,color:"#6b7280"}}>{item.desc}</p>
@@ -2257,6 +2316,8 @@ export default function App() {
           <div style={{padding:"12px 14px 80px"}}>
             {(() => {
               const filtered = posts.filter(p =>
+                (p.reportCount||0) < 5 && !blockedUsers.has(p.uid)
+              ).filter(p =>
                 loungeCat==="all" ? true :
                 loungeCat==="hot" ? p.likes.length>=2 :
                 loungeCat==="feed" ? (p.uid===user?.uid || p.by===user?.name) :
@@ -2353,19 +2414,18 @@ export default function App() {
         const catInfo = LOUNGE_CATS.find(c=>c.key===post.cat)||{icon:"🐾",label:post.cat};
         const isLiked = post.likes.includes(user?.uid);
 
-        const addLike = () => {
+        const addLike = guard("addLike", () => {
           const newLikes = isLiked ? post.likes.filter(n=>n!==user?.uid) : [...post.likes, user?.uid];
           setPosts(ps => ps.map(p => p.id===post.id ? {...p, likes: newLikes} : p));
           setSelectedPost(p => ({...p, likes: newLikes}));
-          // Firestore 즉시 동기화
-          syncPostToFirestore(post.id, {likes:newLikes, comments:post.comments});
+          syncPostLikeAtomic(post.id, user?.uid, !isLiked);
           if (!isLiked && post.by !== user?.name) {
             setAlarms(a=>[{id:Date.now(),icon:"❤️",text:`${user?.name}님이 회원님의 글에 좋아요를 눌렀어요`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
             if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"like",from:user?.name,postId:post.id,text:"회원님의 글에 좋아요를 눌렀어요 ❤️",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
-        };
+        });
 
-        const addComment = () => {
+        const addComment = guard("addComment", () => {
           if (!commentVal.trim()) return;
           if (hasBadWord(commentVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
           const trimmed = commentVal.trim();
@@ -2373,15 +2433,15 @@ export default function App() {
           const updatedComments = [...post.comments, newC];
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
           setSelectedPost(p=>({...p,comments:updatedComments}));
-          syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
+          syncPostComments(post.id, updatedComments);
           setCommentVal("");
           if (post.by !== user?.name && post.uid !== user?.uid) {
             setAlarms(a=>[{id:Date.now(),icon:"💬",text:`${user?.name}님이 댓글을 달았어요: "${trimmed.slice(0,20)}..."`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
             if(post.uid) addDoc(collection(db,"notifications"),{to:post.uid,type:"comment",from:user?.name,postId:post.id,text:trimmed.slice(0,30)+"...",time:new Date().toISOString(),read:false}).catch(()=>{});
           }
-        };
+        });
 
-        const addReply = (commentId) => {
+        const addReply = guard("addReply", (commentId) => {
           if (!replyVal.trim()) return;
           if (hasBadWord(replyVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요."); return; }
           const newR = {id:Date.now(),by:user?.name,uid:user?.uid,byImg:profilePhotos[profileRepIdx]||null,text:replyVal.trim(),time:timeNow()};
@@ -2389,23 +2449,23 @@ export default function App() {
           const updatedComments = updateComments(post.comments);
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
           setSelectedPost(p=>({...p,comments:updatedComments}));
-          syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
+          syncPostComments(post.id, updatedComments);
           const comment = post.comments.find(c=>c.id===commentId);
           setReplyTarget(null); setReplyVal("");
           if (comment && comment.by !== user?.name) {
             setAlarms(a=>[{id:Date.now(),icon:"↩️",text:`${user?.name}님이 대댓글을 달았어요`,time:timeNow(),unread:true,nav:{type:"post",postId:post.id}},...a]);
           }
-        };
+        });
 
-        const likeComment = (commentId) => {
+        const likeComment = guard("likeComment", (commentId) => {
           const updateCs = cs => cs.map(c => c.id===commentId
             ? {...c, likes: c.likes.includes(user?.uid) ? c.likes.filter(n=>n!==user?.uid) : [...c.likes,user?.uid]}
             : c);
           const updatedComments = updateCs(post.comments);
           setPosts(ps=>ps.map(p=>p.id===post.id ? {...p,comments:updatedComments} : p));
           setSelectedPost(p=>({...p,comments:updatedComments}));
-          syncPostToFirestore(post.id, {likes:post.likes, comments:updatedComments});
-        };
+          syncPostComments(post.id, updatedComments);
+        });
 
         return (
           <div style={{paddingBottom:100}}>
@@ -2447,9 +2507,10 @@ export default function App() {
                   <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end"}}>
                     <button onClick={()=>setEditingPost(null)} style={{background:"#e5e7eb",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>취소</button>
                     <button onClick={()=>{
-                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,content:editPostContent,ago:"수정됨"}:p));
-                      setSelectedPost(sp=>({...sp,content:editPostContent,ago:"수정됨"}));
+                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,content:editPostContent}:p));
+                      setSelectedPost(sp=>({...sp,content:editPostContent}));
                       setEditingPost(null);
+                      if(post._fid) updateDoc(doc(db,"communityPosts",post._fid),{content:editPostContent}).catch(()=>{});
                     }} style={{background:G,color:"white",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>수정 완료</button>
                   </div>
                 </div>
@@ -2509,8 +2570,10 @@ export default function App() {
                             <button onClick={()=>{
                               if(!confirm("댓글을 삭제하시겠어요?")) return;
                               const del=cs=>cs.filter(x=>x.id!==c.id);
-                              setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:del(p.comments)}:p));
-                              setSelectedPost(sp=>({...sp,comments:del(sp.comments)}));
+                              const updatedComments = del(post.comments);
+                              setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:updatedComments}:p));
+                              setSelectedPost(sp=>({...sp,comments:updatedComments}));
+                              syncPostComments(post.id, updatedComments);
                             }}
                               style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#ef4444",padding:0,fontWeight:600}}>
                               🗑️ 삭제
@@ -2535,8 +2598,10 @@ export default function App() {
                                     <button onClick={()=>{
                                       if(!confirm("대댓글을 삭제하시겠어요?")) return;
                                       const delReply=cs=>cs.map(x=>x.id===c.id?{...x,replies:x.replies.filter(rr=>rr.id!==r.id)}:x);
-                                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:delReply(p.comments)}:p));
-                                      setSelectedPost(sp=>({...sp,comments:delReply(sp.comments)}));
+                                      const updatedComments = delReply(post.comments);
+                                      setPosts(ps=>ps.map(p=>p.id===post.id?{...p,comments:updatedComments}:p));
+                                      setSelectedPost(sp=>({...sp,comments:updatedComments}));
+                                      syncPostComments(post.id, updatedComments);
                                     }}
                                       style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#ef4444",padding:"2px 0 0",fontWeight:600}}>
                                       삭제
@@ -2634,7 +2699,7 @@ export default function App() {
                 return (
                 <div key={i} onClick={() => openChat(m)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 20px",borderBottom:"1px solid #f9fafb",cursor:"pointer",background:"white"}}>
                   <div onClick={e=>{e.stopPropagation();buildProfile();}} style={{position:"relative",cursor:"pointer"}}>
-                    <img src={m.img} alt={m.name} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}} />
+                    {m.img ? <img src={m.img} alt={m.name} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}} /> : <div style={{width:52,height:52,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:"white",fontWeight:700}}>{m.name?.[0]||"🐾"}</div>}
                     <span style={{position:"absolute",bottom:1,right:1,width:12,height:12,background:m.online?"#10b981":"#d1d5db",borderRadius:"50%",border:"2px solid white"}} />
                   </div>
                   <div style={{flex:1}}>
@@ -2917,7 +2982,7 @@ export default function App() {
                             if(!confirm(pet.name+"을(를) 삭제하시겠어요?")) return;
                             setMyPets(p=>{
                               const updated=p.filter((_,j)=>j!==i);
-                              if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated}).catch(()=>{});
+                              if(user?.uid) updateDoc(doc(db,"users",user.uid),{myPets:updated.map(cleanPetForFirestore)}).catch(()=>{});
                               return updated;
                             });
                           }} style={{background:"#fef2f2",border:"none",cursor:"pointer",width:30,height:30,borderRadius:8,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>🗑️</button>
@@ -3088,7 +3153,7 @@ export default function App() {
                 <p style={{margin:"4px 0 0",fontSize:11,color:"#374151",fontWeight:600,width:64,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>내 스토리</p>
               </div>
               {/* 내가 올린 스토리들 (12시간 이내) */}
-              {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000).map((s,i)=>(
+              {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000 && !blockedUsers.has(s.uid)).map((s,i)=>(
                 <div key={i} onClick={()=>setViewStory(s)} style={{flexShrink:0,textAlign:"center",cursor:"pointer"}}>
                   <div style={{width:64,height:64,borderRadius:"50%",padding:2,boxSizing:"border-box",
                     background:`linear-gradient(135deg,#ec4899,#a855f7)`,overflow:"hidden"}}>
@@ -3122,7 +3187,7 @@ export default function App() {
             </div>
           )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,padding:"0 16px"}}>
-            {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000).map(s=>({...s,isMine:true})).map((s,i)=>(
+            {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000 && !blockedUsers.has(s.uid)).map(s=>({...s,isMine:true})).map((s,i)=>(
               <div key={i} onClick={()=>setViewStory(s)} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)",cursor:"pointer",position:"relative"}}>
                 <div style={{height:160,background:"#f3f4f6",overflow:"hidden"}}>
                   {s.img
@@ -3234,14 +3299,14 @@ export default function App() {
       {/* 스토리 풀스크린 뷰어 */}
       {viewStory && (()=>{
         const sLiked = (viewStory.likes||[]).includes(user?.uid);
-        const toggleStoryLike = (e) => {
+        const toggleStoryLike = guard("storyLike", (e) => {
           e.stopPropagation();
           const newLikes = sLiked ? viewStory.likes.filter(n=>n!==user?.uid) : [...(viewStory.likes||[]),user?.uid];
           setViewStory(s=>({...s,likes:newLikes}));
           setMyStories(ss=>ss.map(s=>s.id===viewStory.id?{...s,likes:newLikes}:s));
-          syncStoryToFirestore(viewStory.id, {likes:newLikes, comments:viewStory.comments||[]});
-        };
-        const addStoryComment = (e) => {
+          syncStoryLikeAtomic(viewStory.id, user?.uid, !sLiked);
+        });
+        const addStoryComment = guard("storyComment", (e) => {
           e.stopPropagation();
           const text = prompt("댓글을 입력하세요:");
           if (!text?.trim()) return;
@@ -3250,7 +3315,7 @@ export default function App() {
           setViewStory(s=>({...s,comments:updComments}));
           setMyStories(ss=>ss.map(s=>s.id===viewStory.id?{...s,comments:updComments}:s));
           syncStoryToFirestore(viewStory.id, {likes:viewStory.likes||[], comments:updComments});
-        };
+        });
         return (
         <div onClick={()=>setViewStory(null)} style={{position:"fixed",inset:0,zIndex:70,background:"black",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
           <button onClick={()=>setViewStory(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,.2)",border:"none",color:"white",width:36,height:36,borderRadius:"50%",cursor:"pointer",fontSize:18,zIndex:2}}>✕</button>
@@ -3420,7 +3485,7 @@ export default function App() {
                         const cardPending = m.pending.some(p=>p.name===user?.name);
                         return cardPending
                           ? <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20}}>⏳ 대기중</span>
-                          : <button onClick={(e)=>{e.stopPropagation();setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,{name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}:x));}}
+                          : <button onClick={guard("meetJoin",e=>{e.stopPropagation();const newPending={name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()};setMeetings(ms=>ms.map(x=>x.id===m.id?{...x,pending:[...x.pending,newPending]}:x));if(m._fid)updateDoc(doc(db,"communityMeetings",m._fid),{pending:[...m.pending,newPending]}).catch(()=>{});})}
                             style={{background:G,color:"white",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20,border:"none",cursor:"pointer"}}>가입하기</button>;
                       })()}
                   </div>
@@ -3553,7 +3618,7 @@ export default function App() {
                 const isPending = m.pending.some(p=>p.name===user?.name);
                 return isPending
                   ? <span style={{background:"#f3f4f6",color:"#9ca3af",padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700}}>⏳ 승인 대기중</span>
-                  : <button onClick={(e)=>{e.stopPropagation();updMeeting(x=>({...x,pending:[...x.pending,{name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}));}}
+                  : <button onClick={guard("meetJoinDetail",e=>{e.stopPropagation();updMeeting(x=>({...x,pending:[...x.pending,{name:user?.name,uid:user?.uid,petName:myPets[0]?.name||"",petBreed:myPets[0]?.breed||"",msg:"안녕하세요! 가입 신청합니다.",time:timeNow()}]}));})}
                     style={{background:G,color:"white",border:"none",padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer"}}>가입 신청</button>;
               })()}
             </div>
@@ -3794,13 +3859,13 @@ export default function App() {
                         {mBoardDetail.imgs.map((img,i)=><img key={i} src={img} alt="" onClick={()=>setPhotoViewer({photos:mBoardDetail.imgs,idx:i})} style={{width:100,height:100,borderRadius:12,objectFit:"cover",flexShrink:0,cursor:"pointer"}}/>)}
                       </div>
                     )}
-                    <button onClick={()=>{
+                    <button onClick={guard("mBoardLike",()=>{
                       const isLiked=mBoardDetail.likes.includes(user?.uid);
                       const newLikes=isLiked?mBoardDetail.likes.filter(n=>n!==user?.uid):[...mBoardDetail.likes,user?.uid];
                       const updated={...mBoardDetail,likes:newLikes};
                       updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
                       setMBoardDetail(updated);
-                    }} style={{background:mBoardDetail.likes.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 16px",borderRadius:20,fontSize:13,fontWeight:700,color:mBoardDetail.likes.includes(user?.uid)?"#ec4899":"#6b7280"}}>
+                    })} style={{background:mBoardDetail.likes.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 16px",borderRadius:20,fontSize:13,fontWeight:700,color:mBoardDetail.likes.includes(user?.uid)?"#ec4899":"#6b7280"}}>
                       {mBoardDetail.likes.includes(user?.uid)?"❤️":"🤍"} {mBoardDetail.likes.length}
                     </button>
                   </div>
@@ -3808,14 +3873,14 @@ export default function App() {
                   <div style={{display:"flex",gap:8,marginTop:12}}>
                     <input value={mBoardCommentVal} onChange={e=>setMBoardCommentVal(e.target.value)}
                       placeholder="댓글 달기..." style={{flex:1,padding:"10px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-                    <button onClick={()=>{
+                    <button onClick={guard("mBoardComment",()=>{
                       if(!mBoardCommentVal.trim()) return;
                       if(hasBadWord(mBoardCommentVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                       const newC={by:user?.name,text:mBoardCommentVal.trim(),time:timeNow(),likes:[],replies:[]};
                       const updated={...mBoardDetail,comments:[...mBoardDetail.comments,newC]};
                       updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
                       setMBoardDetail(updated); setMBoardCommentVal("");
-                    }} style={{background:G,color:"white",border:"none",padding:"0 16px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0}}>등록</button>
+                    })} style={{background:G,color:"white",border:"none",padding:"0 16px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0}}>등록</button>
                   </div>
                 </div>
               )}
@@ -3825,8 +3890,11 @@ export default function App() {
                 <div>
                   <input ref={mPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                     const file=e.target.files[0]; if(!file) return;
-                    const r=new FileReader(); r.onload=ev=>{
-                      updMeeting(x=>({...x,photos:[{url:ev.target.result,by:user?.name,time:timeNow(),likes:[],comments:[]},...x.photos]}));
+                    const r=new FileReader(); r.onload=async ev=>{
+                      const compressed = await compressImage(ev.target.result, 400);
+                      const totalSize = (m.photos||[]).reduce((s,p)=>s+(p.url?.length||0),0) + compressed.length;
+                      if(totalSize > 800000) { alert("사진첩 용량이 가득 찼어요. 기존 사진을 삭제한 후 올려주세요."); return; }
+                      updMeeting(x=>({...x,photos:[{url:compressed,by:user?.name,time:timeNow(),likes:[],comments:[]},...x.photos]}));
                     }; r.readAsDataURL(file); e.target.value="";
                   }}/>
                   {isMember && <button onClick={()=>mPhotoRef.current.click()}
@@ -3840,14 +3908,14 @@ export default function App() {
                         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
                           <p style={{margin:0,fontSize:13,fontWeight:600}}>{mPhotoDetail.by}</p>
                           <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>{mPhotoDetail.time}</p>
-                          <button onClick={()=>{
+                          <button onClick={guard("mPhotoLike",()=>{
                             const likes=mPhotoDetail.likes||[];
                             const isL=likes.includes(user?.uid);
                             const newL=isL?likes.filter(n=>n!==user?.uid):[...likes,user?.uid];
                             const updated={...mPhotoDetail,likes:newL};
                             updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?updated:p)}));
                             setMPhotoDetail(updated);
-                          }} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,marginLeft:"auto"}}>
+                          })} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,marginLeft:"auto"}}>
                             {(mPhotoDetail.likes||[]).includes(user?.uid)?"❤️":"🤍"} {(mPhotoDetail.likes||[]).length}
                           </button>
                         </div>
@@ -3856,14 +3924,14 @@ export default function App() {
                           <div style={{display:"flex",gap:8,marginTop:10}}>
                             <input value={mPhotoComment} onChange={e=>setMPhotoComment(e.target.value)} placeholder="댓글 달기..."
                               style={{flex:1,padding:"9px 12px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none"}}/>
-                            <button onClick={()=>{
+                            <button onClick={guard("mPhotoComment",()=>{
                               if(!mPhotoComment.trim()) return;
                               if(hasBadWord(mPhotoComment)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                               const newC={by:user?.name,text:mPhotoComment.trim(),time:timeNow(),likes:[],replies:[]};
                               const updated={...mPhotoDetail,comments:[...(mPhotoDetail.comments||[]),newC]};
                               updMeeting(x=>({...x,photos:x.photos.map(p=>p.url===mPhotoDetail.url?updated:p)}));
                               setMPhotoDetail(updated);setMPhotoComment("");
-                            }} style={{background:G,color:"white",border:"none",padding:"0 14px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>등록</button>
+                            })} style={{background:G,color:"white",border:"none",padding:"0 14px",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer"}}>등록</button>
                           </div>
                         )}
                       </div>
@@ -3992,14 +4060,14 @@ export default function App() {
                               <div style={{display:"flex",gap:6,marginTop:6}}>
                                 <input value={mVoteCommentVal} onChange={e=>setMVoteCommentVal(e.target.value)} placeholder="댓글 달기..."
                                   style={{flex:1,padding:"8px 12px",border:"1.5px solid #e5e7eb",borderRadius:10,fontSize:12,outline:"none"}}/>
-                                <button onClick={()=>{
+                                <button onClick={guard("mVoteComment",()=>{
                                   if(!mVoteCommentVal.trim())return;
                                   if(hasBadWord(mVoteCommentVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
                                   const newC={by:user?.name,text:mVoteCommentVal.trim(),time:timeNow(),likes:[],replies:[]};
                                   const updated=[...(v.comments||[]),newC];
                                   updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,comments:updated}:vt)}));
                                   setMVoteDetail({...v,comments:updated});setMVoteCommentVal("");
-                                }} style={{background:G,color:"white",border:"none",padding:"0 12px",borderRadius:10,fontWeight:700,fontSize:12,cursor:"pointer"}}>등록</button>
+                                })} style={{background:G,color:"white",border:"none",padding:"0 12px",borderRadius:10,fontWeight:700,fontSize:12,cursor:"pointer"}}>등록</button>
                               </div>
                             )}
                           </div>
@@ -4146,7 +4214,7 @@ export default function App() {
                     <input value={mChatVal} onChange={e=>setMChatVal(e.target.value)} onKeyDown={e=>{
                       if(e.key==="Enter"&&!e.isComposing&&mChatVal.trim()){
                         if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
-                        updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}]}));
+                        updMeeting(x=>{const chats=[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}];return{...x,chats:chats.length>500?chats.slice(-500):chats};});
                         setMChatVal("");setMChatReplyTo(null);
                         setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
                       }
@@ -4155,7 +4223,7 @@ export default function App() {
                     <button onClick={()=>{
                       if(!mChatVal.trim()) return;
                       if(hasBadWord(mChatVal)){alert("⚠️ 부적절한 표현이 포함되어 있어요.");return;}
-                      updMeeting(x=>({...x,chats:[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}]}));
+                      updMeeting(x=>{const chats=[...x.chats,{by:user?.name,text:mChatVal.trim(),time:timeNow(),...(mChatReplyTo?{replyTo:mChatReplyTo}:{})}];return{...x,chats:chats.length>500?chats.slice(-500):chats};});
                       setMChatVal("");setMChatReplyTo(null);
                       setTimeout(()=>chatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
                     }} style={{background:mChatVal.trim()?G:"#e5e7eb",color:mChatVal.trim()?"white":"#9ca3af",border:"none",cursor:"pointer",borderRadius:"50%",width:40,height:40,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
@@ -4195,7 +4263,7 @@ export default function App() {
             <div style={{padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #f3f4f6",flexShrink:0}}>
               <h3 style={{margin:0,fontSize:16,fontWeight:800}}>글쓰기</h3>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:12,color:"#ec4899",background:"#fce7f3",padding:"3px 10px",borderRadius:10,fontWeight:700}}>🐾 {WRITE_COST}p 사용</span>
+                {WRITE_COST > 0 && <span style={{fontSize:12,color:"#ec4899",background:"#fce7f3",padding:"3px 10px",borderRadius:10,fontWeight:700}}>🐾 {WRITE_COST}p 사용</span>}
                 <button onClick={()=>setIsWritePost(false)} style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:30,height:30,borderRadius:"50%",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
               </div>
             </div>
@@ -4290,7 +4358,7 @@ export default function App() {
               }}
                 disabled={!postForm.content.trim() || points < WRITE_COST}
                 style={{width:"100%",background:postForm.content.trim()&&points>=WRITE_COST?G:"#e5e7eb",color:postForm.content.trim()&&points>=WRITE_COST?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:postForm.content.trim()&&points>=WRITE_COST?"pointer":"not-allowed",boxShadow:postForm.content.trim()&&points>=WRITE_COST?"0 4px 16px rgba(236,72,153,.3)":"none"}}>
-                글 등록하기 (-{WRITE_COST}p)
+                {WRITE_COST > 0 ? `글 등록하기 (-${WRITE_COST}p)` : "글 등록하기"}
               </button>
             </div>
           </div>
@@ -4331,8 +4399,9 @@ export default function App() {
                     <div onClick={() => {
                       if (ph) {
                         // 사진 있으면 삭제
-                        setProfilePhotos(arr => { const n=[...arr]; n[i]=null; return n; });
-                        if (profileRepIdx === i) { const newIdx = profilePhotos.findIndex((p,j)=>j!==i&&p); setProfileRepIdx(newIdx === -1 ? 0 : newIdx); }
+                        setProfilePhotos(arr => { const n=[...arr]; n[i]=null;
+                          if (profileRepIdx === i) { const newIdx = n.findIndex(p=>p); setProfileRepIdx(newIdx === -1 ? 0 : newIdx); }
+                          return n; });
                       } else {
                         // 없으면 파일 선택
                         setActiveProfileSlot(i);
@@ -4764,7 +4833,7 @@ export default function App() {
         <div style={{position:"fixed",inset:0,zIndex:90,background:"rgba(0,0,0,.95)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}
           onClick={()=>setPhotoViewer(null)}>
           <button onClick={()=>setPhotoViewer(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,.2)",border:"none",color:"white",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,zIndex:2}}>✕</button>
-          <img src={photoViewer.photos[photoViewer.idx]} alt="" style={{maxWidth:"92%",maxHeight:"80vh",objectFit:"contain",borderRadius:8}}/>
+          {photoViewer.photos[photoViewer.idx] ? <img src={photoViewer.photos[photoViewer.idx]} alt="" style={{maxWidth:"92%",maxHeight:"80vh",objectFit:"contain",borderRadius:8}}/> : <p style={{color:"white",fontSize:16}}>사진을 불러올 수 없어요</p>}
           {photoViewer.photos.length>1 && (
             <div style={{display:"flex",gap:12,marginTop:16}}>
               <button onClick={e=>{e.stopPropagation();setPhotoViewer(v=>({...v,idx:Math.max(0,v.idx-1)}));}}
@@ -4999,7 +5068,17 @@ export default function App() {
               </button>
               <button onClick={async ()=>{
                 try {
-                  if(user?.uid) await deleteDoc(doc(db,"users",user.uid)).catch(()=>{});
+                  if(user?.uid) {
+                    // cascade: 게시글/스토리/채팅방/알림 정리
+                    const uid = user.uid;
+                    const postSnap = await getDocs(query(collection(db,"communityPosts"),where("uid","==",uid))).catch(()=>({docs:[]}));
+                    for(const d of (postSnap.docs||[])) deleteDoc(d.ref).catch(()=>{});
+                    const storySnap = await getDocs(query(collection(db,"communityStories"),where("uid","==",uid))).catch(()=>({docs:[]}));
+                    for(const d of (storySnap.docs||[])) deleteDoc(d.ref).catch(()=>{});
+                    const notiSnap = await getDocs(query(collection(db,"notifications"),where("to","==",uid))).catch(()=>({docs:[]}));
+                    for(const d of (notiSnap.docs||[])) deleteDoc(d.ref).catch(()=>{});
+                    await deleteDoc(doc(db,"users",uid)).catch(()=>{});
+                  }
                   if(auth.currentUser) await deleteUser(auth.currentUser);
                 } catch(e) {
                   if(e.code==="auth/requires-recent-login"){
