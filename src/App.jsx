@@ -1615,7 +1615,7 @@ export default function App() {
             <button onClick={() => setTab("messages")} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,lineHeight:1,padding:4}}>←</button>
             <div onClick={()=>openProfile(chatPet?.owner||chatPet?.name, chatPet?.img)}
               style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
-              <img src={chatPet?.img} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover"}}/>
+              {chatPet?.img ? <img src={chatPet.img} alt="" style={{width:36,height:36,borderRadius:"50%",objectFit:"cover"}}/> : <div style={{width:36,height:36,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white",fontWeight:700}}>{chatPet?.name?.[0]||"🐾"}</div>}
               <div><p style={{margin:0,fontWeight:700,fontSize:15}}>{chatPet?.name}</p><p style={{margin:0,fontSize:11,color:chatPet?.online?"#10b981":"#9ca3af"}}>{chatPet?.online?"온라인":"오프라인"}</p></div>
             </div>
             <button onClick={()=>setChatMenu(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,padding:4}}>⋮</button>
@@ -1753,7 +1753,7 @@ export default function App() {
                           {item.action==="auto" && <div style={{position:"absolute",top:0,right:0,background:"rgba(0,0,0,.04)",fontSize:9,fontWeight:700,color:"#6b7280",padding:"3px 8px",borderRadius:"0 16px 0 10px"}}>자동</div>}
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
                             <span style={{fontSize:22}}>{item.icon}</span>
-                            <span style={{fontWeight:800,fontSize:14,color:done?"#9ca3af":item.tcolor}}>{item.action==="info"?`-${WRITE_COST}p`:`+${item.pt}p`}</span>
+                            <span style={{fontWeight:800,fontSize:14,color:done?"#9ca3af":item.tcolor}}>{item.action==="info"?(WRITE_COST>0?`-${WRITE_COST}p`:"무료"):`+${item.pt}p`}</span>
                           </div>
                           <p style={{margin:"0 0 2px",fontWeight:700,fontSize:13,color:done?"#9ca3af":"#1f2937"}}>{item.label}</p>
                           <p style={{margin:0,fontSize:11,color:"#6b7280"}}>{item.desc}</p>
@@ -2642,7 +2642,7 @@ export default function App() {
                 return (
                 <div key={i} onClick={() => openChat(m)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 20px",borderBottom:"1px solid #f9fafb",cursor:"pointer",background:"white"}}>
                   <div onClick={e=>{e.stopPropagation();buildProfile();}} style={{position:"relative",cursor:"pointer"}}>
-                    <img src={m.img} alt={m.name} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}} />
+                    {m.img ? <img src={m.img} alt={m.name} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}} /> : <div style={{width:52,height:52,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:"white",fontWeight:700}}>{m.name?.[0]||"🐾"}</div>}
                     <span style={{position:"absolute",bottom:1,right:1,width:12,height:12,background:m.online?"#10b981":"#d1d5db",borderRadius:"50%",border:"2px solid white"}} />
                   </div>
                   <div style={{flex:1}}>
@@ -4203,7 +4203,7 @@ export default function App() {
             <div style={{padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #f3f4f6",flexShrink:0}}>
               <h3 style={{margin:0,fontSize:16,fontWeight:800}}>글쓰기</h3>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:12,color:"#ec4899",background:"#fce7f3",padding:"3px 10px",borderRadius:10,fontWeight:700}}>🐾 {WRITE_COST}p 사용</span>
+                {WRITE_COST > 0 && <span style={{fontSize:12,color:"#ec4899",background:"#fce7f3",padding:"3px 10px",borderRadius:10,fontWeight:700}}>🐾 {WRITE_COST}p 사용</span>}
                 <button onClick={()=>setIsWritePost(false)} style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:30,height:30,borderRadius:"50%",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
               </div>
             </div>
@@ -4298,7 +4298,7 @@ export default function App() {
               }}
                 disabled={!postForm.content.trim() || points < WRITE_COST}
                 style={{width:"100%",background:postForm.content.trim()&&points>=WRITE_COST?G:"#e5e7eb",color:postForm.content.trim()&&points>=WRITE_COST?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:postForm.content.trim()&&points>=WRITE_COST?"pointer":"not-allowed",boxShadow:postForm.content.trim()&&points>=WRITE_COST?"0 4px 16px rgba(236,72,153,.3)":"none"}}>
-                글 등록하기 (-{WRITE_COST}p)
+                {WRITE_COST > 0 ? `글 등록하기 (-${WRITE_COST}p)` : "글 등록하기"}
               </button>
             </div>
           </div>
@@ -4339,8 +4339,9 @@ export default function App() {
                     <div onClick={() => {
                       if (ph) {
                         // 사진 있으면 삭제
-                        setProfilePhotos(arr => { const n=[...arr]; n[i]=null; return n; });
-                        if (profileRepIdx === i) { const newIdx = profilePhotos.findIndex((p,j)=>j!==i&&p); setProfileRepIdx(newIdx === -1 ? 0 : newIdx); }
+                        setProfilePhotos(arr => { const n=[...arr]; n[i]=null;
+                          if (profileRepIdx === i) { const newIdx = n.findIndex(p=>p); setProfileRepIdx(newIdx === -1 ? 0 : newIdx); }
+                          return n; });
                       } else {
                         // 없으면 파일 선택
                         setActiveProfileSlot(i);
@@ -4772,7 +4773,7 @@ export default function App() {
         <div style={{position:"fixed",inset:0,zIndex:90,background:"rgba(0,0,0,.95)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}
           onClick={()=>setPhotoViewer(null)}>
           <button onClick={()=>setPhotoViewer(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,.2)",border:"none",color:"white",width:40,height:40,borderRadius:"50%",cursor:"pointer",fontSize:20,zIndex:2}}>✕</button>
-          <img src={photoViewer.photos[photoViewer.idx]} alt="" style={{maxWidth:"92%",maxHeight:"80vh",objectFit:"contain",borderRadius:8}}/>
+          {photoViewer.photos[photoViewer.idx] ? <img src={photoViewer.photos[photoViewer.idx]} alt="" style={{maxWidth:"92%",maxHeight:"80vh",objectFit:"contain",borderRadius:8}}/> : <p style={{color:"white",fontSize:16}}>사진을 불러올 수 없어요</p>}
           {photoViewer.photos.length>1 && (
             <div style={{display:"flex",gap:12,marginTop:16}}>
               <button onClick={e=>{e.stopPropagation();setPhotoViewer(v=>({...v,idx:Math.max(0,v.idx-1)}));}}
