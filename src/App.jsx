@@ -656,15 +656,22 @@ export default function App() {
     return () => clearInterval(interval);
   }, [lastRecoHour, recoRefreshCount]);
 
-  // 자정에 카운터 리셋
+  // 날짜 바뀌면 카운터 리셋 (시간 기준 → 날짜 문자열 기준으로 수정)
+  const [lastRecoDate, setLastRecoDate] = useState(() => new Date().toDateString());
   useEffect(() => {
     const resetDaily = () => {
-      const kstH = new Date(Date.now() + 9*60*60*1000).getUTCHours();
-      if (kstH === 0) { setRecoRefreshCount(0); setLastRecoHour(-1); }
+      const today = new Date(Date.now() + 9*60*60*1000).toUTCString().slice(0,16); // KST 날짜
+      if (today !== lastRecoDate) {
+        setLastRecoDate(today);
+        setRecoRefreshCount(0);
+        setLastRecoHour(-1);
+        setDailySwipes(0);
+        setCheckedIn(false);
+      }
     };
     const interval = setInterval(resetDaily, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [lastRecoDate]);
 
   // ── 다른 사용자 프로필 로드 (펫친 추천) ──
   const loadNearbyUsers = async () => {
@@ -677,6 +684,8 @@ export default function App() {
         const data = d.data();
         if (d.id === user.uid) return; // 자기 자신 제외
         if (!data.nick) return;
+        // ── recoSettings 필터 적용 ──
+        if (recoSettings.gender !== "all" && data.gender && data.gender !== recoSettings.gender) return;
         const pets = data.myPets || [];
         const photo = (data.profilePhotos || []).find(p => p && p !== "[img]") || null;
         const defaultImg = "https://ui-avatars.com/api/?name=" + encodeURIComponent(data.nick) + "&background=fce7f3&color=ec4899&size=400";
@@ -685,6 +694,8 @@ export default function App() {
           pets.forEach((pet, pi) => {
             const petPhotos = (pet.photos||[]).filter(x=>x&&x!=="[img]");
             if (petPhotos.length === 0) return; // 사진 없는 동물은 추천에서 제외
+            // 동물 종류 필터
+            if (recoSettings.petType !== "all" && pet.type && pet.type !== recoSettings.petType) return;
             const petImg = petPhotos[pet.repIdx||0] || petPhotos[0];
             const allPetImgs = petPhotos;
             otherUsers.push({
@@ -1224,7 +1235,7 @@ export default function App() {
           {icon:"💎",label:"슈퍼좋아요 ("+cur.name+")",pt:-50,type:"use",date:dateNow()},
           ...l
         ]);
-        setMatches(m => [...m, cur]);
+        setMatches(m => m.some(x => x.uid === cur.uid) ? m : [...m, cur]);
         setPopup(cur);
         setTimeout(() => setPopup(null), 2500);
         // 상대방에게 매칭 알림 + 채팅방 사전 생성
@@ -1240,7 +1251,7 @@ export default function App() {
         }
       } else if (dir !== "L") {
         if (Math.random() < 0.35) {
-          setMatches(m => [...m, cur]);
+          setMatches(m => m.some(x => x.uid === cur.uid) ? m : [...m, cur]);
           setPopup(cur);
           setTimeout(() => setPopup(null), 2500);
           // 상대방에게 매칭 알림 + 채팅방 사전 생성
@@ -1265,7 +1276,7 @@ export default function App() {
   function openChat(p) {
     if (!chatOpened.has(p.id)) {
       if (points < 30) {
-        alert("새 대화를 시작하려면 🐾 30p가 필요해요!\n현재 보유: " + points + "p");
+        showAlert("새 대화를 시작하려면 🐾 30p가 필요해요!\n현재 보유: " + points + "p");
         return;
       }
       setPoints(pt => pt - 30);
@@ -1297,8 +1308,13 @@ export default function App() {
   const [newMsgAlert, setNewMsgAlert] = useState(false);
   const prevMsgCountRef = useRef(0);
   const chatPollRef = useRef(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false); // 상대방 타이핑 중
+  const typingTimeoutRef = useRef(null);
 
   async function loadChatMessages(roomId) {
+    setChatLoading(true);
+    setOtherTyping(false);
     try {
       const q = query(collection(db, "chatRooms", roomId, "messages"), orderBy("ts","asc"), fbLimit(100));
       const snap = await getDocs(q);
@@ -1307,6 +1323,7 @@ export default function App() {
       prevMsgCountRef.current = loaded.length;
       setChatAtBottom(true);
       setNewMsgAlert(false);
+      setChatLoading(false);
       setTimeout(()=>{chatContainerRef.current?.scrollTo({top:chatContainerRef.current.scrollHeight});},100);
       // 상대 메시지 읽음 처리
       snap.docs.forEach(d=>{
@@ -1348,32 +1365,47 @@ export default function App() {
       } catch(e){}
       // 내 lastSeen 갱신 (채팅 읽는 중 = 온라인)
       if(user?.uid) updateDoc(doc(db,"users",user.uid),{lastSeen:Date.now(),online:true}).catch(()=>{});
-      // 상대방 온라인 상태 갱신 (30초 이내 활동 = 온라인)
+      // 상대방 온라인 상태 + 타이핑 상태 갱신
       if(chatPet?.uid){
         try{
           const uDoc=await getDoc(doc(db,"users",chatPet.uid));
           if(uDoc.exists()){
-            const ls=uDoc.data().lastSeen||0;
+            const d=uDoc.data();
+            const ls=d.lastSeen||0;
             const isOnline=(Date.now()-ls)<30000;
+            const isTyping=d.typing===roomId && (Date.now()-(d.typingTs||0))<4000;
             setChatPet(prev=>prev?{...prev,online:isOnline}:prev);
+            setOtherTyping(isTyping);
           }
         }catch(e){}
       }
     }, 3000);
   }
 
-  // 채팅 탭 벗어나면 폴링 중지 + online:false
+  // 채팅 탭 벗어나면 폴링 중지 + online:false + 타이핑 상태 초기화
   useEffect(()=>{
     if(tab!=="chat"){
       if(chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}
-      if(user?.uid) updateDoc(doc(db,"users",user.uid),{online:false,lastSeen:Date.now()}).catch(()=>{});
+      if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if(user?.uid) updateDoc(doc(db,"users",user.uid),{online:false,lastSeen:Date.now(),typing:null}).catch(()=>{});
+      setOtherTyping(false);
     }
     return ()=>{if(chatPollRef.current){clearInterval(chatPollRef.current);chatPollRef.current=null;}};
   },[tab]);
 
+  // 채팅 입력 시 타이핑 상태 Firestore에 알림
+  const handleChatTyping = () => {
+    if(!user?.uid || !chatRoomId) return;
+    updateDoc(doc(db,"users",user.uid),{typing:chatRoomId, typingTs:Date.now()}).catch(()=>{});
+    if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(()=>{
+      updateDoc(doc(db,"users",user.uid),{typing:null}).catch(()=>{});
+    }, 3000);
+  };
+
   const sendMsg = guard("sendMsg", function() {
     if (!msgVal.trim() || !chatRoomId) return;
-    if (hasBadWord(msgVal)) { alert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
+    if (hasBadWord(msgVal)) { showAlert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
     const msg = {uid:user?.uid, by:user?.name, text:filterBadWords(msgVal.trim()), ts:Date.now(), readBy:[user?.uid], ...(chatReplyTo?{replyTo:chatReplyTo}:{})};
     setMsgs(m => [...m, {...msg, id:Date.now(), me:true}]);
     setMsgVal("");
@@ -2112,7 +2144,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              <button onClick={()=>{setShowRecoSettings(false);alert("✅ 추천 설정이 저장되었어요!\n새로운 기준으로 펫친을 추천해드릴게요 🐾");}}
+              <button onClick={()=>{setShowRecoSettings(false);loadNearbyUsers();showAlert("✅ 추천 설정이 저장되었어요!\n새로운 기준으로 펫친을 추천해드릴게요 🐾");}}
                 style={{width:"100%",background:G,color:"white",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:"pointer",boxShadow:"0 4px 16px rgba(236,72,153,.3)"}}>
                 설정 저장하기
               </button>
@@ -2235,7 +2267,7 @@ export default function App() {
           <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:20,marginTop:24}}>
             <button onClick={() => swipe("L")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>❌</button>
             <button onClick={() => {
-              if(points<50){alert("슈퍼좋아요에는 🐾 50p가 필요해요!\n현재 보유: "+points+"p");return;}
+              if(points<50){showAlert("슈퍼좋아요에는 🐾 50p가 필요해요!\n현재 보유: "+points+"p");return;}
               setSuperLikeConfirm(pet);
             }} style={{width:76,height:76,background:"linear-gradient(135deg,#fbbf24,#f59e0b)",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:30,boxShadow:"0 6px 20px rgba(251,191,36,.4)",display:"flex",alignItems:"center",justifyContent:"center"}}>💎</button>
             <button onClick={() => swipe("R")} style={{width:62,height:62,background:"white",border:"none",borderRadius:"50%",cursor:"pointer",fontSize:26,boxShadow:"0 4px 16px rgba(0,0,0,.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>🐾</button>
@@ -2364,7 +2396,7 @@ export default function App() {
                     <p style={{margin:"0 0 10px",fontSize:14,color:"#1f2937",lineHeight:1.6,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{p.content}</p>
                     {p.imgs.filter(img=>img&&img!=="[img]").length>0 && (
                       <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto"}}>
-                        {p.imgs.filter(img=>img&&img!=="[img]").map((img,i)=><img key={i} src={img} alt="" style={{width:80,height:80,borderRadius:12,objectFit:"cover",flexShrink:0}} />)}
+                        {p.imgs.filter(img=>img&&img!=="[img]").map((img,i)=><img key={i} src={img} alt="" loading="lazy" style={{width:80,height:80,borderRadius:12,objectFit:"cover",flexShrink:0}} />)}
                       </div>
                     )}
                     <div style={{display:"flex",gap:14,alignItems:"center"}}>
@@ -2532,7 +2564,7 @@ export default function App() {
                 </button>
                 {post.by!==user?.name && post.uid!==user?.uid && (
                   <button onClick={()=>{
-                    if(myReportedPosts.has(post.id)){alert("이미 신고한 게시물이에요.");return;}
+                    if(myReportedPosts.has(post.id)){showAlert("이미 신고한 게시물이에요.");return;}
                     setPostReportModal({postId:post.id,postFid:post._fid,by:post.by,uid:post.uid});
                   }} style={{display:"flex",alignItems:"center",gap:6,background:"#f9fafb",border:"none",cursor:"pointer",padding:"8px 16px",borderRadius:20,fontWeight:700,fontSize:13,color:"#9ca3af",marginLeft:"auto"}}>
                     ⚠️ 신고
@@ -2775,14 +2807,20 @@ export default function App() {
             <div style={{position:"fixed",inset:0,zIndex:50}} onClick={()=>setChatMenu(false)}>
               <div style={{position:"absolute",top:55,right:12,background:"white",borderRadius:14,boxShadow:"0 8px 30px rgba(0,0,0,.15)",overflow:"hidden",minWidth:160}}>
                 <button onClick={(e)=>{e.stopPropagation();setChatMenu(false);openProfile(chatPet?.owner||chatPet?.name,chatPet?.img);}} style={{display:"block",width:"100%",padding:"12px 16px",border:"none",background:"white",cursor:"pointer",fontSize:13,fontWeight:600,textAlign:"left",color:"#374151"}}>👤 프로필 보기</button>
-                <button onClick={(e)=>{e.stopPropagation();setChatMenu(false);if(!confirm("대화방을 나가시겠어요? 대화 기록이 삭제됩니다."))return;if(chatRoomId){deleteDoc(doc(db,"chatRooms",chatRoomId)).catch(()=>{});}setMatches(ms=>ms.filter(x=>x.uid!==chatPet?.uid&&x.name!==chatPet?.name));setChatPet(null);setChatRoomId(null);setTab("messages");alert("대화방에서 나갔습니다.");}}
+                <button onClick={async(e)=>{e.stopPropagation();setChatMenu(false);const ok=await showConfirm("대화방을 나가시겠어요? 대화 기록이 삭제됩니다.");if(!ok)return;if(chatRoomId){deleteDoc(doc(db,"chatRooms",chatRoomId)).catch(()=>{});}setMatches(ms=>ms.filter(x=>x.uid!==chatPet?.uid&&x.name!==chatPet?.name));setChatPet(null);setChatRoomId(null);setTab("messages");showAlert("대화방에서 나갔습니다.");}}
                   style={{display:"block",width:"100%",padding:"12px 16px",border:"none",background:"white",cursor:"pointer",fontSize:13,fontWeight:600,textAlign:"left",color:"#ef4444",borderTop:"1px solid #f3f4f6"}}>🚪 대화방 나가기</button>
               </div>
             </div>
           )}
           <div ref={chatContainerRef} onScroll={(e)=>{const el=e.target;const atBot=el.scrollHeight-el.scrollTop-el.clientHeight<60;setChatAtBottom(atBot);if(atBot)setNewMsgAlert(false);}}
             style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10,position:"relative"}}>
-            {msgs.map((m,mi) => (
+            {chatLoading && (
+              <div style={{display:"flex",justifyContent:"center",alignItems:"center",padding:"40px 0",flexDirection:"column",gap:8}}>
+                <div style={{fontSize:28,animation:"spin 1s linear infinite"}}>🔄</div>
+                <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>대화 불러오는 중...</p>
+              </div>
+            )}
+            {!chatLoading && msgs.map((m,mi) => (
               <div key={m.id||mi} style={{display:"flex",flexDirection:"column",alignItems:m.me?"flex-end":"flex-start",marginBottom:2}}>
                 {/* 답글 대상 표시 */}
                 {m.replyTo && (
@@ -2850,6 +2888,16 @@ export default function App() {
             </div>
           )}
           <div style={{background:"white",borderTop:"1px solid #f3f4f6"}}>
+            {/* 상대방 타이핑 인디케이터 */}
+            {otherTyping && (
+              <div style={{padding:"6px 16px",display:"flex",alignItems:"center",gap:6}}>
+                <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                  {[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:"50%",background:"#9ca3af",display:"inline-block",animation:`typingBounce 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}
+                </div>
+                <span style={{fontSize:12,color:"#9ca3af"}}>{chatPet?.owner||chatPet?.name}님이 입력 중...</span>
+                <style>{`@keyframes typingBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}`}</style>
+              </div>
+            )}
             {chatReplyTo && (
               <div style={{padding:"8px 14px",background:"#f9fafb",display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:12,color:"#6b7280",flex:1}}>↩ {chatReplyTo.by}: {chatReplyTo.text?.slice(0,30)}</span>
@@ -2857,7 +2905,7 @@ export default function App() {
               </div>
             )}
             <div style={{padding:"12px 14px",display:"flex",gap:10}}>
-            <input value={msgVal} onChange={e => setMsgVal(e.target.value)} onKeyDown={e => e.key==="Enter"&&!e.isComposing&&sendMsg()} placeholder={chatReplyTo?"답글을 입력하세요...":"메시지를 입력하세요..."}
+            <input value={msgVal} onChange={e => { setMsgVal(e.target.value); handleChatTyping(); }} onKeyDown={e => e.key==="Enter"&&!e.isComposing&&sendMsg()} placeholder={chatReplyTo?"답글을 입력하세요...":"메시지를 입력하세요..."}
               style={{flex:1,padding:"10px 16px",border:"2px solid #f3f4f6",borderRadius:24,fontSize:14,outline:"none"}} />
             <button onClick={sendMsg} disabled={!msgVal.trim()}
               style={{width:44,height:44,background:G,border:"none",borderRadius:"50%",cursor:"pointer",color:"white",fontSize:18,opacity:msgVal.trim()?1:.4,display:"flex",alignItems:"center",justifyContent:"center"}}>➤</button>
@@ -3153,17 +3201,24 @@ export default function App() {
                 <p style={{margin:"4px 0 0",fontSize:11,color:"#374151",fontWeight:600,width:64,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>내 스토리</p>
               </div>
               {/* 내가 올린 스토리들 (12시간 이내) */}
-              {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000 && !blockedUsers.has(s.uid)).map((s,i)=>(
+              {myStories.filter(s=>(Date.now()-(s.ts||0))<43200000 && !blockedUsers.has(s.uid)).map((s,i)=>{
+                const remaining = 43200000 - (Date.now() - (s.ts||0));
+                const hoursLeft = Math.floor(remaining / 3600000);
+                const minsLeft = Math.floor((remaining % 3600000) / 60000);
+                const expiringSoon = remaining < 7200000; // 2시간 미만
+                return (
                 <div key={i} onClick={()=>setViewStory(s)} style={{flexShrink:0,textAlign:"center",cursor:"pointer"}}>
                   <div style={{width:64,height:64,borderRadius:"50%",padding:2,boxSizing:"border-box",
-                    background:`linear-gradient(135deg,#ec4899,#a855f7)`,overflow:"hidden"}}>
+                    background:expiringSoon?"linear-gradient(135deg,#f59e0b,#ef4444)":"linear-gradient(135deg,#ec4899,#a855f7)",overflow:"hidden",position:"relative"}}>
                     {s.img
                       ? <img src={s.img} alt="" style={{width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover",border:"2px solid white"}}/>
                       : <div style={{width:"100%",height:"100%",borderRadius:"50%",background:G,border:"2px solid white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{s.petIcon||"🐾"}</div>}
                   </div>
                   <p style={{margin:"4px 0 0",fontSize:11,color:"#374151",fontWeight:700,width:64,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.petName||user?.name}</p>
+                  {expiringSoon && <p style={{margin:0,fontSize:9,color:"#f59e0b",fontWeight:700}}>⏰ {hoursLeft>0?hoursLeft+"시간":minsLeft+"분"}</p>}
                 </div>
-              ))}
+                );
+              })}
               {/* 스토리 없을 때 안내 */}
               {myStories.length===0 && (
                 <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:8,padding:"8px 14px",background:"#f9fafb",borderRadius:20}}>
@@ -3191,7 +3246,7 @@ export default function App() {
               <div key={i} onClick={()=>setViewStory(s)} style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)",cursor:"pointer",position:"relative"}}>
                 <div style={{height:160,background:"#f3f4f6",overflow:"hidden"}}>
                   {s.img
-                    ? <img src={s.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    ? <img src={s.img} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                     : <div style={{width:"100%",height:"100%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:48}}>{s.petIcon||"🐾"}</div>}
                 </div>
                 <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.65))"}}/>
@@ -3719,11 +3774,11 @@ export default function App() {
                   })}
                   {/* 모임 탈퇴 */}
                   {isMember && !isOwner && (
-                    <button onClick={()=>{
-                      if(!confirm("이 모임에서 탈퇴하시겠어요?")) return;
+                    <button onClick={async()=>{
+                      const ok=await showConfirm("이 모임에서 탈퇴하시겠어요?"); if(!ok) return;
                       updMeeting(x=>({...x,members:x.members.filter(mb=>mb.name!==user?.name&&mb.uid!==user?.uid),myJoined:false}));
                       setMeetingView("list"); setSelectedMeeting(null);
-                      alert("모임에서 탈퇴했습니다.");
+                      showAlert("모임에서 탈퇴했습니다.");
                     }} style={{width:"100%",marginTop:12,background:"#f3f4f6",color:"#6b7280",border:"none",padding:"11px 0",borderRadius:14,fontWeight:700,fontSize:13,cursor:"pointer"}}>
                       모임 탈퇴하기
                     </button>
@@ -4180,14 +4235,14 @@ export default function App() {
                   {/* 모임 해체 (운영자 전용) */}
                   {isOwner && (
                     <div style={{marginTop:24,padding:"16px 0",borderTop:"1px solid #f3f4f6"}}>
-                      <button onClick={()=>{
-                        if(!confirm("⚠️ 정말로 이 모임을 해체하시겠어요?\n\n모든 멤버가 탈퇴되고, 게시글·사진·채팅 등 모든 데이터가 삭제됩니다.\n\n이 작업은 되돌릴 수 없습니다.")) return;
-                        if(!confirm("마지막 확인: 정말 해체하시겠어요?")) return;
+                      <button onClick={async()=>{
+                        const ok1=await showConfirm("⚠️ 정말로 이 모임을 해체하시겠어요?\n\n모든 멤버가 탈퇴되고, 게시글·사진·채팅 등 모든 데이터가 삭제됩니다.\n\n이 작업은 되돌릴 수 없습니다."); if(!ok1) return;
+                        const ok2=await showConfirm("마지막 확인: 정말 해체하시겠어요?"); if(!ok2) return;
                         setMeetings(ms=>ms.filter(x=>x.id!==m.id));
                         if(m._fid) deleteDoc(doc(db,"communityMeetings",m._fid)).catch(()=>{});
                         setMeetingView("list");
                         setSelectedMeeting(null);
-                        alert("모임이 해체되었습니다.");
+                        showAlert("모임이 해체되었습니다.");
                       }}
                         style={{width:"100%",background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca",padding:"12px 0",borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer"}}>
                         🗑️ 모임 해체하기
@@ -4326,7 +4381,7 @@ export default function App() {
               <button onClick={()=>{
                 if (!postForm.content.trim() || points < WRITE_COST) return;
                 if (postForm.content.trim().length < 15) { showAlert("최소 15자 이상 입력해야 글을 등록할 수 있어요.\n현재 " + postForm.content.trim().length + "자"); return; }
-                if (hasBadWord(postForm.content)) { alert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
+                if (hasBadWord(postForm.content)) { showAlert("⚠️ 부적절한 표현이 포함되어 있어요.\n다른 표현으로 바꿔주세요!"); return; }
                 const catInfo = LOUNGE_CATS.find(c=>c.key===postForm.cat);
                 const newPost = {
                   id: Date.now(), cat:postForm.cat, by:user?.name, byImg:(profilePhotos[profileRepIdx]&&profilePhotos[profileRepIdx]!=="[img]")?profilePhotos[profileRepIdx]:null, uid:user?.uid, ago:"방금 전", ts:Date.now(),
@@ -5379,7 +5434,7 @@ export default function App() {
               <button onClick={()=>{setPostReportModal(null);setReportReason("");}}
                 style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>
               <button onClick={()=>{
-                if(!reportReason){alert("신고 사유를 선택해주세요.");return;}
+                if(!reportReason){showAlert("신고 사유를 선택해주세요.");return;}
                 // Firestore에 신고 저장
                 const pid = postReportModal.postId;
                 addDoc(collection(db,"postReports"),{
@@ -5390,27 +5445,26 @@ export default function App() {
                 }).catch(()=>{});
                 // 내 신고 기록
                 setMyReportedPosts(s=>new Set([...s, pid]));
-                // 로컬에서 신고 카운트 증가
+                // 로컬에서 신고 카운트 증가 (15개 이상 시 관리자 검토 큐로 이동)
                 setPosts(ps=>ps.map(p=>{
                   if(p.id===pid){
                     const cnt = (p.reportCount||0)+1;
-                    if(cnt>=10){
-                      // 10개 신고 → 자동 삭제 + 작성자에게 알림
-                      if(p._fid) deleteDoc(doc(db,"communityPosts",p._fid)).catch(()=>{});
+                    if(cnt>=15){
+                      // 15개 신고 → 자동 숨김 + 관리자 검토 큐 + 작성자에게 알림
+                      if(p._fid) updateDoc(doc(db,"communityPosts",p._fid),{reportCount:cnt,hidden:true,pendingReview:true}).catch(()=>{});
                       if(p.uid) addDoc(collection(db,"notifications"),{
-                        to:p.uid, type:"post_deleted", from:"운영팀",
-                        text:"회원님의 게시물이 다수의 신고로 삭제되었습니다.",
+                        to:p.uid, type:"post_hidden", from:"운영팀",
+                        text:"회원님의 게시물이 다수의 신고로 검토 대기 중입니다.",
                         time:new Date().toISOString(), read:false
                       }).catch(()=>{});
-                      setAlarms(a=>[{id:Date.now(),icon:"🚨",text:p.by+"님의 게시물이 신고 누적으로 삭제되었어요",time:timeNow(),unread:true,nav:null},...a]);
-                      return null; // 삭제 마킹
+                      return null; // 로컬에서 숨김
                     }
                     if(p._fid) updateDoc(doc(db,"communityPosts",p._fid),{reportCount:cnt}).catch(()=>{});
                     return {...p, reportCount:cnt};
                   }
                   return p;
                 }).filter(Boolean));
-                alert("신고가 접수되었어요. 검토 후 조치하겠습니다.");
+                showAlert("신고가 접수되었어요. 검토 후 조치하겠습니다.");
                 setPostReportModal(null);setReportReason("");
               }} style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신고하기</button>
             </div>
@@ -5436,7 +5490,7 @@ export default function App() {
               <button onClick={()=>{setReportModal(null);setReportReason("");}}
                 style={{flex:1,background:"#f3f4f6",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",color:"#6b7280"}}>취소</button>
               <button onClick={()=>{
-                if(!reportReason){alert("신고 사유를 선택해주세요.");return;}
+                if(!reportReason){showAlert("신고 사유를 선택해주세요.");return;}
                 // Firestore reports 컬렉션에 저장
                 addDoc(collection(db,"reports"),{
                   reporterUid:user?.uid,reporterName:user?.name,
@@ -5445,7 +5499,7 @@ export default function App() {
                   ts:Date.now(),time:new Date().toISOString(),
                   status:"pending"
                 }).catch(()=>{});
-                alert("신고가 접수되었어요. 검토 후 조치하겠습니다.");
+                showAlert("신고가 접수되었어요. 검토 후 조치하겠습니다.");
                 setReportModal(null);setReportReason("");
               }} style={{flex:1,background:"#ef4444",color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>신고하기</button>
             </div>
