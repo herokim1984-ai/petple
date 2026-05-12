@@ -89,7 +89,7 @@ const timeAgo = (ts) => {
 
 const INIT_MEETINGS = [];
 
-const G = "linear-gradient(135deg,#ec4899,#a855f7)";
+const G = "linear-gradient(135deg,#58B4E1,#4A9BD9)";
 
 const REGIONS = {
   "전국":{icon:"🇰🇷",districts:["전체"]},
@@ -129,7 +129,7 @@ function Input({ label, type, placeholder, value, onChange, hint, onEnter }) {
         onKeyDown={e => e.key === "Enter" && !e.isComposing && onEnter && onEnter()}
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
-        style={{width:"100%",padding:"12px 14px",border:`2px solid ${focus?"#ec4899":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}
+        style={{width:"100%",padding:"12px 14px",border:`2px solid ${focus?"#58B4E1":"#e5e7eb"}`,borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box",transition:"border-color .15s"}}
       />
     </div>
   );
@@ -688,8 +688,8 @@ export default function App() {
         if (recoSettings.gender !== "all" && data.gender && data.gender !== recoSettings.gender) return;
         const pets = data.myPets || [];
         const photo = (data.profilePhotos || []).find(p => p && p !== "[img]") || null;
-        const defaultImg = "https://ui-avatars.com/api/?name=" + encodeURIComponent(data.nick) + "&background=fce7f3&color=ec4899&size=400";
-        const petDefaultImg = "https://ui-avatars.com/api/?name=🐾&background=fce7f3&color=ec4899&size=400";
+        const defaultImg = "https://ui-avatars.com/api/?name=" + encodeURIComponent(data.nick) + "&background=E0F2FE&color=58B4E1&size=400";
+        const petDefaultImg = "https://ui-avatars.com/api/?name=🐾&background=E0F2FE&color=58B4E1&size=400";
         if (pets.length > 0) {
           pets.forEach((pet, pi) => {
             const petPhotos = (pet.photos||[]).filter(x=>x&&x!=="[img]");
@@ -972,7 +972,7 @@ export default function App() {
                     const pets=ud.myPets||[];
                     const pet=pets[0];
                     const petPhotos=pet?(pet.photos||[]).filter(x=>x&&x!=="[img]"):[];
-                    const petImg=petPhotos[0]||"https://ui-avatars.com/api/?name=🐾&background=fce7f3&color=ec4899&size=400";
+                    const petImg=petPhotos[0]||"https://ui-avatars.com/api/?name=🐾&background=E0F2FE&color=58B4E1&size=400";
                     chatMatches.push({
                       uid:otherUid,name:pet?.name||ud.nick||otherName,
                       img:petImg,breed:pet?.breed||"",age:pet?.age||0,
@@ -1450,7 +1450,7 @@ export default function App() {
 
   // ── 로딩 화면 (Firebase 인증 확인 중) ──
   if (authLoading) return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#fdf2f8,#f3e8ff 50%,#eff6ff)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F0F8FF,#DBEAFE 50%,#eff6ff)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>
       <div style={{textAlign:"center"}}>
         <div style={{fontSize:48,marginBottom:16,animation:"pulse 1.5s ease-in-out infinite"}}>🐾</div>
         <p style={{fontSize:18,fontWeight:800,background:G,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>펫플</p>
@@ -1462,8 +1462,8 @@ export default function App() {
 
   // ── 로그인 화면 ──────────────────────────────────────────
   if (!loggedIn) return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#fdf2f8,#f3e8ff 50%,#eff6ff)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"system-ui,sans-serif"}}>
-      <div style={{background:"white",borderRadius:28,boxShadow:"0 24px 60px rgba(236,72,153,.15)",padding:"36px 28px",width:"100%",maxWidth:400}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F0F8FF,#DBEAFE 50%,#eff6ff)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"system-ui,sans-serif"}}>
+      <div style={{background:"white",borderRadius:28,boxShadow:"0 24px 60px rgba(88,180,225,.15)",padding:"36px 28px",width:"100%",maxWidth:400}}>
         {/* 로고 */}
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{width:68,height:68,background:G,borderRadius:20,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>🐾</div>
@@ -1475,7 +1475,7 @@ export default function App() {
           {[[false,"로그인"],[true,"회원가입"]].map(([mode,label]) => (
             <button key={label} onClick={() => { setSignup(mode); setErr(""); setPwConfirm(""); setNickAvail(null); }}
               style={{flex:1,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:14,transition:"all .2s",
-                background:signup===mode?"white":"transparent",color:signup===mode?"#ec4899":"#9ca3af",
+                background:signup===mode?"white":"transparent",color:signup===mode?"#58B4E1":"#9ca3af",
                 boxShadow:signup===mode?"0 2px 8px rgba(0,0,0,.08)":"none"}}>
               {label}
             </button>
@@ -1492,8 +1492,8 @@ export default function App() {
                 <div style={{display:"flex",gap:6}}>
                   {["남","여"].map(g=>(
                     <button key={g} onClick={()=>setSignupGender(g)}
-                      style={{flex:1,padding:"10px 0",borderRadius:10,border:signupGender===g?"2px solid #ec4899":"2px solid #e5e7eb",
-                        background:signupGender===g?"#fdf2f8":"white",color:signupGender===g?"#ec4899":"#6b7280",
+                      style={{flex:1,padding:"10px 0",borderRadius:10,border:signupGender===g?"2px solid #58B4E1":"2px solid #e5e7eb",
+                        background:signupGender===g?"#F0F8FF":"white",color:signupGender===g?"#58B4E1":"#6b7280",
                         fontWeight:600,fontSize:14,cursor:"pointer"}}>{g==="남"?"🙋‍♂️ 남":"🙋‍♀️ 여"}</button>
                   ))}
                 </div>
@@ -1553,8 +1553,8 @@ export default function App() {
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                 {["산책","카페탐방","캠핑","운동","요리","사진찍기","여행","맛집","독서","영화","게임","패션","음악","반려동물봉사","훈련/교육"].map(tag=>(
                   <button key={tag} onClick={()=>setSignupInterests(prev=>prev.includes(tag)?prev.filter(t=>t!==tag):prev.length<5?[...prev,tag]:prev)}
-                    style={{padding:"6px 12px",borderRadius:20,border:signupInterests.includes(tag)?"2px solid #ec4899":"2px solid #e5e7eb",
-                      background:signupInterests.includes(tag)?"#fdf2f8":"white",color:signupInterests.includes(tag)?"#ec4899":"#6b7280",
+                    style={{padding:"6px 12px",borderRadius:20,border:signupInterests.includes(tag)?"2px solid #58B4E1":"2px solid #e5e7eb",
+                      background:signupInterests.includes(tag)?"#F0F8FF":"white",color:signupInterests.includes(tag)?"#58B4E1":"#6b7280",
                       fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{tag}</button>
                 ))}
               </div>
@@ -1606,7 +1606,7 @@ export default function App() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:-2}}>
               <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:"#6b7280"}}>
                 <input type="checkbox" checked={autoLogin} onChange={e=>setAutoLogin(e.target.checked)}
-                  style={{width:16,height:16,accentColor:"#ec4899",cursor:"pointer"}} />
+                  style={{width:16,height:16,accentColor:"#58B4E1",cursor:"pointer"}} />
                 자동 로그인
               </label>
               <button onClick={()=>{setFindPwOpen(true);setFindPwStep(0);setFindPwEmail(email||"");setFindPwErr("");}}
@@ -1619,7 +1619,7 @@ export default function App() {
           {err && <div style={{background:"#fef2f2",border:"1px solid #fecaca",color:"#dc2626",padding:"10px 14px",borderRadius:10,fontSize:13}}>{err}</div>}
 
           <button onClick={submit} disabled={submitting}
-            style={{background:submitting?"#d1d5db":G,color:"white",border:"none",padding:"14px 0",borderRadius:14,fontSize:16,fontWeight:700,cursor:submitting?"not-allowed":"pointer",boxShadow:submitting?"none":"0 6px 18px rgba(236,72,153,.35)",marginTop:2,transition:"all .2s"}}>
+            style={{background:submitting?"#d1d5db":G,color:"white",border:"none",padding:"14px 0",borderRadius:14,fontSize:16,fontWeight:700,cursor:submitting?"not-allowed":"pointer",boxShadow:submitting?"none":"0 6px 18px rgba(88,180,225,.35)",marginTop:2,transition:"all .2s"}}>
             {submitting ? "처리 중..." : signup ? "🐾 가입하고 시작하기" : "로그인"}
           </button>
 
@@ -1630,8 +1630,8 @@ export default function App() {
           {/* 이용약관 동의 안내 */}
           {signup && (
             <p style={{margin:"6px 0 0",textAlign:"center",fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
-              가입 시 <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")}>이용약관</span> 및{" "}
-              <span style={{color:"#ec4899",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1925-8252")}>개인정보 처리방침</span>에 동의하게 됩니다.
+              가입 시 <span style={{color:"#58B4E1",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 펫플 서비스 이용약관 ]\n\n제1조 (목적)\n이 약관은 펫플(이하 \'회사\')이 제공하는 반려동물 소셜 서비스(이하 \'서비스\')의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정합니다.\n\n제2조 (정의)\n① \'이용자\'란 회사의 서비스에 접속하여 이 약관에 따라 서비스를 이용하는 회원 및 비회원을 말합니다.\n② \'회원\'이란 회사에 개인정보를 제공하고 회원등록을 한 자로서, 회사가 제공하는 서비스를 이용할 수 있는 자를 말합니다.\n③ \'포인트\'란 서비스 내에서 활동 또는 유료 구매를 통해 획득하여 사용할 수 있는 가상 화폐를 의미합니다.\n\n제3조 (약관의 효력 및 변경)\n① 이 약관은 서비스 화면에 게시하거나 기타의 방법으로 이용자에게 공지함으로써 효력이 발생합니다.\n② 회사는 관련 법률을 위배하지 않는 범위에서 이 약관을 개정할 수 있으며, 변경 시 적용일자 7일 전부터 공지합니다.\n\n제4조 (서비스의 제공 및 변경)\n① 회사는 반려동물 매칭, 커뮤니티, 스토리, 모임 등의 서비스를 제공합니다.\n② 회사는 서비스의 내용을 변경할 수 있으며, 변경 시 사전에 공지합니다.\n\n제5조 (서비스 이용 제한)\n① 회사는 다음 각 호에 해당하는 경우 서비스 이용을 제한할 수 있습니다.\n1. 타인의 개인정보를 도용한 경우\n2. 욕설, 비하, 혐오 표현을 사용한 경우\n3. 음란물 또는 불법 콘텐츠를 게시한 경우\n4. 서비스 운영을 방해한 경우\n5. 다른 이용자에게 피해를 주는 행위를 한 경우\n\n제6조 (유료 서비스 및 환불)\n① 포인트 등 유료 콘텐츠는 앱 내 인앱구매(Apple App Store, Google Play)를 통해 구매할 수 있습니다.\n② 환불은 각 앱스토어의 환불 정책에 따릅니다.\n  - Apple App Store: 구매 후 14일 이내 Apple 고객지원을 통해 환불 요청 가능\n  - Google Play: 구매 후 48시간 이내 Google Play에서 직접 환불 가능, 이후는 개발자에게 요청\n③ 이미 사용한 포인트는 환불이 불가합니다.\n④ 회사의 귀책사유로 서비스 이용이 불가한 경우 전액 환불합니다.\n\n제7조 (회원 탈퇴 및 자격 상실)\n① 회원은 언제든지 서비스 내 설정에서 탈퇴를 요청할 수 있습니다.\n② 탈퇴 시 회원의 개인정보 및 서비스 이용 기록은 관련 법령에 따라 일정 기간 보관 후 파기합니다.\n③ 미사용 포인트는 탈퇴 시 소멸되며 환불되지 않습니다.\n\n제8조 (개인정보 보호)\n회사는 관련 법령이 정하는 바에 따라 회원의 개인정보를 보호하기 위해 노력하며, 개인정보의 보호 및 사용에 대해서는 개인정보 처리방침에 따릅니다.\n\n제9조 (저작권)\n① 서비스 내 회사가 제작한 콘텐츠에 대한 저작권은 회사에 있습니다.\n② 이용자가 서비스 내에 게시한 콘텐츠의 저작권은 해당 이용자에게 있습니다.\n\n제10조 (면책조항)\n① 회사는 이용자 간의 만남, 거래 등에서 발생하는 분쟁에 대해 책임지지 않습니다.\n② 회사는 천재지변 또는 이에 준하는 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다.\n\n제11조 (분쟁 해결)\n서비스 이용과 관련하여 분쟁이 발생한 경우 회사의 소재지를 관할하는 법원을 합의관할법원으로 합니다.\n\n부칙\n이 약관은 2025년 2월 19일부터 시행합니다.\n\n상호: 펫플 | 대표: 김영웅\n사업자등록번호: 743-09-03086")}>이용약관</span> 및{" "}
+              <span style={{color:"#58B4E1",cursor:"pointer",textDecoration:"underline"}} onClick={()=>alert("[ 개인정보 처리방침 ]\n\n1. 수집하는 개인정보 항목\n- 필수: 이메일, 닉네임\n- 선택: 위치 정보, 반려동물 정보, 프로필 사진\n\n2. 개인정보의 수집 및 이용 목적\n- 회원 가입 및 관리\n- 반려동물 매칭 서비스 제공\n- 커뮤니티 서비스 운영\n- 서비스 개선 및 통계 분석\n\n3. 개인정보의 보유 및 이용 기간\n- 회원 탈퇴 시까지\n- 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관\n  · 계약 또는 청약철회에 관한 기록: 5년\n  · 대금결제 및 재화 등의 공급에 관한 기록: 5년\n  · 소비자의 불만 또는 분쟁처리에 관한 기록: 3년\n\n4. 개인정보의 파기\n- 보유 기간이 경과하거나 처리 목적이 달성된 경우 지체 없이 파기\n- 전자적 파일: 기술적 방법으로 복원이 불가능하도록 삭제\n\n5. 이용자의 권리\n- 개인정보 열람, 정정, 삭제, 처리정지 요구 가능\n- 설정 메뉴 또는 고객센터를 통해 요청\n\n6. 개인정보 보호 책임자\n- 이메일: support@petple.app\n- 전화: 0502-1925-8252")}>개인정보 처리방침</span>에 동의하게 됩니다.
             </p>
           )}
         </div>
@@ -1647,7 +1647,7 @@ export default function App() {
             <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:24,padding:"32px 26px",width:"100%",maxWidth:380,boxShadow:"0 20px 50px rgba(0,0,0,.15)"}}>
               {findPwStep===0 ? (<>
                 <div style={{textAlign:"center",marginBottom:20}}>
-                  <div style={{width:56,height:56,background:"linear-gradient(135deg,#fce7f3,#ede9fe)",borderRadius:16,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🔑</div>
+                  <div style={{width:56,height:56,background:"linear-gradient(135deg,#E0F2FE,#DBEAFE)",borderRadius:16,margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>🔑</div>
                   <h3 style={{margin:"0 0 4px",fontSize:20,fontWeight:800}}>비밀번호 재설정</h3>
                   <p style={{margin:0,fontSize:13,color:"#9ca3af"}}>가입한 이메일로 재설정 링크를 보내드려요</p>
                 </div>
@@ -1719,13 +1719,13 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",gap:4}}>
               {/* 발자국 포인트 */}
               <button onClick={() => { setShowPoints(p=>!p); setShowAlarm(false); }}
-                style={{border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:20,background:showPoints?"#fce7f3":"transparent"}}>
+                style={{border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:20,background:showPoints?"#E0F2FE":"transparent"}}>
                 <span style={{fontSize:16}}>🐾</span>
-                <span style={{fontSize:13,fontWeight:700,color:"#ec4899"}}>{points.toLocaleString()}</span>
+                <span style={{fontSize:13,fontWeight:700,color:"#58B4E1"}}>{points.toLocaleString()}</span>
               </button>
               {/* 알람 */}
               <button onClick={() => { setShowAlarm(a=>!a); setShowPoints(false); }}
-                style={{background:showAlarm?"#f3e8ff":"none",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",fontSize:20}}>
+                style={{background:showAlarm?"#DBEAFE":"none",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",fontSize:20}}>
                 🔔
                 {alarms.some(a=>a.unread) && <span style={{position:"absolute",top:1,right:1,minWidth:16,height:16,background:"#ef4444",borderRadius:8,border:"2px solid white",fontSize:9,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,padding:"0 2px"}}>
                   {alarms.filter(a=>a.unread).length}
@@ -1756,13 +1756,13 @@ export default function App() {
             </div>
 
             {/* 잔액 카드 */}
-            <div style={{margin:"14px 20px",background:`linear-gradient(135deg,#ec4899,#a855f7)`,borderRadius:20,padding:"20px 24px",color:"white",position:"relative",overflow:"hidden"}}>
+            <div style={{margin:"14px 20px",background:`linear-gradient(135deg,#58B4E1,#4A9BD9)`,borderRadius:20,padding:"20px 24px",color:"white",position:"relative",overflow:"hidden"}}>
               <div style={{position:"absolute",top:-20,right:-20,width:100,height:100,background:"rgba(255,255,255,.08)",borderRadius:"50%"}} />
               <div style={{position:"absolute",bottom:-30,right:20,width:140,height:140,background:"rgba(255,255,255,.05)",borderRadius:"50%"}} />
               <p style={{margin:"0 0 4px",fontSize:12,opacity:.8}}>보유 포인트</p>
               <p style={{margin:"0 0 12px",fontSize:36,fontWeight:900,letterSpacing:-1}}>{points.toLocaleString()}<span style={{fontSize:16,fontWeight:600,marginLeft:4}}>p</span></p>
               <button onClick={() => { if(!checkedIn){ setPoints(p=>p+3); setCheckedIn(true); setEarnDone(d=>({...d,checkin:true})); setPointLog(l=>[{icon:"✅",label:"출석 체크",pt:3,type:"earn",date:dateNow()},...l]); } }}
-                style={{background:checkedIn?"rgba(255,255,255,.15)":"white",border:checkedIn?"2px solid rgba(255,255,255,.3)":"2px solid rgba(236,72,153,.3)",padding:"12px 24px",borderRadius:16,fontSize:14,fontWeight:800,cursor:checkedIn?"default":"pointer",color:checkedIn?"rgba(255,255,255,.8)":"#ec4899",display:"flex",alignItems:"center",gap:8,boxShadow:checkedIn?"none":"0 4px 16px rgba(236,72,153,.15)",transition:"all .3s ease"}}>
+                style={{background:checkedIn?"rgba(255,255,255,.15)":"white",border:checkedIn?"2px solid rgba(255,255,255,.3)":"2px solid rgba(88,180,225,.3)",padding:"12px 24px",borderRadius:16,fontSize:14,fontWeight:800,cursor:checkedIn?"default":"pointer",color:checkedIn?"rgba(255,255,255,.8)":"#58B4E1",display:"flex",alignItems:"center",gap:8,boxShadow:checkedIn?"none":"0 4px 16px rgba(88,180,225,.15)",transition:"all .3s ease"}}>
 
                 {checkedIn ? (<><span style={{fontSize:18}}>✅</span> 오늘 출석 완료!</>) : (<><span style={{fontSize:18}}>📅</span> 출석체크하고 3P 받기!</>)}
               </button>
@@ -1773,7 +1773,7 @@ export default function App() {
               {[["earn","🎁 포인트 획득"],["buy","💳 구매"],["history","📋 포인트 내역"]].map(([t,label])=>(
                 <button key={t} onClick={()=>setPointsTab(t)}
                   style={{flex:1,padding:"9px 0",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:12,transition:"all .2s",
-                    background:pointsTab===t?"white":"transparent",color:pointsTab===t?"#ec4899":"#9ca3af",
+                    background:pointsTab===t?"white":"transparent",color:pointsTab===t?"#58B4E1":"#9ca3af",
                     boxShadow:pointsTab===t?"0 2px 8px rgba(0,0,0,.08)":"none"}}>
                   {label}
                 </button>
@@ -1786,9 +1786,9 @@ export default function App() {
                 {[["all","전체"],["earn","획득"],["use","사용"]].map(([val,label])=>(
                   <button key={val} onClick={()=>setHistoryFilter(val)}
                     style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:700,fontSize:12,
-                      background:historyFilter===val?"linear-gradient(135deg,#ec4899,#a855f7)":"#f3f4f6",
+                      background:historyFilter===val?"linear-gradient(135deg,#58B4E1,#4A9BD9)":"#f3f4f6",
                       color:historyFilter===val?"white":"#6b7280",
-                      boxShadow:historyFilter===val?"0 2px 8px rgba(236,72,153,.3)":"none"}}>
+                      boxShadow:historyFilter===val?"0 2px 8px rgba(88,180,225,.3)":"none"}}>
                     {label}
                   </button>
                 ))}
@@ -1805,11 +1805,11 @@ export default function App() {
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                     {[
                       {key:"checkin", icon:"✅",label:"출석 체크",pt:3,desc:"매일 1회",color:"#dcfce7",tcolor:"#16a34a", action:"checkin"},
-                      {key:"lounge",  icon:"📝",label:"라운지 글쓰기",pt:3,desc:"1일 1회",color:"#fce7f3",tcolor:"#be185d", action:"auto"},
+                      {key:"lounge",  icon:"📝",label:"라운지 글쓰기",pt:3,desc:"1일 1회",color:"#E0F2FE",tcolor:"#1E6FA0", action:"auto"},
                       {key:"chat",    icon:"💬",label:"첫 대화",pt:5,desc:"1회 보너스",color:"#eff6ff",tcolor:"#1d4ed8", action:"auto"},
                       {key:"review",  icon:"⭐",label:"리뷰 작성",pt:5,desc:"앱 평가하기",color:"#fff7ed",tcolor:"#c2410c", action:"review"},
                       {key:"meeting", icon:"🏃",label:"모임 가입",pt:5,desc:"가입 시",color:"#ecfdf5",tcolor:"#065f46", action:"auto"},
-                      {key:"invite",  icon:"👥",label:"친구 초대",pt:30,desc:"가입 확인 시",color:"#fdf2f8",tcolor:"#9d174d", action:"invite"},
+                      {key:"invite",  icon:"👥",label:"친구 초대",pt:30,desc:"가입 확인 시",color:"#F0F8FF",tcolor:"#9d174d", action:"invite"},
                     ].map((item)=>{
                       const done = (item.action==="checkin" && checkedIn) || (item.key==="lounge" && earnDone.lounge) || (item.key==="review" && earnDone.review) || (item.key==="invite" && earnDone.invite);
                       return (
@@ -1850,7 +1850,7 @@ export default function App() {
                     })}
                   </div>
                   {/* 포인트 사용처 안내 */}
-                  <div style={{background:"linear-gradient(135deg,#fdf2f8,#ede9fe)",borderRadius:16,padding:16,marginBottom:16}}>
+                  <div style={{background:"linear-gradient(135deg,#F0F8FF,#DBEAFE)",borderRadius:16,padding:16,marginBottom:16}}>
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>🔥 포인트 사용처</p>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {[
@@ -1901,12 +1901,12 @@ export default function App() {
                   <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:20}}>
                     {BUY_PACKAGES.map((pkg,i)=>(
                       <div key={i} onClick={()=>purchasePoints(pkg)}
-                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#ec4899":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(236,72,153,.2)":"none",cursor:"pointer"}}>
+                        style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"white",border:`2px solid ${pkg.popular?"#58B4E1":"#f3f4f6"}`,borderRadius:18,position:"relative",textAlign:"left",boxShadow:pkg.popular?"0 4px 16px rgba(88,180,225,.2)":"none",cursor:"pointer"}}>
                         {pkg.popular && <div style={{position:"absolute",top:-1,right:14,background:G,color:"white",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:"0 0 10px 10px"}}>BEST</div>}
                         <span style={{fontSize:28}}>{pkg.icon}</span>
                         <div style={{flex:1}}>
                           <p style={{margin:"0 0 2px",fontWeight:700,fontSize:15,color:"#1f2937"}}>{pkg.label}</p>
-                          <p style={{margin:0,fontSize:13,fontWeight:800,color:"#ec4899"}}>{pkg.amount.toLocaleString()}p</p>
+                          <p style={{margin:0,fontSize:13,fontWeight:800,color:"#58B4E1"}}>{pkg.amount.toLocaleString()}p</p>
                         </div>
                         <div style={{textAlign:"right"}}>
                           <div style={{background:pkg.popular?G:"#f3f4f6",color:pkg.popular?"white":"#374151",padding:"8px 16px",borderRadius:20,fontSize:14,fontWeight:700,whiteSpace:"nowrap"}}>{pkg.price}</div>
@@ -1917,7 +1917,7 @@ export default function App() {
                   </div>
 
                   {/* 포인트 가치 안내 */}
-                  <div style={{background:"linear-gradient(135deg,#fdf2f8,#ede9fe)",borderRadius:18,padding:18}}>
+                  <div style={{background:"linear-gradient(135deg,#F0F8FF,#DBEAFE)",borderRadius:18,padding:18}}>
                     <p style={{margin:"0 0 10px",fontWeight:700,fontSize:14}}>💡 이런 분에게 추천해요</p>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {[
@@ -1927,7 +1927,7 @@ export default function App() {
                       ].map((tip,i)=>(
                         <div key={i} style={{background:"rgba(255,255,255,.7)",borderRadius:10,padding:"10px 12px"}}>
                           <p style={{margin:"0 0 2px",fontSize:12,fontWeight:600,color:"#6b7280"}}>{tip.who}</p>
-                          <p style={{margin:0,fontSize:13,fontWeight:700,color:"#be185d"}}>{tip.rec}</p>
+                          <p style={{margin:0,fontSize:13,fontWeight:700,color:"#1E6FA0"}}>{tip.rec}</p>
                         </div>
                       ))}
                     </div>
@@ -1980,7 +1980,7 @@ export default function App() {
                 </div>
                 <div style={{width:1,background:"#e5e7eb"}}/>
                 <div style={{textAlign:"center"}}>
-                  <p style={{margin:"0 0 2px",fontSize:18,fontWeight:800,color:"#ec4899"}}>{points.toLocaleString()}p</p>
+                  <p style={{margin:"0 0 2px",fontSize:18,fontWeight:800,color:"#58B4E1"}}>{points.toLocaleString()}p</p>
                   <p style={{margin:0,fontSize:11,color:"#9ca3af"}}>현재 잔액</p>
                 </div>
               </div>
@@ -1998,7 +1998,7 @@ export default function App() {
             <h3 style={{margin:"0 0 8px",fontSize:18,fontWeight:800}}>포인트 충전 안내</h3>
             <p style={{margin:"0 0 20px",fontSize:14,color:"#6b7280",lineHeight:1.6}}>Google Play 앱에서 포인트를 충전할 수 있어요!<br/>포인트 탭의 💳 구매 메뉴를 이용해주세요 🐾</p>
             <button onClick={()=>setPayModal(null)}
-              style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
+              style={{width:"100%",background:G,color:"white",border:"none",padding:"12px 0",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(88,180,225,.3)"}}>
               확인
             </button>
           </div>
@@ -2014,7 +2014,7 @@ export default function App() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 20px 10px"}}>
               <h3 style={{margin:0,fontSize:17,fontWeight:800}}>{showAlarmSettings?"알림 설정":"알림"}</h3>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setShowAlarmSettings(s=>!s)} style={{background:showAlarmSettings?"#fdf2f8":"#f3f4f6",border:"none",cursor:"pointer",width:32,height:32,borderRadius:"50%",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>{showAlarmSettings?"←":"⚙️"}</button>
+                <button onClick={()=>setShowAlarmSettings(s=>!s)} style={{background:showAlarmSettings?"#F0F8FF":"#f3f4f6",border:"none",cursor:"pointer",width:32,height:32,borderRadius:"50%",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>{showAlarmSettings?"←":"⚙️"}</button>
                 <button onClick={()=>{setShowAlarm(false);setShowAlarmSettings(false);}} style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:32,height:32,borderRadius:"50%",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
               </div>
             </div>
@@ -2029,7 +2029,7 @@ export default function App() {
                     
                     {key:"marketing",icon:"📢",label:"이벤트/마케팅 알림",desc:"혜택, 이벤트 소식"},
                   ].map(item=>(
-                    <div key={item.key} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 12px",borderRadius:14,background:alarmSettings[item.key]?"#fdf2f8":"#f9fafb"}}>
+                    <div key={item.key} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 12px",borderRadius:14,background:alarmSettings[item.key]?"#F0F8FF":"#f9fafb"}}>
                       <span style={{fontSize:22,flexShrink:0}}>{item.icon}</span>
                       <div style={{flex:1}}>
                         <p style={{margin:"0 0 2px",fontSize:14,fontWeight:600}}>{item.label}</p>
@@ -2037,7 +2037,7 @@ export default function App() {
                       </div>
                       <button onClick={()=>setAlarmSettings(s=>({...s,[item.key]:!s[item.key]}))}
                         style={{width:48,height:28,borderRadius:14,border:"none",cursor:"pointer",position:"relative",
-                          background:alarmSettings[item.key]?"#ec4899":"#d1d5db",transition:"background .2s",padding:0,flexShrink:0}}>
+                          background:alarmSettings[item.key]?"#58B4E1":"#d1d5db",transition:"background .2s",padding:0,flexShrink:0}}>
                         <div style={{width:22,height:22,borderRadius:"50%",background:"white",position:"absolute",top:3,
                           left:alarmSettings[item.key]?23:3,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
                       </button>
@@ -2054,16 +2054,16 @@ export default function App() {
                     </div>
                   ) : alarms.map(a => (
                     <div key={a.id} onClick={()=>handleAlarmClick(a)}
-                      style={{display:"flex",gap:12,padding:"14px 8px",borderBottom:"1px solid #f3f4f6",background:a.unread?"#fdf2f8":"transparent",borderRadius:12,marginBottom:2,cursor:a.nav?"pointer":"default",transition:"background .15s"}}
-                      onMouseDown={e=>{if(a.nav)e.currentTarget.style.background="#fce7f3";}}
-                      onMouseUp={e=>{e.currentTarget.style.background=a.unread?"#fdf2f8":"transparent";}}>
+                      style={{display:"flex",gap:12,padding:"14px 8px",borderBottom:"1px solid #f3f4f6",background:a.unread?"#F0F8FF":"transparent",borderRadius:12,marginBottom:2,cursor:a.nav?"pointer":"default",transition:"background .15s"}}
+                      onMouseDown={e=>{if(a.nav)e.currentTarget.style.background="#E0F2FE";}}
+                      onMouseUp={e=>{e.currentTarget.style.background=a.unread?"#F0F8FF":"transparent";}}>
                       <span style={{fontSize:24,flexShrink:0}}>{a.icon}</span>
                       <div style={{flex:1}}>
                         <p style={{margin:"0 0 3px",fontSize:14,fontWeight:a.unread?600:400,color:"#1f2937"}}>{a.text}</p>
                         <p style={{margin:0,fontSize:12,color:"#9ca3af"}}>{a.time}</p>
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                        {a.unread && <span style={{width:8,height:8,background:"#ec4899",borderRadius:"50%"}} />}
+                        {a.unread && <span style={{width:8,height:8,background:"#58B4E1",borderRadius:"50%"}} />}
                         {a.nav && <span style={{fontSize:14,color:"#d1d5db"}}>›</span>}
                       </div>
                     </div>
@@ -2101,7 +2101,7 @@ export default function App() {
                       style={{padding:"8px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
                         background:String(recoSettings.distance)===val?G:"#f3f4f6",
                         color:String(recoSettings.distance)===val?"white":"#6b7280",
-                        boxShadow:String(recoSettings.distance)===val?"0 2px 8px rgba(236,72,153,.3)":"none"}}>{label}</button>
+                        boxShadow:String(recoSettings.distance)===val?"0 2px 8px rgba(88,180,225,.3)":"none"}}>{label}</button>
                   ))}
                 </div>
               </div>
@@ -2114,7 +2114,7 @@ export default function App() {
                       style={{padding:"8px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
                         background:recoSettings.petType===val?G:"#f3f4f6",
                         color:recoSettings.petType===val?"white":"#6b7280",
-                        boxShadow:recoSettings.petType===val?"0 2px 8px rgba(236,72,153,.3)":"none"}}>{label}</button>
+                        boxShadow:recoSettings.petType===val?"0 2px 8px rgba(88,180,225,.3)":"none"}}>{label}</button>
                   ))}
                 </div>
               </div>
@@ -2127,7 +2127,7 @@ export default function App() {
                       style={{padding:"8px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
                         background:recoSettings.ageRange===val?G:"#f3f4f6",
                         color:recoSettings.ageRange===val?"white":"#6b7280",
-                        boxShadow:recoSettings.ageRange===val?"0 2px 8px rgba(236,72,153,.3)":"none"}}>{label}</button>
+                        boxShadow:recoSettings.ageRange===val?"0 2px 8px rgba(88,180,225,.3)":"none"}}>{label}</button>
                   ))}
                 </div>
               </div>
@@ -2140,12 +2140,12 @@ export default function App() {
                       style={{padding:"8px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
                         background:recoSettings.gender===val?G:"#f3f4f6",
                         color:recoSettings.gender===val?"white":"#6b7280",
-                        boxShadow:recoSettings.gender===val?"0 2px 8px rgba(236,72,153,.3)":"none"}}>{label}</button>
+                        boxShadow:recoSettings.gender===val?"0 2px 8px rgba(88,180,225,.3)":"none"}}>{label}</button>
                   ))}
                 </div>
               </div>
               <button onClick={()=>{setShowRecoSettings(false);loadNearbyUsers();showAlert("✅ 추천 설정이 저장되었어요!\n새로운 기준으로 펫친을 추천해드릴게요 🐾");}}
-                style={{width:"100%",background:G,color:"white",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:"pointer",boxShadow:"0 4px 16px rgba(236,72,153,.3)"}}>
+                style={{width:"100%",background:G,color:"white",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:"pointer",boxShadow:"0 4px 16px rgba(88,180,225,.3)"}}>
                 설정 저장하기
               </button>
             </div>
@@ -2201,7 +2201,7 @@ export default function App() {
               <h2 style={{margin:"0 0 8px",fontSize:20,fontWeight:800,color:"#1f2937"}}>아직 주변에 펫친이 없어요</h2>
               <p style={{margin:"0 0 20px",fontSize:14,color:"#9ca3af",lineHeight:1.6}}>새로운 펫친이 가입하면 알려드릴게요!<br/>프로필을 완성하고 기다려보세요 🐶</p>
               <button onClick={()=>setTab("profile")}
-                style={{background:G,color:"white",border:"none",padding:"12px 24px",borderRadius:20,fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:"0 4px 14px rgba(236,72,153,.35)"}}>
+                style={{background:G,color:"white",border:"none",padding:"12px 24px",borderRadius:20,fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:"0 4px 14px rgba(88,180,225,.35)"}}>
                 프로필 꾸미러 가기 ✨
               </button>
             </div>
@@ -2237,11 +2237,11 @@ export default function App() {
             </div>
             <div style={{padding:"16px 20px 20px"}}>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
-                {pet.tags.map((t,i) => <span key={i} style={{background:"#fce7f3",color:"#be185d",padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:600}}>{t}</span>)}
+                {pet.tags.map((t,i) => <span key={i} style={{background:"#E0F2FE",color:"#1E6FA0",padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:600}}>{t}</span>)}
               </div>
               <p style={{margin:"0 0 14px",fontSize:14,color:"#374151",lineHeight:1.6}}>{pet.bio}</p>
               {/* 주인 정보 카드 */}
-              <div style={{background:"linear-gradient(135deg,#fdf2f8,#ede9fe)",borderRadius:14,padding:14}}>
+              <div style={{background:"linear-gradient(135deg,#F0F8FF,#DBEAFE)",borderRadius:14,padding:14}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
                   <div style={{width:40,height:40,background:G,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,flexShrink:0,fontSize:16}}>{pet.owner[0]}</div>
                   <div style={{flex:1}}>
@@ -2250,14 +2250,14 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {pet.ownerGender && <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#7c3aed"}}>{pet.ownerGender==="남"?"🙋‍♂️ 남성":"🙋‍♀️ 여성"}</span>}
-                  {pet.ownerBirth && <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#7c3aed"}}>{pet.ownerBirth}년생</span>}
-                  <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#7c3aed"}}>📍 {pet.ownerRegion||pet.location}</span>
+                  {pet.ownerGender && <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#E9967A"}}>{pet.ownerGender==="남"?"🙋‍♂️ 남성":"🙋‍♀️ 여성"}</span>}
+                  {pet.ownerBirth && <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#E9967A"}}>{pet.ownerBirth}년생</span>}
+                  <span style={{background:"white",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,color:"#E9967A"}}>📍 {pet.ownerRegion||pet.location}</span>
                 </div>
                 {/* 관심사 */}
                 {pet.ownerInterests && pet.ownerInterests.length>0 && (
                   <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:8}}>
-                    {pet.ownerInterests.map((t,i)=><span key={i} style={{background:"rgba(124,58,237,.1)",color:"#7c3aed",padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600}}>#{t}</span>)}
+                    {pet.ownerInterests.map((t,i)=><span key={i} style={{background:"rgba(233,150,122,.1)",color:"#E9967A",padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600}}>#{t}</span>)}
                   </div>
                 )}
               </div>
@@ -2316,15 +2316,15 @@ export default function App() {
         <div onTouchStart={e=>handleTouchStart(e,"community")} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
           {/* 당겨서 새로고침 인디케이터 */}
           {pullY > 5 && pullTabRef.current==="community" && (
-            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#fdf2f8",transition:pulling?"none":"padding .2s"}}>
+            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#F0F8FF",transition:pulling?"none":"padding .2s"}}>
               <span style={{fontSize:16,transform:`rotate(${Math.min(pullY*4,360)}deg)`,transition:pulling?"none":"transform .2s"}}>🔄</span>
-              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
+              <span style={{fontSize:12,color:"#58B4E1",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
             </div>
           )}
           {isRefreshing && (
-            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#fdf2f8"}}>
+            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#F0F8FF"}}>
               <span style={{fontSize:14,animation:"spin 1s linear infinite"}}>🔄</span>
-              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
+              <span style={{fontSize:12,color:"#58B4E1",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
             </div>
           )}
           {/* 카테고리 탭 - 항상 펼침 */}
@@ -2334,9 +2334,9 @@ export default function App() {
                 <button key={c.key} onClick={()=>setLoungeCat(c.key)}
                   style={{padding:"8px 4px",borderRadius:14,border:"none",cursor:"pointer",
                     fontWeight:700,fontSize:11,textAlign:"center",
-                    background:loungeCat===c.key?"linear-gradient(135deg,#ec4899,#a855f7)":"#f3f4f6",
+                    background:loungeCat===c.key?"linear-gradient(135deg,#58B4E1,#4A9BD9)":"#f3f4f6",
                     color:loungeCat===c.key?"white":"#6b7280",
-                    boxShadow:loungeCat===c.key?"0 2px 8px rgba(236,72,153,.3)":"none"}}>
+                    boxShadow:loungeCat===c.key?"0 2px 8px rgba(88,180,225,.3)":"none"}}>
                   <div style={{fontSize:16,marginBottom:2}}>{c.icon}</div>
                   {c.label}
                 </button>
@@ -2381,7 +2381,7 @@ export default function App() {
                   <div key={p.id} onClick={()=>setSelectedPost(p)}
                     style={{background:"white",borderRadius:18,padding:16,marginBottom:10,boxShadow:"0 2px 8px rgba(0,0,0,.05)",cursor:"pointer"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                      <div onClick={openAuthorProfile} style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#fce7f3,#ede9fe)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,cursor:"pointer",overflow:"hidden"}}>
+                      <div onClick={openAuthorProfile} style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#E0F2FE,#DBEAFE)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,cursor:"pointer",overflow:"hidden"}}>
                         {(p.byImg||authorPhotoCache[p.uid]) ? <img src={p.byImg||authorPhotoCache[p.uid]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : p.by?.[0]||"🐾"}
                       </div>
                       <div style={{flex:1}}>
@@ -2400,7 +2400,7 @@ export default function App() {
                       </div>
                     )}
                     <div style={{display:"flex",gap:14,alignItems:"center"}}>
-                      <span style={{fontSize:13,color:isLiked?"#ec4899":"#9ca3af",fontWeight:isLiked?700:400}}>
+                      <span style={{fontSize:13,color:isLiked?"#58B4E1":"#9ca3af",fontWeight:isLiked?700:400}}>
                         {isLiked?"❤️":"🤍"} {p.likes.length}
                       </span>
                       <span style={{fontSize:13,color:"#9ca3af"}}>💬 {p.comments.length}</span>
@@ -2434,7 +2434,7 @@ export default function App() {
             setPostForm({cat:autoCat,content:"",imgs:[]});
             setIsWritePost(true);
           }}
-            style={{position:"fixed",bottom:80,right:20,width:52,height:52,borderRadius:"50%",background:G,color:"white",border:"none",cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 18px rgba(236,72,153,.45)",zIndex:10}}>
+            style={{position:"fixed",bottom:80,right:20,width:52,height:52,borderRadius:"50%",background:G,color:"white",border:"none",cursor:"pointer",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 18px rgba(88,180,225,.45)",zIndex:10}}>
             ✏️
           </button>
         </div>
@@ -2535,7 +2535,7 @@ export default function App() {
               {editingPost===post.id && (
                 <div style={{marginBottom:12,background:"#f9fafb",borderRadius:12,padding:12}}>
                   <textarea value={editPostContent} onChange={e=>setEditPostContent(e.target.value)}
-                    style={{width:"100%",minHeight:80,border:"2px solid #ec4899",borderRadius:10,padding:10,fontSize:14,outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
+                    style={{width:"100%",minHeight:80,border:"2px solid #58B4E1",borderRadius:10,padding:10,fontSize:14,outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
                   <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end"}}>
                     <button onClick={()=>setEditingPost(null)} style={{background:"#e5e7eb",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>취소</button>
                     <button onClick={()=>{
@@ -2556,7 +2556,7 @@ export default function App() {
               {/* 좋아요 버튼 */}
               <div style={{display:"flex",gap:16,paddingTop:12,borderTop:"1px solid #f3f4f6"}}>
                 <button onClick={addLike}
-                  style={{display:"flex",alignItems:"center",gap:6,background:isLiked?"#fce7f3":"#f9fafb",border:"none",cursor:"pointer",padding:"8px 16px",borderRadius:20,fontWeight:700,fontSize:13,color:isLiked?"#ec4899":"#9ca3af",transition:"all .15s"}}>
+                  style={{display:"flex",alignItems:"center",gap:6,background:isLiked?"#E0F2FE":"#f9fafb",border:"none",cursor:"pointer",padding:"8px 16px",borderRadius:20,fontWeight:700,fontSize:13,color:isLiked?"#58B4E1":"#9ca3af",transition:"all .15s"}}>
                   {isLiked?"❤️":"🤍"} 좋아요 {post.likes.length}
                 </button>
                 <button style={{display:"flex",alignItems:"center",gap:6,background:"#f9fafb",border:"none",cursor:"pointer",padding:"8px 16px",borderRadius:20,fontWeight:700,fontSize:13,color:"#9ca3af"}}>
@@ -2591,7 +2591,7 @@ export default function App() {
                         <p style={{margin:"0 0 6px",fontSize:14,color:"#1f2937",lineHeight:1.5}}>{c.text}</p>
                         <div style={{display:"flex",gap:12,alignItems:"center"}}>
                           <button onClick={()=>likeComment(c.id)}
-                            style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:c.likes.includes(user?.uid)?"#ec4899":"#9ca3af",padding:0,fontWeight:600}}>
+                            style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:c.likes.includes(user?.uid)?"#58B4E1":"#9ca3af",padding:0,fontWeight:600}}>
                             {c.likes.includes(user?.uid)?"❤️":"🤍"} {c.likes.length}
                           </button>
                           <button onClick={()=>setReplyTarget(replyTarget?.commentId===c.id?null:{postId:post.id,commentId:c.id})}
@@ -2614,10 +2614,10 @@ export default function App() {
                         </div>
                         {/* 대댓글 목록 */}
                         {c.replies.length>0 && (
-                          <div style={{marginTop:10,paddingLeft:4,borderLeft:"2px solid #f3e8ff"}}>
+                          <div style={{marginTop:10,paddingLeft:4,borderLeft:"2px solid #DBEAFE"}}>
                             {c.replies.map(r=>(
                               <div key={r.id} style={{display:"flex",gap:8,marginBottom:8,alignItems:"flex-start"}}>
-                                <div style={{width:26,height:26,borderRadius:"50%",background:"linear-gradient(135deg,#fce7f3,#ede9fe)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,fontWeight:700}}>
+                                <div style={{width:26,height:26,borderRadius:"50%",background:"linear-gradient(135deg,#E0F2FE,#DBEAFE)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,fontWeight:700}}>
                                   {r.by?.[0]||"🐾"}
                                 </div>
                                 <div>
@@ -2688,8 +2688,8 @@ export default function App() {
               {[["chat","💬 대화",matches.length],["liked","💗 보낸",liked.length],["received","💜 받은",receivedLikes.length]].map(([id,label,cnt])=>(
                 <button key={id} onClick={()=>setInterestMode(id)}
                   style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"10px 0 12px",fontSize:14,fontWeight:700,
-                    color:interestMode===id?"#ec4899":"#9ca3af",borderBottom:interestMode===id?"3px solid #ec4899":"3px solid transparent",transition:"all .15s"}}>
-                  {label} {cnt>0&&<span style={{background:interestMode===id?"#fce7f3":"#f3f4f6",color:interestMode===id?"#ec4899":"#9ca3af",fontSize:11,fontWeight:800,padding:"2px 6px",borderRadius:8,marginLeft:4}}>{cnt}</span>}
+                    color:interestMode===id?"#58B4E1":"#9ca3af",borderBottom:interestMode===id?"3px solid #58B4E1":"3px solid transparent",transition:"all .15s"}}>
+                  {label} {cnt>0&&<span style={{background:interestMode===id?"#E0F2FE":"#f3f4f6",color:interestMode===id?"#58B4E1":"#9ca3af",fontSize:11,fontWeight:800,padding:"2px 6px",borderRadius:8,marginLeft:4}}>{cnt}</span>}
                 </button>
               ))}
             </div>
@@ -2702,7 +2702,7 @@ export default function App() {
                   <p style={{fontSize:48,margin:"0 0 12px"}}>💬</p>
                   <p style={{color:"#9ca3af",fontSize:15}}>아직 매칭된 펫친이 없어요</p>
                   <p style={{color:"#d1d5db",fontSize:13,marginTop:4}}>카드를 넘겨 펫친을 만나보세요!</p>
-                  <button onClick={() => setTab("home")} style={{marginTop:20,background:G,color:"white",border:"none",padding:"11px 22px",borderRadius:20,fontWeight:700,cursor:"pointer",fontSize:14,boxShadow:"0 4px 14px rgba(236,72,153,.35)"}}>펫친 찾으러 가기 🐾</button>
+                  <button onClick={() => setTab("home")} style={{marginTop:20,background:G,color:"white",border:"none",padding:"11px 22px",borderRadius:20,fontWeight:700,cursor:"pointer",fontSize:14,boxShadow:"0 4px 14px rgba(88,180,225,.35)"}}>펫친 찾으러 가기 🐾</button>
                 </div>
               ) : matches.map((m,i) => {
                 const petData = nearbyPets.find(p=>p.owner===m.name||p.name===m.name);
@@ -2784,7 +2784,7 @@ export default function App() {
                       style={{background:"white",borderRadius:18,overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,.06)",cursor:"pointer"}}>
                       <div style={{position:"relative",height:150}}>
                         <img src={p.img} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-                        <div style={{position:"absolute",bottom:8,right:8,background:"rgba(168,85,247,.9)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white"}}>💜</div>
+                        <div style={{position:"absolute",bottom:8,right:8,background:"rgba(74,155,217,.9)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white"}}>💜</div>
                       </div>
                       <div style={{padding:"10px 12px"}}>
                         <h3 style={{margin:"0 0 2px",fontSize:15,fontWeight:700}}>{p.name}</h3>
@@ -2846,7 +2846,7 @@ export default function App() {
                             const newR={...m.reactions,[emoji]:newU};
                             setMsgs(prev=>prev.map((x,xi)=>xi===mi?{...x,reactions:newR}:x));
                             updateDoc(doc(db,"chatRooms",chatRoomId,"messages",m.id),{reactions:newR}).catch(()=>{});
-                          }} style={{background:users.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.uid)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
+                          }} style={{background:users.includes(user?.uid)?"#E0F2FE":"#f3f4f6",border:"1px solid "+(users.includes(user?.uid)?"#93C5FD":"#e5e7eb"),borderRadius:12,padding:"1px 6px",fontSize:12,cursor:"pointer"}}>
                             {emoji} {users.length>1?users.length:""}
                           </span>
                         ))}
@@ -2882,7 +2882,7 @@ export default function App() {
           {newMsgAlert && (
             <div style={{position:"absolute",bottom:80,left:"50%",transform:"translateX(-50%)",zIndex:5}}>
               <button onClick={()=>{chatContainerRef.current?.scrollTo({top:chatContainerRef.current.scrollHeight,behavior:"smooth"});setNewMsgAlert(false);}}
-                style={{background:G,color:"white",border:"none",padding:"8px 18px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(236,72,153,.4)",display:"flex",alignItems:"center",gap:6}}>
+                style={{background:G,color:"white",border:"none",padding:"8px 18px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(88,180,225,.4)",display:"flex",alignItems:"center",gap:6}}>
                 ↓ 새 메시지
               </button>
             </div>
@@ -2918,7 +2918,7 @@ export default function App() {
       {tab==="profile" && (
         <div style={{paddingBottom:20}}>
           {/* 상단 헤더 카드 */}
-          <div style={{background:"linear-gradient(135deg,#fce7f3,#ede9fe)",padding:"24px 20px 20px"}}>
+          <div style={{background:"linear-gradient(135deg,#E0F2FE,#DBEAFE)",padding:"24px 20px 20px"}}>
             <div style={{display:"flex",gap:16,alignItems:"center"}}>
               {/* 프로필 사진 */}
               <div style={{width:72,height:72,borderRadius:"50%",border:"3px solid white",overflow:"hidden",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,color:"white",fontWeight:800,boxShadow:"0 4px 16px rgba(0,0,0,.12)",flexShrink:0}}>
@@ -2935,7 +2935,7 @@ export default function App() {
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <p style={{margin:0,fontSize:12,color:"#374151",display:"flex",alignItems:"center",gap:4}}>📍 {userLocation}</p>
                   <button onClick={updateMyLocation} disabled={locationUpdating}
-                    style={{background:locationUpdating?"#f3f4f6":"#fdf2f8",color:locationUpdating?"#9ca3af":"#ec4899",border:"1px solid #fce7f3",padding:"3px 8px",borderRadius:10,fontSize:10,fontWeight:700,cursor:locationUpdating?"default":"pointer",display:"flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>
+                    style={{background:locationUpdating?"#f3f4f6":"#F0F8FF",color:locationUpdating?"#9ca3af":"#58B4E1",border:"1px solid #E0F2FE",padding:"3px 8px",borderRadius:10,fontSize:10,fontWeight:700,cursor:locationUpdating?"default":"pointer",display:"flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>
                     <span style={{display:"inline-block",animation:locationUpdating?"spin 1s linear infinite":"none"}}>📍</span>{locationUpdating?"감지중...":"위치 갱신"}
                   </button>
                 </div>
@@ -2945,11 +2945,11 @@ export default function App() {
             {/* 관심사 태그 - 프로필수정 버튼 위에 배치 */}
             {user?.interests && user.interests.length>0 && (
               <div style={{marginTop:12,display:"flex",flexWrap:"wrap",gap:4}}>
-                {user.interests.map((t,i)=><span key={i} style={{background:"rgba(255,255,255,.8)",color:"#be185d",padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>#{t}</span>)}
+                {user.interests.map((t,i)=><span key={i} style={{background:"rgba(255,255,255,.8)",color:"#1E6FA0",padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>#{t}</span>)}
               </div>
             )}
             <button onClick={() => { setEditBioVal(profileBio); setEditNickVal(user?.name||""); setIsEditProfile(true); }}
-              style={{marginTop:10,background:"rgba(255,255,255,.85)",color:"#ec4899",border:"none",padding:"8px 18px",borderRadius:20,fontSize:13,fontWeight:700,cursor:"pointer",width:"100%"}}>
+              style={{marginTop:10,background:"rgba(255,255,255,.85)",color:"#58B4E1",border:"none",padding:"8px 18px",borderRadius:20,fontSize:13,fontWeight:700,cursor:"pointer",width:"100%"}}>
               ✏️ 프로필 수정
             </button>
           </div>
@@ -2974,7 +2974,7 @@ export default function App() {
                 <div style={{flex:1,background:"#f3f4f6",borderRadius:4,height:6,overflow:"hidden"}}>
                   <div style={{height:"100%",borderRadius:4,background:G,width:pct+"%",transition:"width .5s"}}/>
                 </div>
-                <span style={{fontSize:12,fontWeight:700,color:"#ec4899",flexShrink:0}}>{pct}%</span>
+                <span style={{fontSize:12,fontWeight:700,color:"#58B4E1",flexShrink:0}}>{pct}%</span>
               </div>
             ):null;
           })()}
@@ -3038,7 +3038,7 @@ export default function App() {
                       </div>
                       {pet.traits.length>0 && (
                         <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:8,paddingLeft:68}}>
-                          {pet.traits.slice(0,4).map((t,j)=><span key={j} style={{background:"#fce7f3",color:"#be185d",fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10}}>{t}</span>)}
+                          {pet.traits.slice(0,4).map((t,j)=><span key={j} style={{background:"#E0F2FE",color:"#1E6FA0",fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10}}>{t}</span>)}
                           {pet.traits.length>4 && <span style={{fontSize:10,color:"#9ca3af"}}>+{pet.traits.length-4}</span>}
                         </div>
                       )}
@@ -3108,20 +3108,20 @@ export default function App() {
         <div style={{paddingBottom:20}} onTouchStart={e=>handleTouchStart(e,"story")} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
           {/* 필터 바 */}
           {pullY > 5 && pullTabRef.current==="story" && (
-            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#fdf2f8",transition:pulling?"none":"padding .2s"}}>
+            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#F0F8FF",transition:pulling?"none":"padding .2s"}}>
               <span style={{fontSize:16,transform:`rotate(${Math.min(pullY*4,360)}deg)`,transition:pulling?"none":"transform .2s"}}>🔄</span>
-              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
+              <span style={{fontSize:12,color:"#58B4E1",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
             </div>
           )}
           {isRefreshing && pullTabRef.current==="story" && (
-            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#fdf2f8"}}>
+            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#F0F8FF"}}>
               <span style={{fontSize:14,animation:"spin 1s linear infinite"}}>🔄</span>
-              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
+              <span style={{fontSize:12,color:"#58B4E1",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
             </div>
           )}
           <div style={{padding:"8px 14px",background:"white",display:"flex",justifyContent:"flex-start",alignItems:"center"}}>
             <button onClick={()=>setShowStoryFilter(true)}
-              style={{background:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#fdf2f8":"#f3f4f6",color:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#ec4899":"#6b7280",border:storyFilter.petType!=="all"||storyFilter.region!=="all"?"1px solid #fce7f3":"1px solid #e5e7eb",padding:"6px 12px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+              style={{background:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#F0F8FF":"#f3f4f6",color:storyFilter.petType!=="all"||storyFilter.region!=="all"?"#58B4E1":"#6b7280",border:storyFilter.petType!=="all"||storyFilter.region!=="all"?"1px solid #E0F2FE":"1px solid #e5e7eb",padding:"6px 12px",borderRadius:20,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
               🔍 필터 {(storyFilter.petType!=="all"||storyFilter.region!=="all")?"✓":""}
             </button>
           </div>
@@ -3172,7 +3172,7 @@ export default function App() {
                       초기화
                     </button>
                     <button onClick={()=>setShowStoryFilter(false)}
-                      style={{flex:2,background:G,color:"white",border:"none",padding:"12px 0",borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:"0 4px 14px rgba(236,72,153,.3)"}}>
+                      style={{flex:2,background:G,color:"white",border:"none",padding:"12px 0",borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:"0 4px 14px rgba(88,180,225,.3)"}}>
                       적용하기
                     </button>
                   </div>
@@ -3209,7 +3209,7 @@ export default function App() {
                 return (
                 <div key={i} onClick={()=>setViewStory(s)} style={{flexShrink:0,textAlign:"center",cursor:"pointer"}}>
                   <div style={{width:64,height:64,borderRadius:"50%",padding:2,boxSizing:"border-box",
-                    background:expiringSoon?"linear-gradient(135deg,#f59e0b,#ef4444)":"linear-gradient(135deg,#ec4899,#a855f7)",overflow:"hidden",position:"relative"}}>
+                    background:expiringSoon?"linear-gradient(135deg,#f59e0b,#ef4444)":"linear-gradient(135deg,#58B4E1,#4A9BD9)",overflow:"hidden",position:"relative"}}>
                     {s.img
                       ? <img src={s.img} alt="" style={{width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover",border:"2px solid white"}}/>
                       : <div style={{width:"100%",height:"100%",borderRadius:"50%",background:G,border:"2px solid white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{s.petIcon||"🐾"}</div>}
@@ -3236,7 +3236,7 @@ export default function App() {
               <h3 style={{margin:"0 0 6px",fontSize:16,fontWeight:800,color:"#374151"}}>아직 스토리가 없어요</h3>
               <p style={{margin:"0 0 16px",fontSize:13,color:"#9ca3af",lineHeight:1.6}}>우리 아이의 일상을 공유해보세요!<br/>반려동물 사진이나 영상을 올릴 수 있어요 🐾</p>
               <button onClick={()=>{setStoryPetSel(null);setStoryContent("");setStoryImg(null);setIsAddStory(true);}}
-                style={{background:G,color:"white",border:"none",padding:"10px 24px",borderRadius:20,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(236,72,153,.3)"}}>
+                style={{background:G,color:"white",border:"none",padding:"10px 24px",borderRadius:20,fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px rgba(88,180,225,.3)"}}>
                 첫 스토리 올리기
               </button>
             </div>
@@ -3259,7 +3259,7 @@ export default function App() {
                   }} style={{margin:0,fontSize:11,opacity:.8,cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>{s.by||user?.name}</p>
                 </div>
                 {s.isMine && (<>
-                  <div style={{position:"absolute",top:8,right:8,background:"linear-gradient(135deg,#ec4899,#a855f7)",color:"white",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:8}}>내 스토리</div>
+                  <div style={{position:"absolute",top:8,right:8,background:"linear-gradient(135deg,#58B4E1,#4A9BD9)",color:"white",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:8}}>내 스토리</div>
                   <button onClick={e=>{
                     e.stopPropagation();
                     if(!confirm("이 스토리를 삭제하시겠어요?")) return;
@@ -3295,13 +3295,13 @@ export default function App() {
                       <div key={i} onClick={()=>setStoryPetSel(i)}
                         style={{flexShrink:0,textAlign:"center",cursor:"pointer"}}>
                         <div style={{width:64,height:64,borderRadius:"50%",padding:2,boxSizing:"border-box",
-                          background:storyPetSel===i?"linear-gradient(135deg,#ec4899,#a855f7)":"#e5e7eb",overflow:"hidden"}}>
+                          background:storyPetSel===i?"linear-gradient(135deg,#58B4E1,#4A9BD9)":"#e5e7eb",overflow:"hidden"}}>
                           {pet.photos[pet.repIdx]
                             ? <img src={pet.photos[pet.repIdx]} alt="" style={{width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover",border:"2px solid white"}}/>
                             : <div style={{width:"100%",height:"100%",borderRadius:"50%",background:"#f9fafb",border:"2px solid white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🐾</div>}
                         </div>
-                        <p style={{margin:"4px 0 0",fontSize:12,fontWeight:storyPetSel===i?800:600,color:storyPetSel===i?"#ec4899":"#374151"}}>{pet.name}</p>
-                        {storyPetSel===i && <p style={{margin:0,fontSize:10,color:"#ec4899"}}>✓ 선택됨</p>}
+                        <p style={{margin:"4px 0 0",fontSize:12,fontWeight:storyPetSel===i?800:600,color:storyPetSel===i?"#58B4E1":"#374151"}}>{pet.name}</p>
+                        {storyPetSel===i && <p style={{margin:0,fontSize:10,color:"#58B4E1"}}>✓ 선택됨</p>}
                       </div>
                     ))}
                   </div>
@@ -3326,7 +3326,7 @@ export default function App() {
               <p style={{margin:"0 0 6px",fontWeight:700,fontSize:14}}>한 마디 <span style={{color:"#9ca3af",fontWeight:400}}>(선택)</span></p>
               <textarea value={storyContent} onChange={e=>setStoryContent(e.target.value)} placeholder="오늘 우리 아이 이야기를 들려주세요 🐾" rows={3}
                 style={{width:"100%",padding:"11px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:14,outline:"none",resize:"none",boxSizing:"border-box",lineHeight:1.6,fontFamily:"inherit"}}
-                onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+                onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
             </div>
             <div style={{padding:"12px 18px 28px",borderTop:"1px solid #f3f4f6",flexShrink:0}}>
               <button onClick={()=>{
@@ -3420,15 +3420,15 @@ export default function App() {
         <div style={{paddingBottom:20}} onTouchStart={e=>handleTouchStart(e,"meeting")} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
           {/* 당겨서 새로고침 인디케이터 */}
           {pullY > 5 && pullTabRef.current==="meeting" && (
-            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#fdf2f8",transition:pulling?"none":"padding .2s"}}>
+            <div style={{display:"flex",justifyContent:"center",padding:pullY*0.15+"px 0",background:"#F0F8FF",transition:pulling?"none":"padding .2s"}}>
               <span style={{fontSize:16,transform:`rotate(${Math.min(pullY*4,360)}deg)`,transition:pulling?"none":"transform .2s"}}>🔄</span>
-              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
+              <span style={{fontSize:12,color:"#58B4E1",fontWeight:600,marginLeft:6}}>{pulling?"놓으면 새로고침":"당겨서 새로고침"}</span>
             </div>
           )}
           {isRefreshing && pullTabRef.current==="meeting" && (
-            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#fdf2f8"}}>
+            <div style={{display:"flex",justifyContent:"center",padding:"6px 0",background:"#F0F8FF"}}>
               <span style={{fontSize:14,animation:"spin 1s linear infinite"}}>🔄</span>
-              <span style={{fontSize:12,color:"#ec4899",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
+              <span style={{fontSize:12,color:"#58B4E1",fontWeight:600,marginLeft:6}}>불러오는 중...</span>
             </div>
           )}
           {/* 검색 영역 */}
@@ -3438,7 +3438,7 @@ export default function App() {
                 <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#9ca3af"}}>🔍</span>
                 <input value={meetSearch.name} onChange={e=>setMeetSearch(s=>({...s,name:e.target.value}))}
                   placeholder="모임 이름 검색" style={{width:"100%",padding:"9px 12px 9px 34px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}
-                  onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+                  onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
               </div>
             </div>
             <div style={{display:"flex",gap:6}}>
@@ -3476,9 +3476,9 @@ export default function App() {
             {[["all","전체모임"],["mine","내 모임"]].map(([v,l])=>(
               <button key={v} onClick={()=>setMeetingMode(v)}
                 style={{padding:"8px 20px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:700,fontSize:13,
-                  background:meetingMode===v?"linear-gradient(135deg,#ec4899,#a855f7)":"#f3f4f6",
+                  background:meetingMode===v?"linear-gradient(135deg,#58B4E1,#4A9BD9)":"#f3f4f6",
                   color:meetingMode===v?"white":"#6b7280",
-                  boxShadow:meetingMode===v?"0 2px 8px rgba(236,72,153,.3)":"none"}}>
+                  boxShadow:meetingMode===v?"0 2px 8px rgba(88,180,225,.3)":"none"}}>
                 {l}
               </button>
             ))}
@@ -3523,7 +3523,7 @@ export default function App() {
                   <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
                     <span style={{background:"#eff6ff",color:"#1d4ed8",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20}}>📍 {m.region}</span>
                     <span style={{background:"#f0fdf4",color:"#15803d",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20}}>🐾 {m.animal}</span>
-                    {m.tags.slice(0,2).map((t,j)=><span key={j} style={{background:"#fce7f3",color:"#be185d",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20}}>#{t}</span>)}
+                    {m.tags.slice(0,2).map((t,j)=><span key={j} style={{background:"#E0F2FE",color:"#1E6FA0",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20}}>#{t}</span>)}
                   </div>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <div style={{display:"flex",alignItems:"center",gap:4}}>
@@ -3550,7 +3550,7 @@ export default function App() {
           </div>
 
           {/* 모임 만들기 버튼 */}
-          <button onClick={()=>setIsCreateMeeting(true)} style={{position:"fixed",bottom:80,right:20,width:52,height:52,borderRadius:"50%",background:G,color:"white",border:"none",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 18px rgba(236,72,153,.45)",zIndex:10}}>＋</button>
+          <button onClick={()=>setIsCreateMeeting(true)} style={{position:"fixed",bottom:80,right:20,width:52,height:52,borderRadius:"50%",background:G,color:"white",border:"none",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 18px rgba(88,180,225,.45)",zIndex:10}}>＋</button>
         </div>
       )}
 
@@ -3684,8 +3684,8 @@ export default function App() {
                 {MTABS.map(t=>(
                   <button key={t.key} onClick={()=>{if(t.memberOnly&&!isMember){alert("모임 가입 후 이용할 수 있어요!");return;}setMeetingTab(t.key);}}
                     style={{flexShrink:0,padding:"10px 12px",border:"none",cursor:"pointer",fontSize:11,fontWeight:700,background:"none",
-                      color:meetingTab===t.key?"#ec4899":"#9ca3af",
-                      borderBottom:meetingTab===t.key?"2px solid #ec4899":"2px solid transparent",
+                      color:meetingTab===t.key?"#58B4E1":"#9ca3af",
+                      borderBottom:meetingTab===t.key?"2px solid #58B4E1":"2px solid transparent",
                       transition:"all .15s",whiteSpace:"nowrap"}}>
                     {t.icon}<br/>{t.label}
                   </button>
@@ -3736,7 +3736,7 @@ export default function App() {
                     const isMe = mb.name===user?.name || mb.uid===user?.uid;
                     const isStaff = mb.role==="운영자"||mb.role==="운영진";
                     const roleLabel = mb.role==="운영자"?"모임장":mb.role==="운영진"?"운영진":"멤버";
-                    const roleBg = mb.role==="운영자"?"linear-gradient(135deg,#ec4899,#a855f7)":mb.role==="운영진"?"linear-gradient(135deg,#f59e0b,#ef4444)":"#e5e7eb";
+                    const roleBg = mb.role==="운영자"?"linear-gradient(135deg,#58B4E1,#4A9BD9)":mb.role==="운영진"?"linear-gradient(135deg,#f59e0b,#ef4444)":"#e5e7eb";
                     const roleColor = mb.role==="멤버"?"#6b7280":"white";
                     return (
                     <div key={i} style={{background:"white",borderRadius:14,padding:"12px 14px",marginBottom:8,boxShadow:"0 2px 6px rgba(0,0,0,.04)"}}>
@@ -3759,7 +3759,7 @@ export default function App() {
                             {mb.role==="운영진" && <button onClick={()=>{if(confirm(mb.name+"님을 일반 멤버로 해제할까요?"))updMeeting(x=>({...x,members:x.members.map((m2,j)=>j===i?{...m2,role:"멤버"}:m2)}));}}
                               style={{background:"#f3f4f6",border:"none",padding:"4px 8px",borderRadius:8,fontSize:10,fontWeight:700,color:"#6b7280",cursor:"pointer"}}>해제</button>}
                             <button onClick={()=>{if(confirm(mb.name+"님에게 모임장을 양도할까요?\n이 작업은 되돌릴 수 없습니다."))updMeeting(x=>({...x,members:x.members.map((m2,j)=>j===0?{...m2,role:"멤버"}:j===i?{...m2,role:"운영자"}:m2).sort((a,b)=>a.role==="운영자"?-1:b.role==="운영자"?1:0)}));}}
-                              style={{background:"#ede9fe",border:"none",padding:"4px 8px",borderRadius:8,fontSize:10,fontWeight:700,color:"#7c3aed",cursor:"pointer"}}>양도</button>
+                              style={{background:"#DBEAFE",border:"none",padding:"4px 8px",borderRadius:8,fontSize:10,fontWeight:700,color:"#E9967A",cursor:"pointer"}}>양도</button>
                             <button onClick={()=>{if(confirm("⚠️ "+mb.name+"님을 강제탈퇴 시킬까요?"))updMeeting(x=>({...x,members:x.members.filter((_,j)=>j!==i)}));}}
                               style={{background:"#fef2f2",border:"none",padding:"4px 8px",borderRadius:8,fontSize:10,fontWeight:700,color:"#dc2626",cursor:"pointer"}}>강퇴</button>
                           </div>
@@ -3877,7 +3877,7 @@ export default function App() {
               {/* 게시판 상세 */}
               {meetingTab==="board" && mBoardDetail && (
                 <div>
-                  <button onClick={()=>setMBoardDetail(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#ec4899",fontWeight:700,marginBottom:12,padding:0}}>← 목록으로</button>
+                  <button onClick={()=>setMBoardDetail(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#58B4E1",fontWeight:700,marginBottom:12,padding:0}}>← 목록으로</button>
                   <div style={{background:"white",borderRadius:14,padding:16,marginBottom:12,boxShadow:"0 2px 6px rgba(0,0,0,.04)"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
                       <div style={{flex:1}}>
@@ -3892,9 +3892,9 @@ export default function App() {
                     {editMBoard ? (
                       <div style={{marginBottom:12}}>
                         <input value={editMBoard.title} onChange={e=>setEditMBoard(v=>({...v,title:e.target.value}))} placeholder="제목"
-                          style={{width:"100%",padding:"8px 12px",border:"2px solid #ec4899",borderRadius:10,fontSize:14,outline:"none",marginBottom:8,boxSizing:"border-box",fontWeight:700}}/>
+                          style={{width:"100%",padding:"8px 12px",border:"2px solid #58B4E1",borderRadius:10,fontSize:14,outline:"none",marginBottom:8,boxSizing:"border-box",fontWeight:700}}/>
                         <textarea value={editMBoard.content} onChange={e=>setEditMBoard(v=>({...v,content:e.target.value}))}
-                          style={{width:"100%",minHeight:80,border:"2px solid #ec4899",borderRadius:10,padding:10,fontSize:14,outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
+                          style={{width:"100%",minHeight:80,border:"2px solid #58B4E1",borderRadius:10,padding:10,fontSize:14,outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
                         <div style={{display:"flex",gap:8,marginTop:8,justifyContent:"flex-end"}}>
                           <button onClick={()=>setEditMBoard(null)} style={{background:"#e5e7eb",border:"none",cursor:"pointer",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>취소</button>
                           <button onClick={()=>{
@@ -3920,7 +3920,7 @@ export default function App() {
                       const updated={...mBoardDetail,likes:newLikes};
                       updMeeting(x=>({...x,board:x.board.map(p=>p.id===mBoardDetail.id?updated:p)}));
                       setMBoardDetail(updated);
-                    })} style={{background:mBoardDetail.likes.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 16px",borderRadius:20,fontSize:13,fontWeight:700,color:mBoardDetail.likes.includes(user?.uid)?"#ec4899":"#6b7280"}}>
+                    })} style={{background:mBoardDetail.likes.includes(user?.uid)?"#E0F2FE":"#f3f4f6",border:"none",cursor:"pointer",padding:"7px 16px",borderRadius:20,fontSize:13,fontWeight:700,color:mBoardDetail.likes.includes(user?.uid)?"#58B4E1":"#6b7280"}}>
                       {mBoardDetail.likes.includes(user?.uid)?"❤️":"🤍"} {mBoardDetail.likes.length}
                     </button>
                   </div>
@@ -3958,7 +3958,7 @@ export default function App() {
                     ? <div style={{textAlign:"center",padding:"40px 0"}}><p style={{fontSize:36,margin:"0 0 8px"}}>📸</p><p style={{color:"#9ca3af",fontSize:13}}>아직 사진이 없어요</p></div>
                     : mPhotoDetail ? (
                       <div>
-                        <button onClick={()=>{setMPhotoDetail(null);setMPhotoComment("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#ec4899",fontWeight:700,marginBottom:10,padding:0}}>← 사진첩</button>
+                        <button onClick={()=>{setMPhotoDetail(null);setMPhotoComment("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#58B4E1",fontWeight:700,marginBottom:10,padding:0}}>← 사진첩</button>
                         <img src={mPhotoDetail.url} alt="" style={{width:"100%",borderRadius:14,marginBottom:10}}/>
                         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
                           <p style={{margin:0,fontSize:13,fontWeight:600}}>{mPhotoDetail.by}</p>
@@ -4067,7 +4067,7 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                           <h4 style={{margin:0,fontSize:14,fontWeight:700}}>{v.title}</h4>
                           <div style={{display:"flex",gap:4}}>
-                            {v.anonymous && <span style={{background:"#ede9fe",color:"#7c3aed",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:8}}>🔒 익명</span>}
+                            {v.anonymous && <span style={{background:"#DBEAFE",color:"#E9967A",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:8}}>🔒 익명</span>}
                             {isClosed && <span style={{background:"#f3f4f6",color:"#9ca3af",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:8}}>종료</span>}
                           </div>
                         </div>
@@ -4089,11 +4089,11 @@ export default function App() {
                               updMeeting(x=>({...x,votes:x.votes.map(vt=>vt.id===v.id?{...vt,votes:nv}:vt)}));
                             }} style={{marginBottom:8,cursor:v.closed||myVote?"default":"pointer"}}>
                               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                                <span style={{fontSize:13,fontWeight:voted?700:400,color:voted?"#ec4899":"#1f2937"}}>{voted?"✓ ":""}{opt}</span>
+                                <span style={{fontSize:13,fontWeight:voted?700:400,color:voted?"#58B4E1":"#1f2937"}}>{voted?"✓ ":""}{opt}</span>
                                 <span style={{fontSize:12,color:"#9ca3af"}}>{cnt}표 ({pct}%)</span>
                               </div>
                               <div style={{height:6,background:"#f3f4f6",borderRadius:6,overflow:"hidden"}}>
-                                <div style={{height:"100%",width:`${pct}%`,background:voted?"linear-gradient(135deg,#ec4899,#a855f7)":"#d1d5db",borderRadius:6,transition:"width .4s"}}/>
+                                <div style={{height:"100%",width:`${pct}%`,background:voted?"linear-gradient(135deg,#58B4E1,#4A9BD9)":"#d1d5db",borderRadius:6,transition:"width .4s"}}/>
                               </div>
                               {!v.anonymous && voters.length>0 && (myVote||isClosed) && (
                                 <p style={{margin:"2px 0 0",fontSize:10,color:"#9ca3af"}}>{voters.join(", ")}</p>
@@ -4153,7 +4153,7 @@ export default function App() {
                               </div>
                             )}
                             <div onClick={()=>setMChatReplyTo(mChatReplyTo?.idx===i?null:{idx:i,text:c.text,by:c.by})}
-                              style={{background:isMe?"linear-gradient(135deg,#ec4899,#a855f7)":"white",color:isMe?"white":"#1f2937",borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"10px 14px",fontSize:14,boxShadow:"0 2px 6px rgba(0,0,0,.06)",lineHeight:1.5,cursor:"pointer"}}>
+                              style={{background:isMe?"linear-gradient(135deg,#58B4E1,#4A9BD9)":"white",color:isMe?"white":"#1f2937",borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"10px 14px",fontSize:14,boxShadow:"0 2px 6px rgba(0,0,0,.06)",lineHeight:1.5,cursor:"pointer"}}>
                               {c.text}
                             </div>
                             {/* 공감 */}
@@ -4165,7 +4165,7 @@ export default function App() {
                                     const newU=myR?users.filter(n=>n!==user?.uid):[...users,user?.uid];
                                     const newR={...c.reactions,[emoji]:newU};
                                     updMeeting(x=>({...x,chats:x.chats.map((ch,ci)=>ci===i?{...ch,reactions:newR}:ch)}));
-                                  }} style={{background:users.includes(user?.uid)?"#fce7f3":"#f3f4f6",border:"1px solid "+(users.includes(user?.uid)?"#f9a8d4":"#e5e7eb"),borderRadius:12,padding:"1px 5px",fontSize:11,cursor:"pointer"}}>
+                                  }} style={{background:users.includes(user?.uid)?"#E0F2FE":"#f3f4f6",border:"1px solid "+(users.includes(user?.uid)?"#93C5FD":"#e5e7eb"),borderRadius:12,padding:"1px 5px",fontSize:11,cursor:"pointer"}}>
                                     {emoji}{users.length>1?users.length:""}
                                   </span>
                                 ))}
@@ -4199,7 +4199,7 @@ export default function App() {
               {meetingTab==="manage" && (
                 <div>
                   {!isOwner && <div style={{background:"#fef9c3",borderRadius:14,padding:"12px 14px",marginBottom:14}}><p style={{margin:0,fontSize:13,color:"#92400e"}}>⚠️ 운영자만 가입 신청을 관리할 수 있어요</p></div>}
-                  <h4 style={{margin:"0 0 10px",fontSize:14,fontWeight:700}}>가입 신청 <span style={{color:"#ec4899"}}>{m.pending.length}</span>건</h4>
+                  <h4 style={{margin:"0 0 10px",fontSize:14,fontWeight:700}}>가입 신청 <span style={{color:"#58B4E1"}}>{m.pending.length}</span>건</h4>
                   {m.pending.length===0
                     ? <div style={{textAlign:"center",padding:"30px 0"}}><p style={{fontSize:36,margin:"0 0 8px"}}>⚙️</p><p style={{color:"#9ca3af",fontSize:13}}>대기 중인 신청이 없어요</p></div>
                     : m.pending.map((p,i)=>(
@@ -4318,7 +4318,7 @@ export default function App() {
             <div style={{padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #f3f4f6",flexShrink:0}}>
               <h3 style={{margin:0,fontSize:16,fontWeight:800}}>글쓰기</h3>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                {WRITE_COST > 0 && <span style={{fontSize:12,color:"#ec4899",background:"#fce7f3",padding:"3px 10px",borderRadius:10,fontWeight:700}}>🐾 {WRITE_COST}p 사용</span>}
+                {WRITE_COST > 0 && <span style={{fontSize:12,color:"#58B4E1",background:"#E0F2FE",padding:"3px 10px",borderRadius:10,fontWeight:700}}>🐾 {WRITE_COST}p 사용</span>}
                 <button onClick={()=>setIsWritePost(false)} style={{background:"#f3f4f6",border:"none",cursor:"pointer",width:30,height:30,borderRadius:"50%",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
               </div>
             </div>
@@ -4347,7 +4347,7 @@ export default function App() {
                 <textarea value={postForm.content} onChange={e=>e.target.value.length<=100&&setPostForm(f=>({...f,content:e.target.value}))}
                   placeholder="이웃 펫친들과 나누고 싶은 이야기를 적어보세요 🐾" rows={5}
                   style={{width:"100%",padding:"12px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:14,outline:"none",resize:"none",boxSizing:"border-box",lineHeight:1.6,fontFamily:"inherit",color:"#1f2937"}}
-                  onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
+                  onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
               </div>
 
               {/* 사진 */}
@@ -4412,7 +4412,7 @@ export default function App() {
                 setLoungeCat("all");
               }}
                 disabled={!postForm.content.trim() || points < WRITE_COST}
-                style={{width:"100%",background:postForm.content.trim()&&points>=WRITE_COST?G:"#e5e7eb",color:postForm.content.trim()&&points>=WRITE_COST?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:postForm.content.trim()&&points>=WRITE_COST?"pointer":"not-allowed",boxShadow:postForm.content.trim()&&points>=WRITE_COST?"0 4px 16px rgba(236,72,153,.3)":"none"}}>
+                style={{width:"100%",background:postForm.content.trim()&&points>=WRITE_COST?G:"#e5e7eb",color:postForm.content.trim()&&points>=WRITE_COST?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:postForm.content.trim()&&points>=WRITE_COST?"pointer":"not-allowed",boxShadow:postForm.content.trim()&&points>=WRITE_COST?"0 4px 16px rgba(88,180,225,.3)":"none"}}>
                 {WRITE_COST > 0 ? `글 등록하기 (-${WRITE_COST}p)` : "글 등록하기"}
               </button>
             </div>
@@ -4465,7 +4465,7 @@ export default function App() {
                     }}
                       style={{width:"100%",height:"100%",aspectRatio:"1",borderRadius:14,overflow:"hidden",
                         background:ph?"transparent":"#f3f4f6",
-                        border:profileRepIdx===i&&ph?"3px solid #ec4899":"3px solid transparent",
+                        border:profileRepIdx===i&&ph?"3px solid #58B4E1":"3px solid transparent",
                         cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                       {ph ? <img src={ph} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} />
                           : <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
@@ -4476,7 +4476,7 @@ export default function App() {
                     {/* 대표사진 별 + 삭제 버튼 */}
                     {ph && (
                       <div onClick={e=>{e.stopPropagation();setProfileRepIdx(i);}}
-                        style={{position:"absolute",bottom:4,right:4,background:profileRepIdx===i?"#ec4899":"rgba(0,0,0,.5)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"white",cursor:"pointer",zIndex:2}}>
+                        style={{position:"absolute",bottom:4,right:4,background:profileRepIdx===i?"#58B4E1":"rgba(0,0,0,.5)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"white",cursor:"pointer",zIndex:2}}>
                         {profileRepIdx===i?"★":"☆"}
                       </div>
                     )}
@@ -4489,7 +4489,7 @@ export default function App() {
               <div style={{marginBottom:20}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                   <label style={{fontSize:13,fontWeight:700,color:"#374151"}}>닉네임</label>
-                  <span style={{fontSize:11,color:"#9ca3af",background:"#fce7f3",padding:"2px 8px",borderRadius:10}}>변경 시 🐾 {NICK_COST}p 차감</span>
+                  <span style={{fontSize:11,color:"#9ca3af",background:"#E0F2FE",padding:"2px 8px",borderRadius:10}}>변경 시 🐾 {NICK_COST}p 차감</span>
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   <input value={editNickVal}
@@ -4519,7 +4519,7 @@ export default function App() {
                 <label style={{display:"block",fontSize:13,fontWeight:700,color:"#374151",marginBottom:6}}>프로필 문구 <span style={{color:"#9ca3af",fontWeight:400}}>(선택)</span></label>
                 <textarea value={editBioVal} onChange={e=>setEditBioVal(e.target.value)} placeholder="나를 소개하는 문구를 써보세요 🐾" rows={3}
                   style={{width:"100%",padding:"11px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:14,outline:"none",resize:"none",boxSizing:"border-box",lineHeight:1.6,fontFamily:"inherit"}}
-                  onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
+                  onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
                 <p style={{margin:"4px 0 0",fontSize:11,color:"#9ca3af",textAlign:"right"}}>{editBioVal.length}/100</p>
               </div>
             </div>
@@ -4534,7 +4534,7 @@ export default function App() {
                 return (
                   <>
                     {notEnoughPoints && <p style={{margin:"0 0 10px",fontSize:12,color:"#ef4444",textAlign:"center",fontWeight:600}}>포인트가 부족해요 (보유: {points}p / 필요: {NICK_COST}p)</p>}
-                    {nickChanged && nickCheckStatus==="ok" && !notEnoughPoints && <p style={{margin:"0 0 10px",fontSize:12,color:"#ec4899",textAlign:"center"}}>닉네임 변경 시 🐾 {NICK_COST}p가 차감됩니다</p>}
+                    {nickChanged && nickCheckStatus==="ok" && !notEnoughPoints && <p style={{margin:"0 0 10px",fontSize:12,color:"#58B4E1",textAlign:"center"}}>닉네임 변경 시 🐾 {NICK_COST}p가 차감됩니다</p>}
                     <button onClick={() => {
                       if (!canSave) return;
                       if (nickChanged && hasBadWord(editNickVal.trim())) { alert("⚠️ 부적절한 닉네임이에요. 다른 이름을 사용해주세요."); return; }
@@ -4553,7 +4553,7 @@ export default function App() {
                         updateDoc(doc(db,"users",user.uid),updates).catch(()=>{});
                       }
                     }}
-                      style={{width:"100%",background:canSave?G:"#e5e7eb",color:canSave?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:canSave?"pointer":"not-allowed",boxShadow:canSave?"0 4px 16px rgba(236,72,153,.3)":"none"}}>
+                      style={{width:"100%",background:canSave?G:"#e5e7eb",color:canSave?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:canSave?"pointer":"not-allowed",boxShadow:canSave?"0 4px 16px rgba(88,180,225,.3)":"none"}}>
                       저장하기
                     </button>
                   </>
@@ -4605,7 +4605,7 @@ export default function App() {
                     }}
                       style={{width:"100%",height:"100%",aspectRatio:"1",borderRadius:14,overflow:"hidden",
                         background:ph?"transparent":"#f3f4f6",
-                        border:petForm.repIdx===i&&ph?"3px solid #ec4899":"3px solid transparent",
+                        border:petForm.repIdx===i&&ph?"3px solid #58B4E1":"3px solid transparent",
                         cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                       {ph ? <img src={ph} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} />
                           : <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
@@ -4615,7 +4615,7 @@ export default function App() {
                     </div>
                     {ph && (
                       <div onClick={e=>{e.stopPropagation();setPetForm(f=>({...f,repIdx:i}));}}
-                        style={{position:"absolute",bottom:4,right:4,background:petForm.repIdx===i?"#ec4899":"rgba(0,0,0,.5)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"white",cursor:"pointer",zIndex:2}}>
+                        style={{position:"absolute",bottom:4,right:4,background:petForm.repIdx===i?"#58B4E1":"rgba(0,0,0,.5)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"white",cursor:"pointer",zIndex:2}}>
                         {petForm.repIdx===i?"★":"☆"}
                       </div>
                     )}
@@ -4629,7 +4629,7 @@ export default function App() {
                 <label style={{display:"block",fontSize:13,fontWeight:700,color:"#374151",marginBottom:6}}>이름 <span style={{color:"#ef4444"}}>*</span></label>
                 <input value={petForm.name} onChange={e=>setPetForm(f=>({...f,name:e.target.value}))} placeholder="예: 몽이"
                   style={{width:"100%",padding:"11px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:15,outline:"none",boxSizing:"border-box"}}
-                  onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
+                  onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
               </div>
 
               {/* 종류 + 성별 */}
@@ -4664,13 +4664,13 @@ export default function App() {
                   <label style={{display:"block",fontSize:13,fontWeight:700,color:"#374151",marginBottom:6}}>품종</label>
                   <input value={petForm.breed} onChange={e=>setPetForm(f=>({...f,breed:e.target.value}))} placeholder="예: 포메라니안"
                     style={{width:"100%",padding:"11px 12px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}
-                    onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
+                    onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
                 </div>
                 <div>
                   <label style={{display:"block",fontSize:13,fontWeight:700,color:"#374151",marginBottom:6}}>생년월일</label>
                   <input value={petForm.birth} onChange={e=>setPetForm(f=>({...f,birth:e.target.value}))} placeholder="예: 2022.03.15"
                     style={{width:"100%",padding:"11px 12px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}
-                    onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
+                    onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
                 </div>
               </div>
 
@@ -4679,7 +4679,7 @@ export default function App() {
                 <label style={{display:"block",fontSize:13,fontWeight:700,color:"#374151",marginBottom:6}}>선호하는 사료 <span style={{color:"#9ca3af",fontWeight:400}}>(선택)</span></label>
                 <input value={petForm.food} onChange={e=>setPetForm(f=>({...f,food:e.target.value}))} placeholder="예: 로얄캐닌, 힐스, 직접 만든 자연식 등"
                   style={{width:"100%",padding:"11px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,outline:"none",boxSizing:"border-box"}}
-                  onFocus={e=>e.target.style.borderColor="#ec4899"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
+                  onFocus={e=>e.target.style.borderColor="#58B4E1"} onBlur={e=>e.target.style.borderColor="#e5e7eb"} />
               </div>
 
               {/* 특징 태그 */}
@@ -4693,7 +4693,7 @@ export default function App() {
                       <button key={t} onClick={()=>setPetForm(f=>({...f,traits:sel?f.traits.filter(x=>x!==t):[...f.traits,t]}))}
                         style={{padding:"7px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
                           background:sel?G:"#f3f4f6",color:sel?"white":"#6b7280",
-                          boxShadow:sel?"0 2px 8px rgba(236,72,153,.3)":"none",transition:"all .15s"}}>
+                          boxShadow:sel?"0 2px 8px rgba(88,180,225,.3)":"none",transition:"all .15s"}}>
                         {t}
                       </button>
                     );
@@ -4733,7 +4733,7 @@ export default function App() {
                 setIsAddPet(false);
                 setEditPetIdx(null);
               }} disabled={!petForm.name.trim()}
-                style={{width:"100%",background:petForm.name.trim()?G:"#e5e7eb",color:petForm.name.trim()?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:petForm.name.trim()?"pointer":"not-allowed",boxShadow:petForm.name.trim()?"0 4px 16px rgba(236,72,153,.3)":"none"}}>
+                style={{width:"100%",background:petForm.name.trim()?G:"#e5e7eb",color:petForm.name.trim()?"white":"#9ca3af",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:16,cursor:petForm.name.trim()?"pointer":"not-allowed",boxShadow:petForm.name.trim()?"0 4px 16px rgba(88,180,225,.3)":"none"}}>
                 {editPetIdx!==null?"수정 완료 ✓":"등록하기 🐾"}
               </button>
             </div>
@@ -4747,7 +4747,7 @@ export default function App() {
           {[["home","🏠","홈"],["community","🧡","라운지"],["meeting","🏃","모임"],["messages","💬","대화"],["profile","👤","마이"]].map(([id,icon,label]) => (
             <button key={id} onClick={() => { setTab(id); if(id==="community"){setSelectedPost(null);} if(id==="meeting"){setSelectedMeeting(null);setMeetingView("list");} }} style={{flex:1,background:"none",border:"none",cursor:"pointer",padding:"8px 0 5px",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
               <span style={{fontSize:18,filter:tab===id?"none":"grayscale(1) opacity(.4)"}}>{icon}</span>
-              <span style={{fontSize:10,fontWeight:700,color:tab===id?"#ec4899":"#9ca3af"}}>{label}</span>
+              <span style={{fontSize:10,fontWeight:700,color:tab===id?"#58B4E1":"#9ca3af"}}>{label}</span>
             </button>
           ))}
         </div>
@@ -4767,7 +4767,7 @@ export default function App() {
             </div>
             {/* 커버 + 프로필 사진 */}
             <div style={{position:"relative",marginBottom:50,flexShrink:0}}>
-              <div style={{height:90,background:"linear-gradient(135deg,#fce7f3,#ede9fe)"}}/>
+              <div style={{height:90,background:"linear-gradient(135deg,#E0F2FE,#DBEAFE)"}}/>
               <div style={{position:"absolute",bottom:-40,left:20,width:80,height:80,borderRadius:"50%",border:"4px solid white",overflow:"hidden",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,color:"white",fontWeight:800,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>
                 {viewUserProfile.img
                   ? <img onClick={(e)=>{e.stopPropagation();if(viewUserProfile.photos?.length>0)setPhotoViewer({photos:viewUserProfile.photos,idx:0});}} src={viewUserProfile.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",cursor:viewUserProfile.photos?.length?"pointer":"default"}}/>
@@ -4793,7 +4793,7 @@ export default function App() {
                   : <p style={{margin:0,fontSize:13,color:"#9ca3af",fontStyle:"italic"}}>아직 프로필 문구가 없어요</p>}
                 {viewUserProfile.interests?.length>0 && (
                   <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:8}}>
-                    {viewUserProfile.interests.map((t,i)=><span key={i} style={{background:"#fce7f3",color:"#be185d",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:12}}>#{t}</span>)}
+                    {viewUserProfile.interests.map((t,i)=><span key={i} style={{background:"#E0F2FE",color:"#1E6FA0",fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:12}}>#{t}</span>)}
                   </div>
                 )}
               </div>
@@ -4827,7 +4827,7 @@ export default function App() {
                         </div>
                       </div>
                       {pet.food && <p style={{margin:"6px 0 0 0",fontSize:12,color:"#6b7280",paddingLeft:62}}>🍖 {pet.food}</p>}
-                      {pet.traits?.length>0 && <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6,paddingLeft:62}}>{pet.traits.map((t,j)=><span key={j} style={{background:"#fce7f3",color:"#be185d",fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10}}>{t}</span>)}</div>}
+                      {pet.traits?.length>0 && <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6,paddingLeft:62}}>{pet.traits.map((t,j)=><span key={j} style={{background:"#E0F2FE",color:"#1E6FA0",fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:10}}>{t}</span>)}</div>}
                       {pet.photos?.length>1 && (
                         <div style={{display:"flex",gap:4,marginTop:8,paddingLeft:62,overflowX:"auto"}}>
                           {pet.photos.map((ph,j)=>(
@@ -4873,7 +4873,7 @@ export default function App() {
                       openChat(chatPartner);
                     }
                     setViewUserProfile(null);
-                  }} style={{width:"100%",background:G,color:"white",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:"0 4px 16px rgba(236,72,153,.3)"}}>
+                  }} style={{width:"100%",background:G,color:"white",border:"none",padding:14,borderRadius:14,fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:"0 4px 16px rgba(88,180,225,.3)"}}>
                     {isMatched ? "💬 대화하기" : "💬 채팅하기 (30p)"}
                   </button>
                 );
@@ -4998,7 +4998,7 @@ export default function App() {
                 <p style={{margin:"0 0 12px",fontSize:13,color:"#6b7280"}}>총 {adminUsers.length}명</p>
                 {adminUsers.map((u,i)=>(
                   <div key={i} style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,.04)",display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#ec4899,#a855f7)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white",fontWeight:700}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#58B4E1,#4A9BD9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"white",fontWeight:700}}>
                       {u.nick?.[0]||"?"}
                     </div>
                     <div style={{flex:1}}>
@@ -5239,7 +5239,7 @@ export default function App() {
           <div style={{background:"white",borderRadius:28,padding:"32px 24px",maxWidth:380,width:"92%",maxHeight:"85vh",overflowY:"auto"}}>
             {/* 진행 바 */}
             <div style={{display:"flex",gap:4,marginBottom:24}}>
-              {[0,1,2,3,4,5].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<=onboardingStep?"#ec4899":"#e5e7eb",transition:"all .3s"}}/>)}
+              {[0,1,2,3,4,5].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<=onboardingStep?"#58B4E1":"#e5e7eb",transition:"all .3s"}}/>)}
             </div>
 
             {/* Step 0: 환영 + 권한 요청 */}
@@ -5300,7 +5300,7 @@ export default function App() {
                 <div>
                   <label style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:4,display:"block"}}>성별</label>
                   <div style={{display:"flex",gap:8}}>
-                    {["남성","여성","비공개"].map(g=><button key={g} onClick={()=>setObGender(g)} style={{flex:1,padding:"10px",borderRadius:10,border:obGender===g?"2px solid #ec4899":"1.5px solid #e5e7eb",background:obGender===g?"#fce7f3":"white",fontSize:13,fontWeight:600,cursor:"pointer",color:obGender===g?"#ec4899":"#6b7280"}}>{g}</button>)}
+                    {["남성","여성","비공개"].map(g=><button key={g} onClick={()=>setObGender(g)} style={{flex:1,padding:"10px",borderRadius:10,border:obGender===g?"2px solid #58B4E1":"1.5px solid #e5e7eb",background:obGender===g?"#E0F2FE":"white",fontSize:13,fontWeight:600,cursor:"pointer",color:obGender===g?"#58B4E1":"#6b7280"}}>{g}</button>)}
                   </div>
                 </div>
                 <div>
@@ -5344,7 +5344,7 @@ export default function App() {
                 <div>
                   <label style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:4,display:"block"}}>종류</label>
                   <div style={{display:"flex",gap:8}}>
-                    {["강아지","고양이","기타"].map(t=><button key={t} onClick={()=>setObPetType(t)} style={{flex:1,padding:"10px",borderRadius:10,border:obPetType===t?"2px solid #ec4899":"1.5px solid #e5e7eb",background:obPetType===t?"#fce7f3":"white",fontSize:13,fontWeight:600,cursor:"pointer",color:obPetType===t?"#ec4899":"#6b7280"}}>{t==="강아지"?"🐕 강아지":t==="고양이"?"🐈 고양이":"🐾 기타"}</button>)}
+                    {["강아지","고양이","기타"].map(t=><button key={t} onClick={()=>setObPetType(t)} style={{flex:1,padding:"10px",borderRadius:10,border:obPetType===t?"2px solid #58B4E1":"1.5px solid #e5e7eb",background:obPetType===t?"#E0F2FE":"white",fontSize:13,fontWeight:600,cursor:"pointer",color:obPetType===t?"#58B4E1":"#6b7280"}}>{t==="강아지"?"🐕 강아지":t==="고양이"?"🐈 고양이":"🐾 기타"}</button>)}
                   </div>
                 </div>
                 <div style={{display:"flex",gap:8}}>
@@ -5360,7 +5360,7 @@ export default function App() {
                 <div>
                   <label style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:4,display:"block"}}>성별</label>
                   <div style={{display:"flex",gap:8}}>
-                    {["남아","여아","중성화"].map(g=><button key={g} onClick={()=>setObPetGender(g)} style={{flex:1,padding:"10px",borderRadius:10,border:obPetGender===g?"2px solid #ec4899":"1.5px solid #e5e7eb",background:obPetGender===g?"#fce7f3":"white",fontSize:13,fontWeight:600,cursor:"pointer",color:obPetGender===g?"#ec4899":"#6b7280"}}>{g}</button>)}
+                    {["남아","여아","중성화"].map(g=><button key={g} onClick={()=>setObPetGender(g)} style={{flex:1,padding:"10px",borderRadius:10,border:obPetGender===g?"2px solid #58B4E1":"1.5px solid #e5e7eb",background:obPetGender===g?"#E0F2FE":"white",fontSize:13,fontWeight:600,cursor:"pointer",color:obPetGender===g?"#58B4E1":"#6b7280"}}>{g}</button>)}
                   </div>
                 </div>
               </div>
