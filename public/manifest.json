@@ -4,8 +4,8 @@
   "description": "우리 아이 친구 만들기! 반려동물 매칭, 산책 모임, 펫 스토리",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fdf2f8",
-  "theme_color": "#ec4899",
+  "background_color": "#F0F8FF",
+  "theme_color": "#58B4E1",
   "orientation": "portrait",
   "lang": "ko",
   "icons": [
