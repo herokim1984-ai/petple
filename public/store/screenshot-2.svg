@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E0F2FE"/>
+      <stop offset="100%" stop-color="#F0F8FF"/>
+    </linearGradient>
+    <linearGradient id="header2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#58B4E1"/>
+      <stop offset="100%" stop-color="#7EC8E8"/>
+    </linearGradient>
+    <linearGradient id="bubble-me" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#58B4E1"/>
+      <stop offset="100%" stop-color="#6DC0E8"/>
+    </linearGradient>
+    <filter id="shadow2" x="-5%" y="-3%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+    <filter id="shadow-sm2" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.1"/>
+    </filter>
+    <clipPath id="phone-screen2">
+      <rect x="175" y="430" width="730" height="1280" rx="20"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="1920" fill="url(#bg2)"/>
+
+  <!-- Header area -->
+  <rect width="1080" height="400" fill="url(#header2)"/>
+  <ellipse cx="540" cy="400" rx="600" ry="60" fill="url(#header2)"/>
+
+  <!-- Title text -->
+  <text x="540" y="180" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#FFFFFF" letter-spacing="2">매칭된 친구와 대화하기</text>
+  <text x="540" y="270" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="400" fill="#E0F2FE" letter-spacing="1">실시간 채팅으로 약속을 잡아보세요</text>
+
+  <!-- Decorative elements -->
+  <circle cx="150" cy="130" r="14" fill="#fff" opacity="0.12"/>
+  <circle cx="133" cy="108" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="167" cy="108" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="125" cy="90" r="7" fill="#fff" opacity="0.12"/>
+  <circle cx="175" cy="90" r="7" fill="#fff" opacity="0.12"/>
+
+  <!-- Phone mockup -->
+  <g filter="url(#shadow2)">
+    <rect x="140" y="400" width="800" height="1350" rx="44" fill="#1a1a1a"/>
+    <rect x="155" y="415" width="770" height="1320" rx="36" fill="#2a2a2a"/>
+    <rect x="175" y="430" width="730" height="1280" rx="20" fill="#F8FAFC"/>
+  </g>
+
+  <!-- Phone notch -->
+  <rect x="400" y="400" width="280" height="28" rx="14" fill="#1a1a1a"/>
+
+  <!-- Phone screen content -->
+  <g clip-path="url(#phone-screen2)">
+    <!-- Chat header -->
+    <rect x="175" y="430" width="730" height="90" fill="#58B4E1"/>
+    <!-- Back arrow -->
+    <path d="M210,475 L230,455 M210,475 L230,495" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- Avatar -->
+    <circle cx="280" cy="475" r="22" fill="#DBEAFE"/>
+    <circle cx="280" cy="470" r="10" fill="#A0C4D8"/>
+    <ellipse cx="280" cy="488" rx="14" ry="8" fill="#A0C4D8"/>
+    <!-- Name and status -->
+    <text x="316" y="470" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#fff">코코맘</text>
+    <!-- Online dot -->
+    <circle cx="316" cy="494" r="5" fill="#4ADE80"/>
+    <text x="330" y="498" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#E0F2FE">온라인</text>
+
+    <!-- Chat background -->
+    <rect x="175" y="520" width="730" height="1120" fill="#F0F4F8"/>
+
+    <!-- Date divider -->
+    <rect x="420" y="545" width="240" height="30" rx="15" fill="#E2E8F0"/>
+    <text x="540" y="566" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#94A3B8">오늘 오후 2:30</text>
+
+    <!-- Other person's message (left, white) -->
+    <g>
+      <circle cx="220" cy="620" r="18" fill="#DBEAFE"/>
+      <circle cx="220" cy="616" r="7" fill="#8BB8D8"/>
+      <ellipse cx="220" cy="628" rx="10" ry="5" fill="#8BB8D8"/>
+      <rect x="248" y="600" width="320" height="52" rx="20" fill="#FFFFFF" filter="url(#shadow-sm2)"/>
+      <text x="268" y="632" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">안녕하세요! 코코에요 🐶</text>
+      <text x="580" y="646" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">2:30</text>
+    </g>
+
+    <!-- My message (right, blue) -->
+    <g>
+      <rect x="460" y="680" width="380" height="52" rx="20" fill="url(#bubble-me)"/>
+      <text x="480" y="712" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#FFFFFF">안녕하세요! 반가워요~ 😊</text>
+      <text x="444" y="726" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">2:31</text>
+      <!-- Read receipt -->
+      <text x="444" y="710" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#58B4E1">읽음</text>
+    </g>
+
+    <!-- Other person's message -->
+    <g>
+      <circle cx="220" cy="790" r="18" fill="#DBEAFE"/>
+      <circle cx="220" cy="786" r="7" fill="#8BB8D8"/>
+      <ellipse cx="220" cy="798" rx="10" ry="5" fill="#8BB8D8"/>
+      <rect x="248" y="762" width="380" height="75" rx="20" fill="#FFFFFF" filter="url(#shadow-sm2)"/>
+      <text x="268" y="794" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">코코가 산책 친구를 찾고</text>
+      <text x="268" y="824" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">있었거든요! 😄</text>
+      <text x="640" y="830" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">2:31</text>
+    </g>
+
+    <!-- My message -->
+    <g>
+      <rect x="390" y="865" width="450" height="75" rx="20" fill="url(#bubble-me)"/>
+      <text x="410" y="897" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#FFFFFF">저희 뽀삐도 산책 좋아해요!</text>
+      <text x="410" y="927" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#FFFFFF">같이 산책 어때요? 🐾</text>
+      <text x="374" y="932" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">2:32</text>
+      <text x="374" y="916" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#58B4E1">읽음</text>
+    </g>
+
+    <!-- Other person's message -->
+    <g>
+      <circle cx="220" cy="1000" r="18" fill="#DBEAFE"/>
+      <circle cx="220" cy="996" r="7" fill="#8BB8D8"/>
+      <ellipse cx="220" cy="1008" rx="10" ry="5" fill="#8BB8D8"/>
+      <rect x="248" y="972" width="360" height="75" rx="20" fill="#FFFFFF" filter="url(#shadow-sm2)"/>
+      <text x="268" y="1004" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">좋아요! 주말에 한강공원</text>
+      <text x="268" y="1034" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">어떨까요? 🌳</text>
+      <text x="620" y="1040" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">2:33</text>
+    </g>
+
+    <!-- My message -->
+    <g>
+      <rect x="480" y="1075" width="360" height="52" rx="20" fill="url(#bubble-me)"/>
+      <text x="500" y="1107" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#FFFFFF">완전 좋아요! 토요일은요?</text>
+      <text x="464" y="1120" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">2:33</text>
+      <text x="464" y="1104" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#58B4E1">읽음</text>
+    </g>
+
+    <!-- Other person's message with photo idea -->
+    <g>
+      <circle cx="220" cy="1195" r="18" fill="#DBEAFE"/>
+      <circle cx="220" cy="1191" r="7" fill="#8BB8D8"/>
+      <ellipse cx="220" cy="1203" rx="10" ry="5" fill="#8BB8D8"/>
+      <rect x="248" y="1155" width="340" height="100" rx="20" fill="#FFFFFF" filter="url(#shadow-sm2)"/>
+      <text x="268" y="1190" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">토요일 오전 10시! ☀️</text>
+      <text x="268" y="1220" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">코코가 기다릴게요 💕</text>
+      <text x="600" y="1248" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">2:34</text>
+    </g>
+
+    <!-- Typing indicator -->
+    <g>
+      <circle cx="220" cy="1320" r="18" fill="#DBEAFE"/>
+      <circle cx="220" cy="1316" r="7" fill="#8BB8D8"/>
+      <ellipse cx="220" cy="1328" rx="10" ry="5" fill="#8BB8D8"/>
+      <rect x="248" y="1300" width="100" height="44" rx="22" fill="#FFFFFF" filter="url(#shadow-sm2)"/>
+      <circle cx="278" cy="1322" r="6" fill="#94A3B8" opacity="0.4"/>
+      <circle cx="298" cy="1322" r="6" fill="#94A3B8" opacity="0.6"/>
+      <circle cx="318" cy="1322" r="6" fill="#94A3B8" opacity="0.8"/>
+    </g>
+
+    <!-- Input bar -->
+    <rect x="175" y="1580" width="730" height="60" fill="#FFFFFF"/>
+    <line x1="175" y1="1580" x2="905" y2="1580" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="200" y="1592" width="520" height="38" rx="19" fill="#F1F5F9"/>
+    <text x="224" y="1617" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#94A3B8">메시지를 입력하세요...</text>
+    <!-- Send button -->
+    <circle cx="840" cy="1610" r="22" fill="#58B4E1"/>
+    <path d="M832,1610 L848,1610 M844,1602 L850,1610 L844,1618" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Camera button -->
+    <circle cx="770" cy="1610" r="18" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <circle cx="770" cy="1610" r="6" fill="none" stroke="#94A3B8" stroke-width="1.5"/>
+
+    <!-- Bottom nav bar -->
+    <rect x="175" y="1640" width="730" height="70" fill="#FFFFFF"/>
+    <line x1="175" y1="1640" x2="905" y2="1640" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="289" y="1652" width="16" height="20" rx="3" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="297" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">홈</text>
+    <rect x="430" y="1652" width="18" height="16" rx="3" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="439" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">라운지</text>
+    <!-- Chat active -->
+    <rect x="574" y="1652" width="18" height="16" rx="8" fill="#E9967A"/>
+    <text x="583" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#E9967A" font-weight="600">채팅</text>
+    <circle cx="727" cy="1662" r="9" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="727" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">MY</text>
+  </g>
+
+  <!-- Bottom tag -->
+  <rect x="290" y="1800" width="500" height="64" rx="32" fill="#FFFFFF" filter="url(#shadow-sm2)"/>
+  <text x="540" y="1842" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" fill="#E9967A">실시간 채팅으로 소통하세요</text>
+
+  <!-- Decorative dots -->
+  <circle cx="480" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="510" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="540" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="570" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="600" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+</svg>

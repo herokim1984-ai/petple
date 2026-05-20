@@ -1,0 +1,241 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E0F2FE"/>
+      <stop offset="100%" stop-color="#F0F8FF"/>
+    </linearGradient>
+    <linearGradient id="header4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#58B4E1"/>
+      <stop offset="100%" stop-color="#7EC8E8"/>
+    </linearGradient>
+    <linearGradient id="meetup-cover1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#DBEAFE"/>
+      <stop offset="100%" stop-color="#B8D8F0"/>
+    </linearGradient>
+    <linearGradient id="meetup-cover2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D6F5D6"/>
+      <stop offset="100%" stop-color="#B0E0B0"/>
+    </linearGradient>
+    <linearGradient id="meetup-cover3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FDE8D6"/>
+      <stop offset="100%" stop-color="#F0CDB0"/>
+    </linearGradient>
+    <filter id="shadow4" x="-5%" y="-3%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+    <filter id="shadow-sm4" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.1"/>
+    </filter>
+    <clipPath id="phone-screen4">
+      <rect x="175" y="430" width="730" height="1280" rx="20"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="1920" fill="url(#bg4)"/>
+
+  <!-- Header area -->
+  <rect width="1080" height="400" fill="url(#header4)"/>
+  <ellipse cx="540" cy="400" rx="600" ry="60" fill="url(#header4)"/>
+
+  <!-- Title text -->
+  <text x="540" y="180" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#FFFFFF" letter-spacing="2">함께하는 산책 모임</text>
+  <text x="540" y="270" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="38" font-weight="400" fill="#E0F2FE" letter-spacing="1">우리 동네 반려동물 모임에 참여하세요</text>
+
+  <!-- Decorative paw prints -->
+  <circle cx="180" cy="320" r="14" fill="#fff" opacity="0.12"/>
+  <circle cx="163" cy="298" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="197" cy="298" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="155" cy="280" r="7" fill="#fff" opacity="0.12"/>
+  <circle cx="205" cy="280" r="7" fill="#fff" opacity="0.12"/>
+
+  <circle cx="870" cy="140" r="12" fill="#fff" opacity="0.1"/>
+  <circle cx="855" cy="120" r="7" fill="#fff" opacity="0.1"/>
+  <circle cx="885" cy="120" r="7" fill="#fff" opacity="0.1"/>
+  <circle cx="848" cy="104" r="6" fill="#fff" opacity="0.1"/>
+  <circle cx="892" cy="104" r="6" fill="#fff" opacity="0.1"/>
+
+  <!-- Phone mockup -->
+  <g filter="url(#shadow4)">
+    <rect x="140" y="400" width="800" height="1350" rx="44" fill="#1a1a1a"/>
+    <rect x="155" y="415" width="770" height="1320" rx="36" fill="#2a2a2a"/>
+    <rect x="175" y="430" width="730" height="1280" rx="20" fill="#F8FAFC"/>
+  </g>
+
+  <!-- Phone notch -->
+  <rect x="400" y="400" width="280" height="28" rx="14" fill="#1a1a1a"/>
+
+  <!-- Phone screen content -->
+  <g clip-path="url(#phone-screen4)">
+    <!-- Status bar -->
+    <rect x="175" y="430" width="730" height="55" fill="#58B4E1"/>
+    <text x="540" y="466" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#fff">모임</text>
+    <text x="220" y="464" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#fff" opacity="0.8">9:41</text>
+    <rect x="836" y="451" width="30" height="14" rx="3" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.8"/>
+    <rect x="838" y="453" width="22" height="10" rx="1.5" fill="#fff" opacity="0.8"/>
+
+    <!-- Location filter bar -->
+    <rect x="175" y="485" width="730" height="50" fill="#FFFFFF"/>
+    <rect x="200" y="495" width="120" height="32" rx="16" fill="#58B4E1"/>
+    <text x="260" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#fff" font-weight="600">내 주변</text>
+    <rect x="335" y="495" width="80" height="32" rx="16" fill="#F1F5F9"/>
+    <text x="375" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#64748B">전체</text>
+    <rect x="430" y="495" width="80" height="32" rx="16" fill="#F1F5F9"/>
+    <text x="470" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#64748B">산책</text>
+    <rect x="525" y="495" width="80" height="32" rx="16" fill="#F1F5F9"/>
+    <text x="565" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#64748B">놀이</text>
+    <rect x="620" y="495" width="90" height="32" rx="16" fill="#F1F5F9"/>
+    <text x="665" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#64748B">봉사활동</text>
+    <line x1="175" y1="535" x2="905" y2="535" stroke="#E2E8F0" stroke-width="1"/>
+
+    <!-- Meetup Card 1 -->
+    <g filter="url(#shadow-sm4)">
+      <rect x="200" y="555" width="680" height="310" rx="20" fill="#FFFFFF"/>
+    </g>
+
+    <!-- Card 1 cover image -->
+    <rect x="200" y="555" width="680" height="150" rx="20" fill="url(#meetup-cover1)"/>
+    <rect x="200" y="655" width="680" height="50" fill="url(#meetup-cover1)"/>
+    <rect x="200" y="685" width="680" height="20" fill="#FFFFFF"/>
+
+    <!-- Park scene -->
+    <!-- Trees -->
+    <circle cx="320" cy="620" r="28" fill="#7CB87C" opacity="0.6"/>
+    <rect x="315" y="640" width="10" height="22" rx="3" fill="#8B7355" opacity="0.5"/>
+    <circle cx="760" cy="625" r="24" fill="#86C986" opacity="0.5"/>
+    <rect x="756" y="643" width="8" height="18" rx="2" fill="#8B7355" opacity="0.5"/>
+    <!-- Dogs walking -->
+    <circle cx="480" cy="650" r="14" fill="#C8A882" opacity="0.7"/>
+    <circle cx="480" cy="642" r="9" fill="#D4B896" opacity="0.7"/>
+    <circle cx="560" cy="650" r="12" fill="#A08060" opacity="0.7"/>
+    <circle cx="560" cy="643" r="8" fill="#B89070" opacity="0.7"/>
+    <!-- Path -->
+    <path d="M250,680 Q540,660 830,680" stroke="#C8B896" stroke-width="4" fill="none" opacity="0.4"/>
+    <!-- Sun -->
+    <circle cx="800" cy="585" r="16" fill="#FCD34D" opacity="0.5"/>
+
+    <!-- Badge -->
+    <rect x="222" y="572" width="70" height="26" rx="13" fill="#58B4E1" opacity="0.9"/>
+    <text x="257" y="590" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#fff" font-weight="600">산책</text>
+
+    <!-- Card 1 info -->
+    <text x="224" y="738" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="700" fill="#1E293B">한강 산책 모임</text>
+    <text x="224" y="770" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B">매주 토요일 오전 10시 · 여의도 한강공원</text>
+
+    <!-- Members -->
+    <circle cx="230" cy="814" r="16" fill="#FFE4D6"/>
+    <circle cx="254" cy="814" r="16" fill="#D6F5D6" stroke="#fff" stroke-width="2"/>
+    <circle cx="278" cy="814" r="16" fill="#DBEAFE" stroke="#fff" stroke-width="2"/>
+    <circle cx="302" cy="814" r="16" fill="#FDE8E8" stroke="#fff" stroke-width="2"/>
+    <circle cx="326" cy="814" r="16" fill="#E8D6F5" stroke="#fff" stroke-width="2"/>
+    <text x="356" y="820" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B" font-weight="500">+12명</text>
+
+    <!-- Join button -->
+    <rect x="730" y="798" width="120" height="38" rx="19" fill="#E9967A"/>
+    <text x="790" y="823" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#fff" font-weight="600">참여하기</text>
+
+    <!-- Meetup Card 2 -->
+    <g filter="url(#shadow-sm4)">
+      <rect x="200" y="890" width="680" height="310" rx="20" fill="#FFFFFF"/>
+    </g>
+
+    <!-- Card 2 cover image -->
+    <rect x="200" y="890" width="680" height="150" rx="20" fill="url(#meetup-cover2)"/>
+    <rect x="200" y="990" width="680" height="50" fill="url(#meetup-cover2)"/>
+    <rect x="200" y="1020" width="680" height="20" fill="#FFFFFF"/>
+
+    <!-- Park / play scene -->
+    <circle cx="400" cy="960" r="18" fill="#D4B896" opacity="0.7"/>
+    <circle cx="400" cy="948" r="12" fill="#E0C8A8" opacity="0.7"/>
+    <circle cx="600" cy="955" r="16" fill="#A0805A" opacity="0.7"/>
+    <circle cx="600" cy="945" r="10" fill="#B8946E" opacity="0.7"/>
+    <!-- Ball -->
+    <circle cx="500" cy="965" r="10" fill="#F87171" opacity="0.5"/>
+    <!-- Grass -->
+    <rect x="200" y="975" width="680" height="25" rx="0" fill="#B0D8B0" opacity="0.3"/>
+
+    <!-- Badge -->
+    <rect x="222" y="907" width="70" height="26" rx="13" fill="#E9967A" opacity="0.9"/>
+    <text x="257" y="925" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#fff" font-weight="600">놀이</text>
+
+    <!-- Card 2 info -->
+    <text x="224" y="1073" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="700" fill="#1E293B">강아지 놀이터 모임</text>
+    <text x="224" y="1105" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B">매주 일요일 오후 3시 · 보라매공원</text>
+
+    <!-- Members -->
+    <circle cx="230" cy="1149" r="16" fill="#DBEAFE"/>
+    <circle cx="254" cy="1149" r="16" fill="#FDE8D6" stroke="#fff" stroke-width="2"/>
+    <circle cx="278" cy="1149" r="16" fill="#E8D6F5" stroke="#fff" stroke-width="2"/>
+    <text x="308" y="1155" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B" font-weight="500">+8명</text>
+
+    <!-- Join button -->
+    <rect x="730" y="1133" width="120" height="38" rx="19" fill="#58B4E1"/>
+    <text x="790" y="1158" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#fff" font-weight="600">참여하기</text>
+
+    <!-- Meetup Card 3 (partial) -->
+    <g filter="url(#shadow-sm4)">
+      <rect x="200" y="1225" width="680" height="310" rx="20" fill="#FFFFFF"/>
+    </g>
+
+    <!-- Card 3 cover image -->
+    <rect x="200" y="1225" width="680" height="150" rx="20" fill="url(#meetup-cover3)"/>
+    <rect x="200" y="1325" width="680" height="50" fill="url(#meetup-cover3)"/>
+    <rect x="200" y="1355" width="680" height="20" fill="#FFFFFF"/>
+
+    <!-- Volunteer scene -->
+    <circle cx="450" cy="1300" r="20" fill="#C8A882" opacity="0.6"/>
+    <circle cx="450" cy="1288" r="12" fill="#D8B898" opacity="0.6"/>
+    <circle cx="550" cy="1295" r="18" fill="#988060" opacity="0.6"/>
+    <circle cx="550" cy="1284" r="11" fill="#A89070" opacity="0.6"/>
+    <!-- Heart -->
+    <path d="M490,1268 C490,1262 496,1258 500,1262 C504,1258 510,1262 510,1268 C510,1275 500,1282 500,1282 C500,1282 490,1275 490,1268Z" fill="#E9967A" opacity="0.6"/>
+
+    <!-- Badge -->
+    <rect x="222" y="1242" width="90" height="26" rx="13" fill="#8B5CF6" opacity="0.9"/>
+    <text x="267" y="1260" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#fff" font-weight="600">봉사활동</text>
+
+    <!-- Card 3 info -->
+    <text x="224" y="1408" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="700" fill="#1E293B">유기동물 봉사 모임</text>
+    <text x="224" y="1440" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B">격주 토요일 오후 1시 · 마포구 보호소</text>
+
+    <!-- Members -->
+    <circle cx="230" cy="1484" r="16" fill="#FFE4D6"/>
+    <circle cx="254" cy="1484" r="16" fill="#D6F5D6" stroke="#fff" stroke-width="2"/>
+    <circle cx="278" cy="1484" r="16" fill="#FDE8E8" stroke="#fff" stroke-width="2"/>
+    <circle cx="302" cy="1484" r="16" fill="#DBEAFE" stroke="#fff" stroke-width="2"/>
+    <text x="332" y="1490" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B" font-weight="500">+20명</text>
+
+    <!-- Join button -->
+    <rect x="730" y="1468" width="120" height="38" rx="19" fill="#8B5CF6"/>
+    <text x="790" y="1493" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#fff" font-weight="600">참여하기</text>
+
+    <!-- Create meeting button (floating) -->
+    <circle cx="850" cy="1580" r="32" fill="#E9967A" filter="url(#shadow-sm4)"/>
+    <line x1="850" y1="1566" x2="850" y2="1594" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="836" y1="1580" x2="864" y2="1580" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+
+    <!-- Bottom nav bar -->
+    <rect x="175" y="1640" width="730" height="70" fill="#FFFFFF"/>
+    <line x1="175" y1="1640" x2="905" y2="1640" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="289" y="1652" width="16" height="20" rx="3" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="297" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">홈</text>
+    <rect x="430" y="1652" width="18" height="16" rx="3" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="439" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">라운지</text>
+    <rect x="574" y="1652" width="18" height="16" rx="8" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="583" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">채팅</text>
+    <!-- Meeting active -->
+    <circle cx="727" cy="1662" r="9" fill="#E9967A"/>
+    <text x="727" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#E9967A" font-weight="600">모임</text>
+  </g>
+
+  <!-- Bottom tag -->
+  <rect x="280" y="1800" width="520" height="64" rx="32" fill="#FFFFFF" filter="url(#shadow-sm4)"/>
+  <text x="540" y="1842" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" fill="#E9967A">우리 동네 모임에 참여하세요</text>
+
+  <!-- Decorative dots -->
+  <circle cx="480" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="510" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="540" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="570" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="600" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+</svg>

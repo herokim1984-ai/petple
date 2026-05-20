@@ -1,0 +1,176 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E0F2FE"/>
+      <stop offset="100%" stop-color="#F0F8FF"/>
+    </linearGradient>
+    <linearGradient id="header1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#58B4E1"/>
+      <stop offset="100%" stop-color="#7EC8E8"/>
+    </linearGradient>
+    <linearGradient id="btn-like" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E9967A"/>
+      <stop offset="100%" stop-color="#F4B8A8"/>
+    </linearGradient>
+    <filter id="shadow1" x="-5%" y="-3%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+    <filter id="shadow-sm" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.1"/>
+    </filter>
+    <clipPath id="phone-screen1">
+      <rect x="175" y="430" width="730" height="1280" rx="20"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="1920" fill="url(#bg1)"/>
+
+  <!-- Header area -->
+  <rect width="1080" height="400" fill="url(#header1)"/>
+  <ellipse cx="540" cy="400" rx="600" ry="60" fill="url(#header1)"/>
+
+  <!-- Title text -->
+  <text x="540" y="180" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#FFFFFF" letter-spacing="2">우리 아이에게 딱 맞는 친구</text>
+  <text x="540" y="270" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="400" fill="#E0F2FE" letter-spacing="1">스와이프로 쉽게 매칭해보세요</text>
+
+  <!-- Decorative paw prints -->
+  <circle cx="130" cy="120" r="14" fill="#fff" opacity="0.12"/>
+  <circle cx="110" cy="95" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="150" cy="95" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="100" cy="75" r="7" fill="#fff" opacity="0.12"/>
+  <circle cx="160" cy="75" r="7" fill="#fff" opacity="0.12"/>
+
+  <circle cx="920" cy="300" r="12" fill="#fff" opacity="0.1"/>
+  <circle cx="903" cy="278" r="7" fill="#fff" opacity="0.1"/>
+  <circle cx="937" cy="278" r="7" fill="#fff" opacity="0.1"/>
+  <circle cx="895" cy="260" r="6" fill="#fff" opacity="0.1"/>
+  <circle cx="945" cy="260" r="6" fill="#fff" opacity="0.1"/>
+
+  <!-- Phone mockup -->
+  <g filter="url(#shadow1)">
+    <rect x="140" y="400" width="800" height="1350" rx="44" fill="#1a1a1a"/>
+    <rect x="155" y="415" width="770" height="1320" rx="36" fill="#2a2a2a"/>
+    <rect x="175" y="430" width="730" height="1280" rx="20" fill="#F8FAFC"/>
+  </g>
+
+  <!-- Phone notch -->
+  <rect x="400" y="400" width="280" height="28" rx="14" fill="#1a1a1a"/>
+
+  <!-- Phone screen content -->
+  <g clip-path="url(#phone-screen1)">
+    <!-- Status bar -->
+    <rect x="175" y="430" width="730" height="55" fill="#58B4E1"/>
+    <text x="540" y="466" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#fff">Petple</text>
+    <text x="220" y="464" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#fff" opacity="0.8">9:41</text>
+    <!-- Battery icon -->
+    <rect x="836" y="451" width="30" height="14" rx="3" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.8"/>
+    <rect x="866" y="455" width="3" height="6" rx="1" fill="#fff" opacity="0.8"/>
+    <rect x="838" y="453" width="22" height="10" rx="1.5" fill="#fff" opacity="0.8"/>
+
+    <!-- Pet Card -->
+    <g filter="url(#shadow-sm)">
+      <rect x="210" y="510" width="660" height="820" rx="24" fill="#FFFFFF"/>
+    </g>
+
+    <!-- Pet image area -->
+    <rect x="210" y="510" width="660" height="500" rx="24" fill="#DBEAFE"/>
+    <!-- Flatten bottom corners of image area -->
+    <rect x="210" y="910" width="660" height="100" fill="#DBEAFE"/>
+    <rect x="210" y="960" width="660" height="50" fill="#FFFFFF"/>
+
+    <!-- Dog illustration -->
+    <!-- Body -->
+    <ellipse cx="540" cy="810" rx="100" ry="75" fill="#C8A882"/>
+    <!-- Head -->
+    <circle cx="540" cy="720" r="70" fill="#D4B896"/>
+    <!-- Left ear -->
+    <ellipse cx="485" cy="672" rx="22" ry="38" fill="#B8956E" transform="rotate(-20,485,672)"/>
+    <!-- Right ear -->
+    <ellipse cx="595" cy="672" rx="22" ry="38" fill="#B8956E" transform="rotate(20,595,672)"/>
+    <!-- Left eye -->
+    <circle cx="515" cy="710" r="12" fill="#3D2C1E"/>
+    <circle cx="519" cy="706" r="4" fill="#fff"/>
+    <!-- Right eye -->
+    <circle cx="565" cy="710" r="12" fill="#3D2C1E"/>
+    <circle cx="569" cy="706" r="4" fill="#fff"/>
+    <!-- Nose -->
+    <ellipse cx="540" cy="740" rx="12" ry="9" fill="#3D2C1E"/>
+    <!-- Mouth -->
+    <path d="M528,750 Q540,764 552,750" stroke="#3D2C1E" stroke-width="2.5" fill="none"/>
+    <!-- Tongue -->
+    <ellipse cx="540" cy="762" rx="8" ry="10" fill="#E9967A"/>
+    <!-- Front legs -->
+    <rect x="490" y="860" width="28" height="50" rx="14" fill="#C8A882"/>
+    <rect x="562" y="860" width="28" height="50" rx="14" fill="#C8A882"/>
+    <!-- Tail -->
+    <path d="M640,790 Q680,760 670,730" stroke="#C8A882" stroke-width="14" fill="none" stroke-linecap="round"/>
+
+    <!-- Distance badge on image -->
+    <rect x="232" y="944" width="120" height="34" rx="17" fill="#58B4E1" opacity="0.9"/>
+    <text x="292" y="967" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#fff" font-weight="600">2.3km</text>
+
+    <!-- Pet info -->
+    <text x="245" y="1080" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="#1E293B">코코</text>
+    <text x="380" y="1080" font-family="system-ui, -apple-system, sans-serif" font-size="30" fill="#94A3B8" font-weight="400">3살</text>
+
+    <text x="245" y="1120" font-family="system-ui, -apple-system, sans-serif" font-size="24" fill="#64748B">말티즈 · 서울 강남구</text>
+
+    <!-- Tags -->
+    <rect x="245" y="1150" width="100" height="34" rx="17" fill="#E0F2FE"/>
+    <text x="295" y="1173" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#58B4E1" font-weight="500">활발한</text>
+
+    <rect x="358" y="1150" width="110" height="34" rx="17" fill="#FFF0EB"/>
+    <text x="413" y="1173" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#E9967A" font-weight="500">친화적</text>
+
+    <rect x="481" y="1150" width="120" height="34" rx="17" fill="#E0F2FE"/>
+    <text x="541" y="1173" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#58B4E1" font-weight="500">산책좋아</text>
+
+    <!-- Action buttons -->
+    <!-- X button -->
+    <circle cx="365" cy="1400" r="48" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="3"/>
+    <line x1="345" y1="1380" x2="385" y2="1420" stroke="#94A3B8" stroke-width="5" stroke-linecap="round"/>
+    <line x1="385" y1="1380" x2="345" y2="1420" stroke="#94A3B8" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- Paw button (main) -->
+    <circle cx="540" cy="1400" r="58" fill="url(#btn-like)"/>
+    <!-- Paw icon on button -->
+    <circle cx="540" cy="1404" r="14" fill="#fff"/>
+    <circle cx="522" cy="1386" r="8" fill="#fff"/>
+    <circle cx="558" cy="1386" r="8" fill="#fff"/>
+    <circle cx="514" cy="1370" r="7" fill="#fff"/>
+    <circle cx="566" cy="1370" r="7" fill="#fff"/>
+
+    <!-- Star button -->
+    <circle cx="715" cy="1400" r="48" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="3"/>
+    <polygon points="715,1375 722,1392 740,1395 727,1407 730,1425 715,1417 700,1425 703,1407 690,1395 708,1392" fill="#58B4E1"/>
+
+    <!-- Bottom nav bar -->
+    <rect x="175" y="1640" width="730" height="70" fill="#FFFFFF"/>
+    <line x1="175" y1="1640" x2="905" y2="1640" stroke="#E2E8F0" stroke-width="1"/>
+    <!-- Home tab (active) -->
+    <circle cx="297" cy="1668" r="4" fill="#E9967A"/>
+    <rect x="289" y="1650" width="16" height="20" rx="3" fill="#E9967A"/>
+    <text x="297" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#E9967A" font-weight="600">홈</text>
+    <!-- Community tab -->
+    <rect x="430" y="1652" width="18" height="16" rx="3" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="439" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">라운지</text>
+    <!-- Chat tab -->
+    <rect x="574" y="1652" width="18" height="16" rx="8" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="583" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">채팅</text>
+    <!-- My tab -->
+    <circle cx="727" cy="1662" r="9" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="727" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">MY</text>
+  </g>
+
+  <!-- Bottom tag -->
+  <rect x="330" y="1800" width="420" height="64" rx="32" fill="#FFFFFF" filter="url(#shadow-sm)"/>
+  <text x="540" y="1842" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" fill="#58B4E1">매일 새로운 추천</text>
+
+  <!-- Decorative dots -->
+  <circle cx="480" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="510" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="540" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="570" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="600" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+</svg>

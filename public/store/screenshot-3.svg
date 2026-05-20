@@ -1,0 +1,231 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E0F2FE"/>
+      <stop offset="100%" stop-color="#F0F8FF"/>
+    </linearGradient>
+    <linearGradient id="header3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#58B4E1"/>
+      <stop offset="100%" stop-color="#7EC8E8"/>
+    </linearGradient>
+    <linearGradient id="story-ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E9967A"/>
+      <stop offset="100%" stop-color="#58B4E1"/>
+    </linearGradient>
+    <filter id="shadow3" x="-5%" y="-3%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+    <filter id="shadow-sm3" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.1"/>
+    </filter>
+    <clipPath id="phone-screen3">
+      <rect x="175" y="430" width="730" height="1280" rx="20"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="1920" fill="url(#bg3)"/>
+
+  <!-- Header area -->
+  <rect width="1080" height="400" fill="url(#header3)"/>
+  <ellipse cx="540" cy="400" rx="600" ry="60" fill="url(#header3)"/>
+
+  <!-- Title text -->
+  <text x="540" y="180" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#FFFFFF" letter-spacing="2">우리 동네 펫 커뮤니티</text>
+  <text x="540" y="270" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="400" fill="#E0F2FE" letter-spacing="1">이야기를 나누고 스토리를 공유하세요</text>
+
+  <!-- Decorative paw prints -->
+  <circle cx="900" cy="120" r="14" fill="#fff" opacity="0.12"/>
+  <circle cx="883" cy="98" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="917" cy="98" r="8" fill="#fff" opacity="0.12"/>
+  <circle cx="875" cy="80" r="7" fill="#fff" opacity="0.12"/>
+  <circle cx="925" cy="80" r="7" fill="#fff" opacity="0.12"/>
+
+  <!-- Phone mockup -->
+  <g filter="url(#shadow3)">
+    <rect x="140" y="400" width="800" height="1350" rx="44" fill="#1a1a1a"/>
+    <rect x="155" y="415" width="770" height="1320" rx="36" fill="#2a2a2a"/>
+    <rect x="175" y="430" width="730" height="1280" rx="20" fill="#F8FAFC"/>
+  </g>
+
+  <!-- Phone notch -->
+  <rect x="400" y="400" width="280" height="28" rx="14" fill="#1a1a1a"/>
+
+  <!-- Phone screen content -->
+  <g clip-path="url(#phone-screen3)">
+    <!-- Status bar -->
+    <rect x="175" y="430" width="730" height="55" fill="#58B4E1"/>
+    <text x="540" y="466" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#fff">라운지</text>
+    <text x="220" y="464" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#fff" opacity="0.8">9:41</text>
+    <rect x="836" y="451" width="30" height="14" rx="3" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.8"/>
+    <rect x="838" y="453" width="22" height="10" rx="1.5" fill="#fff" opacity="0.8"/>
+
+    <!-- Category tabs -->
+    <rect x="175" y="485" width="730" height="50" fill="#FFFFFF"/>
+    <rect x="200" y="495" width="72" height="32" rx="16" fill="#58B4E1"/>
+    <text x="236" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#fff" font-weight="600">전체</text>
+    <text x="318" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94A3B8">내피드</text>
+    <text x="398" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94A3B8">인기</text>
+    <text x="488" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94A3B8">동네산책</text>
+    <text x="588" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94A3B8">봉사</text>
+    <text x="668" y="517" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="17" fill="#94A3B8">병원</text>
+    <line x1="175" y1="535" x2="905" y2="535" stroke="#E2E8F0" stroke-width="1"/>
+
+    <!-- Story circles row -->
+    <rect x="175" y="535" width="730" height="120" fill="#FFFFFF"/>
+
+    <!-- Story 1 (My story - add) -->
+    <circle cx="240" cy="585" r="34" fill="none" stroke="#E2E8F0" stroke-width="2.5" stroke-dasharray="6,3"/>
+    <circle cx="240" cy="585" r="28" fill="#F1F5F9"/>
+    <line x1="240" y1="573" x2="240" y2="597" stroke="#58B4E1" stroke-width="3" stroke-linecap="round"/>
+    <line x1="228" y1="585" x2="252" y2="585" stroke="#58B4E1" stroke-width="3" stroke-linecap="round"/>
+    <text x="240" y="636" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748B">내 스토리</text>
+
+    <!-- Story 2 -->
+    <circle cx="340" cy="585" r="34" fill="none" stroke="url(#story-ring)" stroke-width="3"/>
+    <circle cx="340" cy="585" r="28" fill="#FFE4D6"/>
+    <circle cx="340" cy="580" r="10" fill="#D4956E"/>
+    <ellipse cx="340" cy="595" rx="14" ry="8" fill="#D4956E"/>
+    <text x="340" y="636" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748B">코코맘</text>
+
+    <!-- Story 3 -->
+    <circle cx="440" cy="585" r="34" fill="none" stroke="url(#story-ring)" stroke-width="3"/>
+    <circle cx="440" cy="585" r="28" fill="#D6F5D6"/>
+    <circle cx="440" cy="580" r="10" fill="#7CB87C"/>
+    <ellipse cx="440" cy="595" rx="14" ry="8" fill="#7CB87C"/>
+    <text x="440" y="636" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748B">뽀삐맘</text>
+
+    <!-- Story 4 -->
+    <circle cx="540" cy="585" r="34" fill="none" stroke="url(#story-ring)" stroke-width="3"/>
+    <circle cx="540" cy="585" r="28" fill="#DBEAFE"/>
+    <circle cx="540" cy="580" r="10" fill="#7BAED0"/>
+    <ellipse cx="540" cy="595" rx="14" ry="8" fill="#7BAED0"/>
+    <text x="540" y="636" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748B">초코아빠</text>
+
+    <!-- Story 5 -->
+    <circle cx="640" cy="585" r="34" fill="none" stroke="#E2E8F0" stroke-width="2.5"/>
+    <circle cx="640" cy="585" r="28" fill="#FDE8E8"/>
+    <circle cx="640" cy="580" r="10" fill="#D08B8B"/>
+    <ellipse cx="640" cy="595" rx="14" ry="8" fill="#D08B8B"/>
+    <text x="640" y="636" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748B">몽이맘</text>
+
+    <!-- Story 6 -->
+    <circle cx="740" cy="585" r="34" fill="none" stroke="url(#story-ring)" stroke-width="3"/>
+    <circle cx="740" cy="585" r="28" fill="#E8D6F5"/>
+    <circle cx="740" cy="580" r="10" fill="#A07CC0"/>
+    <ellipse cx="740" cy="595" rx="14" ry="8" fill="#A07CC0"/>
+    <text x="740" y="636" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#64748B">달이맘</text>
+
+    <line x1="175" y1="655" x2="905" y2="655" stroke="#E2E8F0" stroke-width="1"/>
+
+    <!-- Post 1 -->
+    <rect x="175" y="660" width="730" height="340" fill="#FFFFFF"/>
+
+    <!-- Post 1 header -->
+    <circle cx="220" cy="695" r="22" fill="#FFE4D6"/>
+    <circle cx="220" cy="690" r="8" fill="#D4956E"/>
+    <ellipse cx="220" cy="702" rx="12" ry="6" fill="#D4956E"/>
+    <text x="255" y="692" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="600" fill="#1E293B">코코맘</text>
+    <text x="255" y="712" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#94A3B8">서울 강남구 · 2시간 전</text>
+    <rect x="790" y="680" width="70" height="28" rx="14" fill="#E0F2FE"/>
+    <text x="825" y="700" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#58B4E1" font-weight="500">동네산책</text>
+
+    <!-- Post 1 content -->
+    <text x="200" y="758" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">오늘 코코랑 한강 산책 다녀왔어요! 🌸</text>
+    <text x="200" y="788" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">날씨가 너무 좋아서 코코도 신났네요~</text>
+
+    <!-- Post 1 image preview -->
+    <rect x="200" y="810" width="680" height="120" rx="12" fill="#DBEAFE"/>
+    <!-- Pet in scene -->
+    <circle cx="540" cy="860" r="30" fill="#C8A882" opacity="0.7"/>
+    <circle cx="540" cy="850" r="16" fill="#D4B896" opacity="0.7"/>
+    <!-- Trees -->
+    <circle cx="300" cy="840" r="22" fill="#86C986" opacity="0.5"/>
+    <rect x="296" y="855" width="8" height="20" rx="2" fill="#8B7355" opacity="0.5"/>
+    <circle cx="750" cy="845" r="18" fill="#86C986" opacity="0.5"/>
+    <rect x="747" y="858" width="6" height="16" rx="2" fill="#8B7355" opacity="0.5"/>
+    <!-- Sun -->
+    <circle cx="820" cy="830" r="14" fill="#FCD34D" opacity="0.5"/>
+
+    <!-- Post 1 actions -->
+    <line x1="200" y1="945" x2="880" y2="945" stroke="#F1F5F9" stroke-width="1"/>
+    <!-- Heart icon -->
+    <path d="M218,968 C218,962 224,958 228,962 C232,958 238,962 238,968 C238,975 228,982 228,982 C228,982 218,975 218,968Z" fill="#E9967A"/>
+    <text x="248" y="978" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B" font-weight="500">24</text>
+    <!-- Comment icon -->
+    <rect x="290" y="958" width="22" height="18" rx="5" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <path d="M296,976 L302,982 L302,976" fill="#94A3B8"/>
+    <text x="322" y="978" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B" font-weight="500">8</text>
+
+    <line x1="175" y1="1000" x2="905" y2="1000" stroke="#F1F5F9" stroke-width="8"/>
+
+    <!-- Post 2 -->
+    <rect x="175" y="1008" width="730" height="300" fill="#FFFFFF"/>
+
+    <!-- Post 2 header -->
+    <circle cx="220" cy="1043" r="22" fill="#D6F5D6"/>
+    <circle cx="220" cy="1038" r="8" fill="#7CB87C"/>
+    <ellipse cx="220" cy="1050" rx="12" ry="6" fill="#7CB87C"/>
+    <text x="255" y="1040" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="600" fill="#1E293B">뽀삐맘</text>
+    <text x="255" y="1060" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#94A3B8">서울 마포구 · 5시간 전</text>
+    <rect x="806" y="1028" width="54" height="28" rx="14" fill="#FFF0EB"/>
+    <text x="833" y="1048" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#E9967A" font-weight="500">병원</text>
+
+    <!-- Post 2 content -->
+    <text x="200" y="1106" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">마포구 근처 좋은 동물병원 추천해주세요!</text>
+    <text x="200" y="1136" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">뽀삐가 건강검진 받아야 하는데</text>
+    <text x="200" y="1166" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">어디가 좋을까요? 🏥</text>
+
+    <!-- Post 2 actions -->
+    <line x1="200" y1="1195" x2="880" y2="1195" stroke="#F1F5F9" stroke-width="1"/>
+    <path d="M218,1218 C218,1212 224,1208 228,1212 C232,1208 238,1212 238,1218 C238,1225 228,1232 228,1232 C228,1232 218,1225 218,1218Z" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="248" y="1228" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B" font-weight="500">12</text>
+    <rect x="290" y="1208" width="22" height="18" rx="5" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <path d="M296,1226 L302,1232 L302,1226" fill="#94A3B8"/>
+    <text x="322" y="1228" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B" font-weight="500">15</text>
+
+    <line x1="175" y1="1260" x2="905" y2="1260" stroke="#F1F5F9" stroke-width="8"/>
+
+    <!-- Post 3 partial -->
+    <rect x="175" y="1268" width="730" height="200" fill="#FFFFFF"/>
+    <circle cx="220" cy="1303" r="22" fill="#DBEAFE"/>
+    <circle cx="220" cy="1298" r="8" fill="#7BAED0"/>
+    <ellipse cx="220" cy="1310" rx="12" ry="6" fill="#7BAED0"/>
+    <text x="255" y="1300" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="600" fill="#1E293B">초코아빠</text>
+    <text x="255" y="1320" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#94A3B8">서울 송파구 · 1일 전</text>
+    <rect x="796" y="1288" width="64" height="28" rx="14" fill="#E0F2FE"/>
+    <text x="828" y="1308" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#58B4E1" font-weight="500">인기</text>
+
+    <text x="200" y="1368" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">초코가 새 옷을 입었어요! 너무 귀엽지</text>
+    <text x="200" y="1398" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#334155">않나요? 😍🐕</text>
+
+    <!-- Write button (floating) -->
+    <circle cx="850" cy="1580" r="32" fill="#E9967A" filter="url(#shadow-sm3)"/>
+    <line x1="850" y1="1566" x2="850" y2="1594" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="836" y1="1580" x2="864" y2="1580" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+
+    <!-- Bottom nav bar -->
+    <rect x="175" y="1640" width="730" height="70" fill="#FFFFFF"/>
+    <line x1="175" y1="1640" x2="905" y2="1640" stroke="#E2E8F0" stroke-width="1"/>
+    <rect x="289" y="1652" width="16" height="20" rx="3" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="297" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">홈</text>
+    <!-- Community active -->
+    <rect x="430" y="1652" width="18" height="16" rx="3" fill="#E9967A"/>
+    <text x="439" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#E9967A" font-weight="600">라운지</text>
+    <rect x="574" y="1652" width="18" height="16" rx="8" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="583" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">채팅</text>
+    <circle cx="727" cy="1662" r="9" fill="none" stroke="#94A3B8" stroke-width="2"/>
+    <text x="727" y="1698" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94A3B8">MY</text>
+  </g>
+
+  <!-- Bottom tag -->
+  <rect x="280" y="1800" width="520" height="64" rx="32" fill="#FFFFFF" filter="url(#shadow-sm3)"/>
+  <text x="540" y="1842" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" fill="#58B4E1">다양한 이야기를 나눠보세요</text>
+
+  <!-- Decorative dots -->
+  <circle cx="480" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="510" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="540" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+  <circle cx="570" cy="1885" r="5" fill="#E9967A" opacity="0.4"/>
+  <circle cx="600" cy="1885" r="5" fill="#58B4E1" opacity="0.4"/>
+</svg>
